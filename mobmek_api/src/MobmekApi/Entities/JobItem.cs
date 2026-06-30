@@ -1,12 +1,12 @@
 namespace MobmekApi.Entities;
 
-/// <summary>How <see cref="JobItem.Markup"/> is applied to the trade price.</summary>
+/// <summary>How <see cref="JobItem.Markup"/> is applied to the retail price.</summary>
 public enum MarkupSolution
 {
-    /// <summary>Markup is a percentage: SellingPrice = TradePrice × (1 + Markup/100).</summary>
+    /// <summary>Markup is a percentage: SellingPrice = RetailPrice × (1 + Markup/100).</summary>
     Percentage,
 
-    /// <summary>Markup is a flat dollar amount: SellingPrice = TradePrice + Markup.</summary>
+    /// <summary>Markup is a flat dollar amount: SellingPrice = RetailPrice + Markup.</summary>
     Dollar,
 }
 

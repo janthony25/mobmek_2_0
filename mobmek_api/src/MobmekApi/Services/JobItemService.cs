@@ -86,17 +86,18 @@ public class JobItemService(AppDbContext db, IJobService jobService) : IJobItemS
     }
 
     /// <summary>
-    /// Computes SellingPrice, UnitProfit and ItemTotal. With a trade price, the selling price is
+    /// Computes SellingPrice, UnitProfit and ItemTotal. With a retail price, the selling price is
     /// the markup applied to it (% or $); without one, the manually supplied selling price is used.
+    /// The trade price is the cost and is used only to derive profit.
     /// </summary>
     private static void Apply(JobItem item, decimal? manualSellingPrice)
     {
         decimal selling;
-        if (item.TradePrice is { } trade)
+        if (item.RetailPrice is { } retail)
         {
             selling = item.MarkupSolution == MarkupSolution.Percentage
-                ? trade * (1 + item.Markup / 100m)
-                : trade + item.Markup;
+                ? retail * (1 + item.Markup / 100m)
+                : retail + item.Markup;
         }
         else
         {

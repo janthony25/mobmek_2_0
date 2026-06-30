@@ -73,13 +73,16 @@ const emptyLabour = (): LabourDraft => ({ key: newKey(), hours: '', ratePerHour:
 /** Mirrors the backend's JobItemService.Apply so the operator sees live figures. */
 function computePart(p: PartDraft) {
   const trade = num(p.tradePrice)
+  const retail = num(p.retailPrice)
   const markup = num(p.markup) ?? 0
   const qty = num(p.itemQuantity) ?? 0
+  // Selling price is the markup applied to the retail price; the trade price is the cost,
+  // used only to derive profit. Without a retail price, the manual selling price is used.
   const selling = round2(
-    trade != null
+    retail != null
       ? p.markupSolution === MarkupSolution.Percentage
-        ? trade * (1 + markup / 100)
-        : trade + markup
+        ? retail * (1 + markup / 100)
+        : retail + markup
       : num(p.sellingPrice) ?? 0,
   )
   const unitProfit = round2(selling - (trade ?? 0))
@@ -445,9 +448,9 @@ export function NewJobPage() {
                         min={0}
                         value={p.sellingPrice}
                         onChange={(e) => updatePart(p.key, { sellingPrice: e.target.value })}
-                        disabled={num(p.tradePrice) != null}
-                        className={`${controlClass} ${num(p.tradePrice) != null ? 'bg-slate-50 text-slate-400' : ''}`}
-                        placeholder={num(p.tradePrice) != null ? 'Derived from markup' : 'Used when no trade price'}
+                        disabled={num(p.retailPrice) != null}
+                        className={`${controlClass} ${num(p.retailPrice) != null ? 'bg-slate-50 text-slate-400' : ''}`}
+                        placeholder={num(p.retailPrice) != null ? 'Derived from markup' : 'Used when no retail price'}
                       />
                     </Field>
                   </div>

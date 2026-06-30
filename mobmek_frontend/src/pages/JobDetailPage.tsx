@@ -143,7 +143,7 @@ export function JobDetailPage() {
 const jobItemFields: FieldSchema[] = [
   { name: 'itemName', label: 'Item name', type: 'text', required: true },
   { name: 'itemQuantity', label: 'Quantity', type: 'number', required: true, min: 1, defaultValue: 1 },
-  { name: 'tradePrice', label: 'Trade price', type: 'number', step: '0.01', min: 0, help: 'If set, selling price is derived via markup.' },
+  { name: 'tradePrice', label: 'Trade price', type: 'number', step: '0.01', min: 0, help: 'Cost price, used to determine profit.' },
   {
     name: 'markupSolution',
     label: 'Markup type',
@@ -153,8 +153,8 @@ const jobItemFields: FieldSchema[] = [
     options: Object.entries(MARKUP_SOLUTION_LABELS).map(([value, label]) => ({ value, label })),
   },
   { name: 'markup', label: 'Markup', type: 'number', step: '0.01', min: 0, defaultValue: 0 },
-  { name: 'retailPrice', label: 'Retail price', type: 'number', step: '0.01', min: 0 },
-  { name: 'sellingPrice', label: 'Selling price', type: 'number', step: '0.01', min: 0, help: 'Used when no trade price is given.' },
+  { name: 'retailPrice', label: 'Retail price', type: 'number', step: '0.01', min: 0, help: 'If set, selling price is derived via markup.' },
+  { name: 'sellingPrice', label: 'Selling price', type: 'number', step: '0.01', min: 0, help: 'Used when no retail price is given.' },
 ]
 
 const labourFields: FieldSchema[] = [

@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { useNumberInputWheelGuard } from '@/hooks/useNumberInputWheelGuard'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { CustomersPage } from '@/pages/CustomersPage'
 import { CustomerDetailPage } from '@/pages/CustomerDetailPage'
@@ -15,6 +16,7 @@ import { EmploymentTypesPage } from '@/pages/EmploymentTypesPage'
 import { TaxSettingsPage } from '@/pages/TaxSettingsPage'
 
 function App() {
+  useNumberInputWheelGuard()
   return (
     <Routes>
       <Route element={<AppLayout />}>

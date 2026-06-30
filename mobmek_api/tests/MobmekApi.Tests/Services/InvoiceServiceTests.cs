@@ -25,7 +25,7 @@ public class InvoiceServiceTests
         var (job, _) = await jobs.CreateAsync(new CreateJobRequest(customer.Id, car!.Id, "Brakes", JobStatus.Open, 1000, null, "Thanks!"));
 
         await new JobItemService(db, jobs).CreateAsync(job!.Id, new CreateJobItemRequest(
-            "Pads", TradePrice: 100m, RetailPrice: null, MarkupSolution.Dollar, Markup: 10m, ItemQuantity: 1, SellingPrice: null)); // 110
+            "Pads", TradePrice: 100m, RetailPrice: 100m, MarkupSolution.Dollar, Markup: 10m, ItemQuantity: 1, SellingPrice: null)); // 110
         await new LabourService(db, jobs).CreateAsync(job.Id, new CreateLabourRequest(null, null, FixedAmount: 200m));               // 200
         var catalog = await new JobServiceCatalogService(db).CreateAsync(new CreateJobServiceRequest("Oil change", null, 50m, true));
         await new JobServiceLineService(db, jobs).CreateAsync(job.Id, new CreateJobServiceLineRequest(catalog.Id, 3));               // 150
