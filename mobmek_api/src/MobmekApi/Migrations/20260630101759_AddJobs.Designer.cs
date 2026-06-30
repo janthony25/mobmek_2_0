@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MobmekApi.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MobmekApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260630101759_AddJobs")]
+    partial class AddJobs
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -26,12 +29,6 @@ namespace MobmekApi.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("CarMakeId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("CarModelId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Color")
@@ -47,6 +44,16 @@ namespace MobmekApi.Migrations
                     b.Property<string>("EngineType")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Make")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<int?>("Odometer")
                         .HasColumnType("integer");
@@ -68,66 +75,9 @@ namespace MobmekApi.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CarMakeId");
-
-                    b.HasIndex("CarModelId");
-
                     b.HasIndex("CustomerId");
 
                     b.ToTable("Cars");
-                });
-
-            modelBuilder.Entity("MobmekApi.Entities.CarMake", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<DateTime?>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Name")
-                        .IsUnique();
-
-                    b.ToTable("CarMakes");
-                });
-
-            modelBuilder.Entity("MobmekApi.Entities.CarModel", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("CarMakeId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<DateTime?>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CarMakeId", "Name")
-                        .IsUnique();
-
-                    b.ToTable("CarModels");
                 });
 
             modelBuilder.Entity("MobmekApi.Entities.Customer", b =>
@@ -534,40 +484,13 @@ namespace MobmekApi.Migrations
 
             modelBuilder.Entity("MobmekApi.Entities.Car", b =>
                 {
-                    b.HasOne("MobmekApi.Entities.CarMake", "CarMake")
-                        .WithMany()
-                        .HasForeignKey("CarMakeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("MobmekApi.Entities.CarModel", "CarModel")
-                        .WithMany()
-                        .HasForeignKey("CarModelId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("MobmekApi.Entities.Customer", "Customer")
                         .WithMany("Cars")
                         .HasForeignKey("CustomerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("CarMake");
-
-                    b.Navigation("CarModel");
-
                     b.Navigation("Customer");
-                });
-
-            modelBuilder.Entity("MobmekApi.Entities.CarModel", b =>
-                {
-                    b.HasOne("MobmekApi.Entities.CarMake", "CarMake")
-                        .WithMany("Models")
-                        .HasForeignKey("CarMakeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("CarMake");
                 });
 
             modelBuilder.Entity("MobmekApi.Entities.Employee", b =>
@@ -666,11 +589,6 @@ namespace MobmekApi.Migrations
                         .IsRequired();
 
                     b.Navigation("Job");
-                });
-
-            modelBuilder.Entity("MobmekApi.Entities.CarMake", b =>
-                {
-                    b.Navigation("Models");
                 });
 
             modelBuilder.Entity("MobmekApi.Entities.Customer", b =>

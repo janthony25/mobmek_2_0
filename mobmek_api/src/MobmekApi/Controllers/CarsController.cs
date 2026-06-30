@@ -34,15 +34,13 @@ public class CarsController(ICarService carService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<CarDto>> Create(CreateCarRequest request, CancellationToken cancellationToken)
     {
-        var created = await carService.CreateAsync(request, cancellationToken);
-        if (created is null)
+        var (car, error) = await carService.CreateAsync(request, cancellationToken);
+        if (error != CarWriteError.None)
         {
-            return Problem(
-                detail: $"Customer '{request.CustomerId}' does not exist.",
-                statusCode: StatusCodes.Status400BadRequest);
+            return MapError(error);
         }
 
-        return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+        return CreatedAtAction(nameof(GetById), new { id = car!.Id }, car);
     }
 
     /// <summary>Updates an existing car.</summary>
@@ -52,8 +50,13 @@ public class CarsController(ICarService carService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CarDto>> Update(Guid id, UpdateCarRequest request, CancellationToken cancellationToken)
     {
-        var updated = await carService.UpdateAsync(id, request, cancellationToken);
-        return updated is null ? NotFound() : Ok(updated);
+        var (car, error) = await carService.UpdateAsync(id, request, cancellationToken);
+        if (error != CarWriteError.None)
+        {
+            return MapError(error);
+        }
+
+        return Ok(car);
     }
 
     /// <summary>Deletes a car.</summary>
@@ -65,4 +68,14 @@ public class CarsController(ICarService carService) : ControllerBase
         var deleted = await carService.DeleteAsync(id, cancellationToken);
         return deleted ? NoContent() : NotFound();
     }
+
+    private ActionResult MapError(CarWriteError error) => error switch
+    {
+        CarWriteError.NotFound => NotFound(),
+        CarWriteError.CustomerNotFound => Problem(detail: "Customer does not exist.", statusCode: StatusCodes.Status400BadRequest),
+        CarWriteError.MakeNotFound => Problem(detail: "Car make does not exist.", statusCode: StatusCodes.Status400BadRequest),
+        CarWriteError.ModelNotFound => Problem(detail: "Car model does not exist.", statusCode: StatusCodes.Status400BadRequest),
+        CarWriteError.ModelNotInMake => Problem(detail: "The selected model does not belong to the selected make.", statusCode: StatusCodes.Status400BadRequest),
+        _ => Problem(statusCode: StatusCodes.Status500InternalServerError),
+    };
 }

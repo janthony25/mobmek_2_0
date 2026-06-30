@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using MobmekApi.Data;
 using MobmekApi.DTOs;
 using MobmekApi.Entities;
@@ -7,6 +8,12 @@ namespace MobmekApi.Services;
 
 public class CarService(AppDbContext db) : ICarService
 {
+    // Inline projection so EF resolves the make/model names via joins.
+    private static readonly Expression<Func<Car, CarDto>> ToDto =
+        c => new CarDto(
+            c.Id, c.CustomerId, c.CarMakeId, c.CarMake!.Name, c.CarModelId, c.CarModel!.Name,
+            c.Year, c.Rego, c.Vin, c.Color, c.EngineType, c.Odometer, c.CreatedAtUtc, c.UpdatedAtUtc);
+
     public async Task<IReadOnlyList<CarDto>> GetAllAsync(Guid? customerId = null, CancellationToken cancellationToken = default)
     {
         var query = db.Cars.AsNoTracking();
@@ -17,34 +24,39 @@ public class CarService(AppDbContext db) : ICarService
         }
 
         return await query
-            .OrderBy(c => c.Make)
-            .ThenBy(c => c.Model)
-            .Select(c => ToDto(c))
+            .OrderBy(c => c.CarMake!.Name)
+            .ThenBy(c => c.CarModel!.Name)
+            .Select(ToDto)
             .ToListAsync(cancellationToken);
     }
 
     public async Task<CarDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var car = await db.Cars
+        return await db.Cars
             .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
-
-        return car is null ? null : ToDto(car);
+            .Where(c => c.Id == id)
+            .Select(ToDto)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<CarDto?> CreateAsync(CreateCarRequest request, CancellationToken cancellationToken = default)
+    public async Task<(CarDto? Car, CarWriteError Error)> CreateAsync(CreateCarRequest request, CancellationToken cancellationToken = default)
     {
-        var customerExists = await db.Customers.AnyAsync(c => c.Id == request.CustomerId, cancellationToken);
-        if (!customerExists)
+        if (!await db.Customers.AnyAsync(c => c.Id == request.CustomerId, cancellationToken))
         {
-            return null;
+            return (null, CarWriteError.CustomerNotFound);
+        }
+
+        var makeModelError = await ValidateMakeModelAsync(request.CarMakeId, request.CarModelId, cancellationToken);
+        if (makeModelError != CarWriteError.None)
+        {
+            return (null, makeModelError);
         }
 
         var car = new Car
         {
             CustomerId = request.CustomerId,
-            Make = request.Make,
-            Model = request.Model,
+            CarMakeId = request.CarMakeId,
+            CarModelId = request.CarModelId,
             Year = request.Year,
             Rego = request.Rego,
             Vin = request.Vin,
@@ -56,19 +68,25 @@ public class CarService(AppDbContext db) : ICarService
         db.Cars.Add(car);
         await db.SaveChangesAsync(cancellationToken);
 
-        return ToDto(car);
+        return (await GetByIdAsync(car.Id, cancellationToken), CarWriteError.None);
     }
 
-    public async Task<CarDto?> UpdateAsync(Guid id, UpdateCarRequest request, CancellationToken cancellationToken = default)
+    public async Task<(CarDto? Car, CarWriteError Error)> UpdateAsync(Guid id, UpdateCarRequest request, CancellationToken cancellationToken = default)
     {
         var car = await db.Cars.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
         if (car is null)
         {
-            return null;
+            return (null, CarWriteError.NotFound);
         }
 
-        car.Make = request.Make;
-        car.Model = request.Model;
+        var makeModelError = await ValidateMakeModelAsync(request.CarMakeId, request.CarModelId, cancellationToken);
+        if (makeModelError != CarWriteError.None)
+        {
+            return (null, makeModelError);
+        }
+
+        car.CarMakeId = request.CarMakeId;
+        car.CarModelId = request.CarModelId;
         car.Year = request.Year;
         car.Rego = request.Rego;
         car.Vin = request.Vin;
@@ -78,7 +96,7 @@ public class CarService(AppDbContext db) : ICarService
 
         await db.SaveChangesAsync(cancellationToken);
 
-        return ToDto(car);
+        return (await GetByIdAsync(car.Id, cancellationToken), CarWriteError.None);
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
@@ -95,6 +113,24 @@ public class CarService(AppDbContext db) : ICarService
         return true;
     }
 
-    private static CarDto ToDto(Car c) =>
-        new(c.Id, c.CustomerId, c.Make, c.Model, c.Year, c.Rego, c.Vin, c.Color, c.EngineType, c.Odometer, c.CreatedAtUtc, c.UpdatedAtUtc);
+    private async Task<CarWriteError> ValidateMakeModelAsync(Guid makeId, Guid modelId, CancellationToken cancellationToken)
+    {
+        if (!await db.CarMakes.AnyAsync(m => m.Id == makeId, cancellationToken))
+        {
+            return CarWriteError.MakeNotFound;
+        }
+
+        var model = await db.CarModels.AsNoTracking().FirstOrDefaultAsync(m => m.Id == modelId, cancellationToken);
+        if (model is null)
+        {
+            return CarWriteError.ModelNotFound;
+        }
+
+        if (model.CarMakeId != makeId)
+        {
+            return CarWriteError.ModelNotInMake;
+        }
+
+        return CarWriteError.None;
+    }
 }

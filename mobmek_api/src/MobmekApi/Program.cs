@@ -11,10 +11,17 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // --- Application services ---
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
+builder.Services.AddScoped<ICarMakeService, CarMakeService>();
+builder.Services.AddScoped<ICarModelService, CarModelService>();
 builder.Services.AddScoped<ICarService, CarService>();
 builder.Services.AddScoped<IEmployeeTitleService, EmployeeTitleService>();
 builder.Services.AddScoped<IEmploymentTypeService, EmploymentTypeService>();
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
+builder.Services.AddScoped<IJobServiceCatalogService, JobServiceCatalogService>();
+builder.Services.AddScoped<IJobService, JobService>();
+builder.Services.AddScoped<IJobItemService, JobItemService>();
+builder.Services.AddScoped<ILabourService, LabourService>();
+builder.Services.AddScoped<IJobServiceLineService, JobServiceLineService>();
 
 // --- MVC / API ---
 builder.Services.AddControllers();
@@ -37,6 +44,7 @@ if (app.Environment.IsDevelopment())
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
+    await CarReferenceDataSeeder.SeedAsync(db);
 }
 
 // --- HTTP pipeline ---

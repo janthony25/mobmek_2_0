@@ -2,12 +2,14 @@ using System.ComponentModel.DataAnnotations;
 
 namespace MobmekApi.DTOs;
 
-/// <summary>Shape returned to API clients.</summary>
+/// <summary>Shape returned to API clients. Make/model names are resolved from the lookups.</summary>
 public record CarDto(
     Guid Id,
     Guid CustomerId,
-    string Make,
-    string Model,
+    Guid CarMakeId,
+    string? CarMakeName,
+    Guid CarModelId,
+    string? CarModelName,
     int Year,
     string Rego,
     string? Vin,
@@ -17,11 +19,14 @@ public record CarDto(
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc);
 
-/// <summary>Payload for creating a car. <c>CustomerId</c> must reference an existing customer.</summary>
+/// <summary>
+/// Payload for creating a car. <c>CustomerId</c> must exist, and <c>CarModelId</c> must
+/// belong to <c>CarMakeId</c>.
+/// </summary>
 public record CreateCarRequest(
     [Required] Guid CustomerId,
-    [Required, MaxLength(100)] string Make,
-    [Required, MaxLength(100)] string Model,
+    [Required] Guid CarMakeId,
+    [Required] Guid CarModelId,
     [Range(1900, 2100)] int Year,
     [Required, MaxLength(20)] string Rego,
     [MaxLength(17)] string? Vin,
@@ -31,8 +36,8 @@ public record CreateCarRequest(
 
 /// <summary>Payload for updating an existing car. The owning customer cannot be changed here.</summary>
 public record UpdateCarRequest(
-    [Required, MaxLength(100)] string Make,
-    [Required, MaxLength(100)] string Model,
+    [Required] Guid CarMakeId,
+    [Required] Guid CarModelId,
     [Range(1900, 2100)] int Year,
     [Required, MaxLength(20)] string Rego,
     [MaxLength(17)] string? Vin,
