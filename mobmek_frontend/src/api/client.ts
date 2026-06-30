@@ -16,20 +16,56 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
+/** Pulls a human-readable message out of an ASP.NET ProblemDetails / validation body. */
+async function toApiError(response: Response, path: string): Promise<ApiError> {
+  try {
+    const body = await response.json()
+
+    // Validation problem details: { errors: { Field: ["msg", ...] } }
+    if (body?.errors && typeof body.errors === 'object') {
+      const messages = Object.values(body.errors as Record<string, string[]>)
+        .flat()
+        .filter(Boolean)
+      if (messages.length > 0) {
+        return new ApiError(response.status, messages.join(' '))
+      }
+    }
+
+    const message = body?.detail ?? body?.title
+    if (typeof message === 'string') {
+      return new ApiError(response.status, message)
+    }
+  } catch {
+    // Body was empty or not JSON — fall through to a generic message.
+  }
+
+  return new ApiError(response.status, `Request to ${path} failed (${response.status})`)
+}
+
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
-    headers: { Accept: 'application/json' },
-    ...init,
+    method,
+    headers: {
+      Accept: 'application/json',
+      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
   })
 
   if (!response.ok) {
-    throw new ApiError(response.status, `Request to ${path} failed (${response.status})`)
+    throw await toApiError(response, path)
   }
 
-  // 204 No Content has an empty body.
-  if (response.status === 204) {
+  // 204 No Content (and empty bodies) have nothing to parse.
+  if (response.status === 204 || response.headers.get('Content-Length') === '0') {
     return undefined as T
   }
 
-  return (await response.json()) as T
+  const text = await response.text()
+  return (text ? JSON.parse(text) : undefined) as T
 }
+
+export const apiGet = <T>(path: string): Promise<T> => request<T>('GET', path)
+export const apiPost = <T>(path: string, body: unknown): Promise<T> => request<T>('POST', path, body)
+export const apiPut = <T>(path: string, body: unknown): Promise<T> => request<T>('PUT', path, body)
+export const apiDelete = (path: string): Promise<void> => request<void>('DELETE', path)

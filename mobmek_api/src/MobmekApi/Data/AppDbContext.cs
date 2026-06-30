@@ -33,6 +33,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<JobServiceLine> JobServiceLines => Set<JobServiceLine>();
 
+    public DbSet<Invoice> Invoices => Set<Invoice>();
+
+    public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
+
+    public DbSet<GstSetting> GstSettings => Set<GstSetting>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -233,6 +239,51 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany()
                 .HasForeignKey(s => s.JobServiceId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Invoice>(entity =>
+        {
+            entity.HasKey(i => i.Id);
+            entity.Property(i => i.IssueName).IsRequired().HasMaxLength(255);
+            entity.Property(i => i.Notes).HasMaxLength(4000);
+            entity.Property(i => i.DocumentType).IsRequired().HasMaxLength(50);
+            entity.Property(i => i.Status).IsRequired().HasMaxLength(50);
+            entity.Property(i => i.PaymentTerm).HasMaxLength(100);
+            entity.Property(i => i.ModeOfPayment).HasMaxLength(100);
+            entity.Property(i => i.LabourPrice).HasColumnType("numeric(18,2)");
+            entity.Property(i => i.SubTotal).HasColumnType("numeric(18,2)");
+            entity.Property(i => i.GstRate).HasColumnType("numeric(5,4)");
+            entity.Property(i => i.TaxAmount).HasColumnType("numeric(18,2)");
+            entity.Property(i => i.Discount).HasColumnType("numeric(18,2)");
+            entity.Property(i => i.ShippingFee).HasColumnType("numeric(18,2)");
+            entity.Property(i => i.TotalAmount).HasColumnType("numeric(18,2)");
+
+            // An invoice belongs to a job; deleting the job removes its invoices.
+            entity.HasOne(i => i.Job)
+                .WithMany()
+                .HasForeignKey(i => i.JobId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(i => i.JobId);
+        });
+
+        modelBuilder.Entity<InvoiceItem>(entity =>
+        {
+            entity.HasKey(ii => ii.Id);
+            entity.Property(ii => ii.ItemName).IsRequired().HasMaxLength(255);
+            entity.Property(ii => ii.ItemPrice).HasColumnType("numeric(18,2)");
+            entity.Property(ii => ii.ItemTotal).HasColumnType("numeric(18,2)");
+
+            entity.HasOne(ii => ii.Invoice)
+                .WithMany(i => i.Items)
+                .HasForeignKey(ii => ii.InvoiceId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<GstSetting>(entity =>
+        {
+            entity.HasKey(g => g.Id);
+            entity.Property(g => g.Rate).HasColumnType("numeric(5,4)");
         });
     }
 

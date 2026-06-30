@@ -25,7 +25,6 @@ public record JobItemDto(
 /// the supplied <c>SellingPrice</c> is used directly.
 /// </summary>
 public record CreateJobItemRequest(
-    [Required] Guid JobId,
     [Required, MaxLength(200)] string ItemName,
     [Range(0, double.MaxValue)] decimal? TradePrice,
     [Range(0, double.MaxValue)] decimal? RetailPrice,

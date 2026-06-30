@@ -32,8 +32,8 @@ public class JobItemServiceTests
         var (_, jobId) = await SeedJobAsync(db);
         var service = new JobItemService(db, new JobService(db));
 
-        var item = await service.CreateAsync(new CreateJobItemRequest(
-            jobId, "Brake pads", TradePrice: 100m, RetailPrice: 180m, MarkupSolution.Percentage, Markup: 15m, ItemQuantity: 2, SellingPrice: null));
+        var item = await service.CreateAsync(jobId, new CreateJobItemRequest(
+            "Brake pads", TradePrice: 100m, RetailPrice: 180m, MarkupSolution.Percentage, Markup: 15m, ItemQuantity: 2, SellingPrice: null));
 
         Assert.NotNull(item);
         Assert.Equal(115m, item!.SellingPrice);   // 100 * 1.15
@@ -48,8 +48,8 @@ public class JobItemServiceTests
         var (_, jobId) = await SeedJobAsync(db);
         var service = new JobItemService(db, new JobService(db));
 
-        var item = await service.CreateAsync(new CreateJobItemRequest(
-            jobId, "Filter", TradePrice: 20m, RetailPrice: null, MarkupSolution.Dollar, Markup: 15m, ItemQuantity: 1, SellingPrice: null));
+        var item = await service.CreateAsync(jobId, new CreateJobItemRequest(
+            "Filter", TradePrice: 20m, RetailPrice: null, MarkupSolution.Dollar, Markup: 15m, ItemQuantity: 1, SellingPrice: null));
 
         Assert.Equal(35m, item!.SellingPrice);     // 20 + 15
         Assert.Equal(15m, item.UnitProfit);
@@ -63,8 +63,8 @@ public class JobItemServiceTests
         var (_, jobId) = await SeedJobAsync(db);
         var service = new JobItemService(db, new JobService(db));
 
-        var item = await service.CreateAsync(new CreateJobItemRequest(
-            jobId, "Misc", TradePrice: null, RetailPrice: null, MarkupSolution.Percentage, Markup: 0m, ItemQuantity: 3, SellingPrice: 50m));
+        var item = await service.CreateAsync(jobId, new CreateJobItemRequest(
+            "Misc", TradePrice: null, RetailPrice: null, MarkupSolution.Percentage, Markup: 0m, ItemQuantity: 3, SellingPrice: 50m));
 
         Assert.Equal(50m, item!.SellingPrice);
         Assert.Equal(50m, item.UnitProfit);        // no trade price -> all profit
@@ -77,8 +77,8 @@ public class JobItemServiceTests
         await using var db = CreateContext();
         var service = new JobItemService(db, new JobService(db));
 
-        var item = await service.CreateAsync(new CreateJobItemRequest(
-            Guid.NewGuid(), "X", 1m, null, MarkupSolution.Dollar, 0m, 1, null));
+        var item = await service.CreateAsync(Guid.NewGuid(), new CreateJobItemRequest(
+            "X", 1m, null, MarkupSolution.Dollar, 0m, 1, null));
 
         Assert.Null(item);
     }
@@ -90,8 +90,8 @@ public class JobItemServiceTests
         var (jobs, jobId) = await SeedJobAsync(db);
         var service = new JobItemService(db, jobs);
 
-        await service.CreateAsync(new CreateJobItemRequest(
-            jobId, "Pads", 100m, null, MarkupSolution.Dollar, 10m, 2, null)); // selling 110, total 220, profit 20
+        await service.CreateAsync(jobId, new CreateJobItemRequest(
+            "Pads", 100m, null, MarkupSolution.Dollar, 10m, 2, null)); // selling 110, total 220, profit 20
 
         var job = await jobs.GetByIdAsync(jobId);
         Assert.Equal(220m, job!.TotalJobPrice);
@@ -104,12 +104,30 @@ public class JobItemServiceTests
         await using var db = CreateContext();
         var (jobs, jobId) = await SeedJobAsync(db);
         var service = new JobItemService(db, jobs);
-        var item = await service.CreateAsync(new CreateJobItemRequest(
-            jobId, "Pads", 100m, null, MarkupSolution.Dollar, 10m, 1, null));
+        var item = await service.CreateAsync(jobId, new CreateJobItemRequest(
+            "Pads", 100m, null, MarkupSolution.Dollar, 10m, 1, null));
 
-        Assert.True(await service.DeleteAsync(item!.Id));
+        Assert.True(await service.DeleteAsync(jobId, item!.Id));
 
         var job = await jobs.GetByIdAsync(jobId);
         Assert.Equal(0m, job!.TotalJobPrice);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ReturnsNull_WhenItemBelongsToAnotherJob()
+    {
+        await using var db = CreateContext();
+        var (jobs, jobId) = await SeedJobAsync(db);
+        var seededJob = await db.Jobs.AsNoTracking().FirstAsync();
+        var (otherJob, _) = await jobs.CreateAsync(new CreateJobRequest(
+            seededJob.CustomerId, seededJob.CarId, "Other", JobStatus.Open, 0, null, null));
+        var service = new JobItemService(db, jobs);
+        var item = await service.CreateAsync(jobId, new CreateJobItemRequest(
+            "Pads", 100m, null, MarkupSolution.Dollar, 10m, 1, null));
+
+        // Same item id, wrong parent job -> not found.
+        Assert.Null(await service.GetByIdAsync(otherJob!.Id, item!.Id));
+        Assert.False(await service.DeleteAsync(otherJob.Id, item.Id));
+        Assert.NotNull(await service.GetByIdAsync(jobId, item.Id));
     }
 }

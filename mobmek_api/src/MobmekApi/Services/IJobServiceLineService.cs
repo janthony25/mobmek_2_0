@@ -13,14 +13,17 @@ public enum JobServiceLineWriteError
 
 public interface IJobServiceLineService
 {
-    /// <summary>Lists service lines, optionally filtered to a single job.</summary>
-    Task<IReadOnlyList<JobServiceLineDto>> GetAllAsync(Guid? jobId = null, CancellationToken cancellationToken = default);
+    /// <summary>Lists the service lines belonging to a job.</summary>
+    Task<IReadOnlyList<JobServiceLineDto>> GetAllAsync(Guid jobId, CancellationToken cancellationToken = default);
 
-    Task<JobServiceLineDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <summary>Returns one service line, only if it belongs to <paramref name="jobId"/>.</summary>
+    Task<JobServiceLineDto?> GetByIdAsync(Guid jobId, Guid id, CancellationToken cancellationToken = default);
 
-    Task<(JobServiceLineDto? Line, JobServiceLineWriteError Error)> CreateAsync(CreateJobServiceLineRequest request, CancellationToken cancellationToken = default);
+    Task<(JobServiceLineDto? Line, JobServiceLineWriteError Error)> CreateAsync(Guid jobId, CreateJobServiceLineRequest request, CancellationToken cancellationToken = default);
 
-    Task<JobServiceLineDto?> UpdateAsync(Guid id, UpdateJobServiceLineRequest request, CancellationToken cancellationToken = default);
+    /// <summary>Updates a service line (quantity), only if it belongs to <paramref name="jobId"/>.</summary>
+    Task<JobServiceLineDto?> UpdateAsync(Guid jobId, Guid id, UpdateJobServiceLineRequest request, CancellationToken cancellationToken = default);
 
-    Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <summary>Deletes a service line, only if it belongs to <paramref name="jobId"/>.</summary>
+    Task<bool> DeleteAsync(Guid jobId, Guid id, CancellationToken cancellationToken = default);
 }

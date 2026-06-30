@@ -16,7 +16,6 @@ public record JobServiceLineDto(
 
 /// <summary>Payload for attaching a catalog service to a job. Price is snapshotted from the catalog.</summary>
 public record CreateJobServiceLineRequest(
-    [Required] Guid JobId,
     [Required] Guid JobServiceId,
     [Range(1, int.MaxValue)] int Quantity = 1);
 

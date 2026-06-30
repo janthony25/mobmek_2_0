@@ -1,7 +1,14 @@
-import { apiGet } from './client'
+import { apiDelete, apiGet, apiPost, apiPut } from './client'
 import type { CarModel } from '@/types'
 
-export function getCarModels(makeId?: string): Promise<CarModel[]> {
-  const query = makeId ? `?makeId=${encodeURIComponent(makeId)}` : ''
-  return apiGet<CarModel[]>(`/carmodels${query}`)
+interface CarModelRequest {
+  carMakeId: string
+  name: string
 }
+
+export const getCarModels = (makeId?: string) =>
+  apiGet<CarModel[]>(`/carmodels${makeId ? `?makeId=${encodeURIComponent(makeId)}` : ''}`)
+export const createCarModel = (body: CarModelRequest) => apiPost<CarModel>('/carmodels', body)
+export const updateCarModel = (id: string, body: CarModelRequest) =>
+  apiPut<CarModel>(`/carmodels/${id}`, body)
+export const deleteCarModel = (id: string) => apiDelete(`/carmodels/${id}`)

@@ -7,37 +7,31 @@ namespace MobmekApi.Services;
 
 public class LabourService(AppDbContext db, IJobService jobService) : ILabourService
 {
-    public async Task<IReadOnlyList<LabourDto>> GetAllAsync(Guid? jobId = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<LabourDto>> GetAllAsync(Guid jobId, CancellationToken cancellationToken = default)
     {
-        var query = db.Labour.AsNoTracking();
-
-        if (jobId is { } id)
-        {
-            query = query.Where(l => l.JobId == id);
-        }
-
-        return await query
+        return await db.Labour.AsNoTracking()
+            .Where(l => l.JobId == jobId)
             .OrderBy(l => l.CreatedAtUtc)
             .Select(l => ToDto(l))
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<LabourDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<LabourDto?> GetByIdAsync(Guid jobId, Guid id, CancellationToken cancellationToken = default)
     {
-        var labour = await db.Labour.AsNoTracking().FirstOrDefaultAsync(l => l.Id == id, cancellationToken);
+        var labour = await db.Labour.AsNoTracking().FirstOrDefaultAsync(l => l.Id == id && l.JobId == jobId, cancellationToken);
         return labour is null ? null : ToDto(labour);
     }
 
-    public async Task<LabourDto?> CreateAsync(CreateLabourRequest request, CancellationToken cancellationToken = default)
+    public async Task<LabourDto?> CreateAsync(Guid jobId, CreateLabourRequest request, CancellationToken cancellationToken = default)
     {
-        if (!await db.Jobs.AnyAsync(j => j.Id == request.JobId, cancellationToken))
+        if (!await db.Jobs.AnyAsync(j => j.Id == jobId, cancellationToken))
         {
             return null;
         }
 
         var labour = new Labour
         {
-            JobId = request.JobId,
+            JobId = jobId,
             Hours = request.Hours,
             RatePerHour = request.RatePerHour,
             FixedAmount = request.FixedAmount,
@@ -51,9 +45,9 @@ public class LabourService(AppDbContext db, IJobService jobService) : ILabourSer
         return ToDto(labour);
     }
 
-    public async Task<LabourDto?> UpdateAsync(Guid id, UpdateLabourRequest request, CancellationToken cancellationToken = default)
+    public async Task<LabourDto?> UpdateAsync(Guid jobId, Guid id, UpdateLabourRequest request, CancellationToken cancellationToken = default)
     {
-        var labour = await db.Labour.FirstOrDefaultAsync(l => l.Id == id, cancellationToken);
+        var labour = await db.Labour.FirstOrDefaultAsync(l => l.Id == id && l.JobId == jobId, cancellationToken);
         if (labour is null)
         {
             return null;
@@ -70,9 +64,9 @@ public class LabourService(AppDbContext db, IJobService jobService) : ILabourSer
         return ToDto(labour);
     }
 
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<bool> DeleteAsync(Guid jobId, Guid id, CancellationToken cancellationToken = default)
     {
-        var labour = await db.Labour.FirstOrDefaultAsync(l => l.Id == id, cancellationToken);
+        var labour = await db.Labour.FirstOrDefaultAsync(l => l.Id == id && l.JobId == jobId, cancellationToken);
         if (labour is null)
         {
             return false;

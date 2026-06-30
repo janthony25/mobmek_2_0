@@ -7,37 +7,31 @@ namespace MobmekApi.Services;
 
 public class JobItemService(AppDbContext db, IJobService jobService) : IJobItemService
 {
-    public async Task<IReadOnlyList<JobItemDto>> GetAllAsync(Guid? jobId = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<JobItemDto>> GetAllAsync(Guid jobId, CancellationToken cancellationToken = default)
     {
-        var query = db.JobItems.AsNoTracking();
-
-        if (jobId is { } id)
-        {
-            query = query.Where(i => i.JobId == id);
-        }
-
-        return await query
+        return await db.JobItems.AsNoTracking()
+            .Where(i => i.JobId == jobId)
             .OrderBy(i => i.CreatedAtUtc)
             .Select(i => ToDto(i))
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<JobItemDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<JobItemDto?> GetByIdAsync(Guid jobId, Guid id, CancellationToken cancellationToken = default)
     {
-        var item = await db.JobItems.AsNoTracking().FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
+        var item = await db.JobItems.AsNoTracking().FirstOrDefaultAsync(i => i.Id == id && i.JobId == jobId, cancellationToken);
         return item is null ? null : ToDto(item);
     }
 
-    public async Task<JobItemDto?> CreateAsync(CreateJobItemRequest request, CancellationToken cancellationToken = default)
+    public async Task<JobItemDto?> CreateAsync(Guid jobId, CreateJobItemRequest request, CancellationToken cancellationToken = default)
     {
-        if (!await db.Jobs.AnyAsync(j => j.Id == request.JobId, cancellationToken))
+        if (!await db.Jobs.AnyAsync(j => j.Id == jobId, cancellationToken))
         {
             return null;
         }
 
         var item = new JobItem
         {
-            JobId = request.JobId,
+            JobId = jobId,
             ItemName = request.ItemName,
             TradePrice = request.TradePrice,
             RetailPrice = request.RetailPrice,
@@ -54,9 +48,9 @@ public class JobItemService(AppDbContext db, IJobService jobService) : IJobItemS
         return ToDto(item);
     }
 
-    public async Task<JobItemDto?> UpdateAsync(Guid id, UpdateJobItemRequest request, CancellationToken cancellationToken = default)
+    public async Task<JobItemDto?> UpdateAsync(Guid jobId, Guid id, UpdateJobItemRequest request, CancellationToken cancellationToken = default)
     {
-        var item = await db.JobItems.FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
+        var item = await db.JobItems.FirstOrDefaultAsync(i => i.Id == id && i.JobId == jobId, cancellationToken);
         if (item is null)
         {
             return null;
@@ -76,9 +70,9 @@ public class JobItemService(AppDbContext db, IJobService jobService) : IJobItemS
         return ToDto(item);
     }
 
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<bool> DeleteAsync(Guid jobId, Guid id, CancellationToken cancellationToken = default)
     {
-        var item = await db.JobItems.FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
+        var item = await db.JobItems.FirstOrDefaultAsync(i => i.Id == id && i.JobId == jobId, cancellationToken);
         if (item is null)
         {
             return false;

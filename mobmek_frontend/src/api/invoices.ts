@@ -1,0 +1,12 @@
+import { apiGet, apiPost } from './client'
+import type { CreateInvoiceRequest, Invoice } from '@/types'
+
+const base = (jobId: string) => `/jobs/${encodeURIComponent(jobId)}/invoices`
+
+export const getInvoices = (jobId: string) => apiGet<Invoice[]>(base(jobId))
+export const getInvoice = (jobId: string, id: string) =>
+  apiGet<Invoice>(`${base(jobId)}/${id}`)
+export const generateInvoice = (jobId: string, body: CreateInvoiceRequest) =>
+  apiPost<Invoice>(base(jobId), body)
+export const rejectInvoice = (jobId: string, id: string) =>
+  apiPost<Invoice>(`${base(jobId)}/${id}/reject`, {})

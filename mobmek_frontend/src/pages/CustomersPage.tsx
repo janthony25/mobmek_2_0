@@ -1,47 +1,44 @@
-import { getCustomers } from '@/api/customers'
-import { PageHeader } from '@/components/ui/PageHeader'
-import { StateMessage } from '@/components/ui/StateMessage'
-import { useAsync } from '@/hooks/useAsync'
+import { Link } from 'react-router-dom'
+import { createCustomer, deleteCustomer, getCustomers, updateCustomer } from '@/api/customers'
+import { CrudSection } from '@/components/crud/CrudSection'
+import type { FieldSchema } from '@/components/crud/types'
+import { orDash } from '@/lib/format'
+import type { Customer, CustomerRequest } from '@/types'
+
+const fields: FieldSchema[] = [
+  { name: 'firstName', label: 'First name', type: 'text', required: true },
+  { name: 'lastName', label: 'Last name', type: 'text', required: true },
+  { name: 'phoneNumber', label: 'Phone number', type: 'text', required: true },
+  { name: 'emailAddress', label: 'Email', type: 'text' },
+  { name: 'physicalAddress', label: 'Address', type: 'text' },
+  { name: 'notes', label: 'Notes', type: 'textarea' },
+]
 
 export function CustomersPage() {
-  const { data: customers, loading, error } = useAsync(getCustomers, [])
-
   return (
-    <div>
-      <PageHeader title="Customers" description="Everyone with a record in the workshop." />
-
-      {loading && <StateMessage title="Loading customers…" />}
-      {error && <StateMessage title="Could not load customers" description={error.message} />}
-      {customers && customers.length === 0 && (
-        <StateMessage title="No customers yet" description="Customers will appear here once added." />
-      )}
-
-      {customers && customers.length > 0 && (
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Phone</th>
-                <th className="px-4 py-3">Email</th>
-                <th className="px-4 py-3">Address</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {customers.map((customer) => (
-                <tr key={customer.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 font-medium text-slate-900">
-                    {customer.firstName} {customer.lastName}
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">{customer.phoneNumber}</td>
-                  <td className="px-4 py-3 text-slate-600">{customer.emailAddress ?? '—'}</td>
-                  <td className="px-4 py-3 text-slate-600">{customer.physicalAddress ?? '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+    <CrudSection<Customer>
+      resourceName="Customer"
+      description="Everyone with a record in the workshop. Open a customer to manage their cars and jobs."
+      load={getCustomers}
+      getId={(c) => c.id}
+      rowLabel={(c) => `${c.firstName} ${c.lastName}`}
+      columns={[
+        {
+          header: 'Name',
+          cell: (c) => (
+            <Link to={`/customers/${c.id}`} className="font-medium text-slate-900 hover:underline">
+              {c.firstName} {c.lastName}
+            </Link>
+          ),
+        },
+        { header: 'Phone', cell: (c) => c.phoneNumber },
+        { header: 'Email', cell: (c) => orDash(c.emailAddress) },
+        { header: 'Address', cell: (c) => orDash(c.physicalAddress) },
+      ]}
+      fields={fields}
+      onCreate={(v) => createCustomer(v as unknown as CustomerRequest).then(() => undefined)}
+      onUpdate={(id, v) => updateCustomer(id, v as unknown as CustomerRequest).then(() => undefined)}
+      onDelete={deleteCustomer}
+    />
   )
 }

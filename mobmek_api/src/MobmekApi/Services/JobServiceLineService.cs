@@ -14,33 +14,27 @@ public class JobServiceLineService(AppDbContext db, IJobService jobService) : IJ
             l.Id, l.JobId, l.JobServiceId, l.JobService!.Name, l.UnitPrice, l.Quantity, l.LineTotal,
             l.CreatedAtUtc, l.UpdatedAtUtc);
 
-    public async Task<IReadOnlyList<JobServiceLineDto>> GetAllAsync(Guid? jobId = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<JobServiceLineDto>> GetAllAsync(Guid jobId, CancellationToken cancellationToken = default)
     {
-        var query = db.JobServiceLines.AsNoTracking();
-
-        if (jobId is { } id)
-        {
-            query = query.Where(l => l.JobId == id);
-        }
-
-        return await query
+        return await db.JobServiceLines.AsNoTracking()
+            .Where(l => l.JobId == jobId)
             .OrderBy(l => l.CreatedAtUtc)
             .Select(ToDto)
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<JobServiceLineDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<JobServiceLineDto?> GetByIdAsync(Guid jobId, Guid id, CancellationToken cancellationToken = default)
     {
         return await db.JobServiceLines
             .AsNoTracking()
-            .Where(l => l.Id == id)
+            .Where(l => l.Id == id && l.JobId == jobId)
             .Select(ToDto)
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<(JobServiceLineDto? Line, JobServiceLineWriteError Error)> CreateAsync(CreateJobServiceLineRequest request, CancellationToken cancellationToken = default)
+    public async Task<(JobServiceLineDto? Line, JobServiceLineWriteError Error)> CreateAsync(Guid jobId, CreateJobServiceLineRequest request, CancellationToken cancellationToken = default)
     {
-        if (!await db.Jobs.AnyAsync(j => j.Id == request.JobId, cancellationToken))
+        if (!await db.Jobs.AnyAsync(j => j.Id == jobId, cancellationToken))
         {
             return (null, JobServiceLineWriteError.JobNotFound);
         }
@@ -58,7 +52,7 @@ public class JobServiceLineService(AppDbContext db, IJobService jobService) : IJ
 
         var line = new JobServiceLine
         {
-            JobId = request.JobId,
+            JobId = jobId,
             JobServiceId = request.JobServiceId,
             UnitPrice = catalog.Price,   // snapshot
             Quantity = request.Quantity,
@@ -69,12 +63,12 @@ public class JobServiceLineService(AppDbContext db, IJobService jobService) : IJ
         await db.SaveChangesAsync(cancellationToken);
         await jobService.RecalculateTotalsAsync(line.JobId, cancellationToken);
 
-        return (await GetByIdAsync(line.Id, cancellationToken), JobServiceLineWriteError.None);
+        return (await GetByIdAsync(jobId, line.Id, cancellationToken), JobServiceLineWriteError.None);
     }
 
-    public async Task<JobServiceLineDto?> UpdateAsync(Guid id, UpdateJobServiceLineRequest request, CancellationToken cancellationToken = default)
+    public async Task<JobServiceLineDto?> UpdateAsync(Guid jobId, Guid id, UpdateJobServiceLineRequest request, CancellationToken cancellationToken = default)
     {
-        var line = await db.JobServiceLines.FirstOrDefaultAsync(l => l.Id == id, cancellationToken);
+        var line = await db.JobServiceLines.FirstOrDefaultAsync(l => l.Id == id && l.JobId == jobId, cancellationToken);
         if (line is null)
         {
             return null;
@@ -86,12 +80,12 @@ public class JobServiceLineService(AppDbContext db, IJobService jobService) : IJ
         await db.SaveChangesAsync(cancellationToken);
         await jobService.RecalculateTotalsAsync(line.JobId, cancellationToken);
 
-        return await GetByIdAsync(line.Id, cancellationToken);
+        return await GetByIdAsync(jobId, line.Id, cancellationToken);
     }
 
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<bool> DeleteAsync(Guid jobId, Guid id, CancellationToken cancellationToken = default)
     {
-        var line = await db.JobServiceLines.FirstOrDefaultAsync(l => l.Id == id, cancellationToken);
+        var line = await db.JobServiceLines.FirstOrDefaultAsync(l => l.Id == id && l.JobId == jobId, cancellationToken);
         if (line is null)
         {
             return false;

@@ -18,7 +18,6 @@ public record LabourDto(
 /// otherwise the total is <c>Hours × RatePerHour</c>.
 /// </summary>
 public record CreateLabourRequest(
-    [Required] Guid JobId,
     [Range(0, double.MaxValue)] decimal? Hours,
     [Range(0, double.MaxValue)] decimal? RatePerHour,
     [Range(0, double.MaxValue)] decimal? FixedAmount);

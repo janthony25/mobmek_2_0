@@ -4,9 +4,28 @@ Workshop management UI for the Mobmek API. Built with **React + TypeScript + Vit
 
 ## Pages
 
-- **Customers** — table of all customers.
-- **Job Center** — cards for every job with status, vehicle and totals.
-- **Car Makes & Models** — pick a make on the left to load its models on the right.
+Full create / read / update / delete is available for every entity in the API.
+
+- **Customers** — list + CRUD. Open a customer to manage their **Cars** (make→model
+  cascade) and view their **Jobs**.
+- **Job Center** — list + CRUD (customer→car cascade). Open a job to manage its
+  **Parts/Items**, **Labour**, **Services** and assigned **Mechanics**. Job totals are
+  recomputed by the backend and refresh automatically.
+- **Products**, **Services** (catalog) — list + CRUD.
+- **Car Makes & Models** — manage makes; select a make to manage its models.
+- **Employees**, **Titles**, **Employment Types** — list + CRUD.
+
+### How the CRUD layer is built
+
+- `src/components/crud/` — a schema-driven `ResourceForm` + a reusable `CrudSection`
+  (table with Add/Edit/Delete, modal, delete confirmation, toasts). Most pages are a
+  few lines of config on top of these.
+- `src/components/forms/` — bespoke forms for the cascading cases (Cars, Jobs) that the
+  generic schema form can't express; they reuse the same controls and plug into
+  `CrudSection` via its `renderForm` prop.
+- `src/components/ui/` — `Modal`, `Button`, `ConfirmDialog`, and a `ToastProvider`.
+- API errors (including ASP.NET `ProblemDetails` validation bodies) are parsed into
+  readable messages in `src/api/client.ts` and surfaced inline / via toasts.
 
 ## Project structure
 

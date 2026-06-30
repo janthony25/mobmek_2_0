@@ -32,7 +32,7 @@ public class LabourServiceTests
         var (_, jobId) = await SeedJobAsync(db);
         var service = new LabourService(db, new JobService(db));
 
-        var labour = await service.CreateAsync(new CreateLabourRequest(jobId, Hours: 2.5m, RatePerHour: 120m, FixedAmount: null));
+        var labour = await service.CreateAsync(jobId, new CreateLabourRequest(Hours: 2.5m, RatePerHour: 120m, FixedAmount: null));
 
         Assert.Equal(300m, labour!.TotalAmount);
     }
@@ -44,7 +44,7 @@ public class LabourServiceTests
         var (_, jobId) = await SeedJobAsync(db);
         var service = new LabourService(db, new JobService(db));
 
-        var labour = await service.CreateAsync(new CreateLabourRequest(jobId, Hours: null, RatePerHour: null, FixedAmount: 500m));
+        var labour = await service.CreateAsync(jobId, new CreateLabourRequest(Hours: null, RatePerHour: null, FixedAmount: 500m));
 
         Assert.Equal(500m, labour!.TotalAmount);
     }
@@ -55,7 +55,7 @@ public class LabourServiceTests
         await using var db = CreateContext();
         var service = new LabourService(db, new JobService(db));
 
-        var labour = await service.CreateAsync(new CreateLabourRequest(Guid.NewGuid(), 1m, 1m, null));
+        var labour = await service.CreateAsync(Guid.NewGuid(), new CreateLabourRequest(1m, 1m, null));
 
         Assert.Null(labour);
     }
@@ -67,7 +67,7 @@ public class LabourServiceTests
         var (jobs, jobId) = await SeedJobAsync(db);
         var service = new LabourService(db, jobs);
 
-        await service.CreateAsync(new CreateLabourRequest(jobId, 2m, 100m, null)); // 200
+        await service.CreateAsync(jobId, new CreateLabourRequest(2m, 100m, null)); // 200
 
         var job = await jobs.GetByIdAsync(jobId);
         Assert.Equal(200m, job!.TotalJobPrice);
@@ -80,9 +80,9 @@ public class LabourServiceTests
         await using var db = CreateContext();
         var (jobs, jobId) = await SeedJobAsync(db);
         var service = new LabourService(db, jobs);
-        var labour = await service.CreateAsync(new CreateLabourRequest(jobId, 1m, 100m, null));
+        var labour = await service.CreateAsync(jobId, new CreateLabourRequest(1m, 100m, null));
 
-        Assert.True(await service.DeleteAsync(labour!.Id));
+        Assert.True(await service.DeleteAsync(jobId, labour!.Id));
 
         var job = await jobs.GetByIdAsync(jobId);
         Assert.Equal(0m, job!.TotalJobPrice);
