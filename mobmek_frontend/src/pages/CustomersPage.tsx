@@ -1,9 +1,13 @@
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { createCustomer, deleteCustomer, getCustomers, updateCustomer } from '@/api/customers'
+import { getCars } from '@/api/cars'
 import { CrudSection } from '@/components/crud/CrudSection'
+import { CustomerCard } from '@/components/customers/CustomerCard'
+import { useAsync } from '@/hooks/useAsync'
 import type { FieldSchema } from '@/components/crud/types'
 import { orDash } from '@/lib/format'
-import type { Customer, CustomerRequest } from '@/types'
+import type { Car, Customer, CustomerRequest } from '@/types'
 
 const fields: FieldSchema[] = [
   { name: 'firstName', label: 'First name', type: 'text', required: true },
@@ -15,6 +19,19 @@ const fields: FieldSchema[] = [
 ]
 
 export function CustomersPage() {
+  // The card view shows each customer's vehicles; fetch all cars once and group them
+  // by customer rather than making a request per card.
+  const { data: cars } = useAsync(() => getCars(), [])
+  const carsByCustomer = useMemo(() => {
+    const map = new Map<string, Car[]>()
+    for (const car of cars ?? []) {
+      const list = map.get(car.customerId)
+      if (list) list.push(car)
+      else map.set(car.customerId, [car])
+    }
+    return map
+  }, [cars])
+
   return (
     <CrudSection<Customer>
       resourceName="Customer"
@@ -22,6 +39,8 @@ export function CustomersPage() {
       load={getCustomers}
       getId={(c) => c.id}
       rowLabel={(c) => `${c.firstName} ${c.lastName}`}
+      defaultView="cards"
+      renderCard={(c) => <CustomerCard customer={c} cars={carsByCustomer.get(c.id) ?? []} />}
       columns={[
         {
           header: 'Name',

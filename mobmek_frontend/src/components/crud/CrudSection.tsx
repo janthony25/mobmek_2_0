@@ -35,6 +35,10 @@ interface CrudSectionProps<T> {
   fields?: FieldSchema[]
   /** Custom form renderer for cascading/bespoke forms; replaces the schema form. */
   renderForm?: (props: CrudFormProps<T>) => ReactNode
+  /** When set, a List/Cards toggle appears and this renders each row as a card. */
+  renderCard?: (row: T) => ReactNode
+  /** Initial view when `renderCard` is provided. Defaults to 'list'. */
+  defaultView?: 'list' | 'cards'
   onCreate: (values: Record<string, unknown>) => Promise<void>
   onUpdate: (id: string, values: Record<string, unknown>) => Promise<void>
   onDelete: (id: string) => Promise<void>
@@ -60,6 +64,8 @@ export function CrudSection<T>({
   columns,
   fields,
   renderForm,
+  renderCard,
+  defaultView,
   onCreate,
   onUpdate,
   onDelete,
@@ -71,8 +77,10 @@ export function CrudSection<T>({
   const { data, loading, error, reload } = useAsync(load, [reloadKey])
   const [editing, setEditing] = useState<Editing<T>>(null)
   const [deleting, setDeleting] = useState<T | null>(null)
+  const [view, setView] = useState<'list' | 'cards'>(defaultView ?? 'list')
 
   const heading = title ?? `${resourceName}s`
+  const showCards = renderCard != null && view === 'cards'
 
   const handleSubmit = async (values: Record<string, unknown>) => {
     if (editing?.mode === 'edit') {
@@ -111,7 +119,25 @@ export function CrudSection<T>({
           </h2>
           {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
         </div>
-        <Button onClick={onAdd ?? (() => setEditing({ mode: 'create' }))}>+ Add {resourceName}</Button>
+        <div className="flex items-center gap-2">
+          {renderCard != null && (
+            <div className="inline-flex rounded-md border border-slate-300 bg-white p-0.5">
+              {(['cards', 'list'] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setView(v)}
+                  className={`rounded px-2.5 py-1 text-xs font-medium capitalize transition-colors ${
+                    view === v ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          )}
+          <Button onClick={onAdd ?? (() => setEditing({ mode: 'create' }))}>+ Add {resourceName}</Button>
+        </div>
       </div>
 
       {loading && <StateMessage title={`Loading ${heading.toLowerCase()}…`} />}
@@ -120,7 +146,15 @@ export function CrudSection<T>({
         <StateMessage title={emptyText ?? `No ${heading.toLowerCase()} yet`} description={`Use “Add ${resourceName}” to create one.`} />
       )}
 
-      {data && data.length > 0 && (
+      {data && data.length > 0 && showCards && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {data.map((row) => (
+            <div key={getId(row)}>{renderCard(row)}</div>
+          ))}
+        </div>
+      )}
+
+      {data && data.length > 0 && !showCards && (
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
