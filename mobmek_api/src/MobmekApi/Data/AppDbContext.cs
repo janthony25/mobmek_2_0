@@ -11,6 +11,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<Car> Cars => Set<Car>();
 
+    public DbSet<EmployeeTitle> EmployeeTitles => Set<EmployeeTitle>();
+
+    public DbSet<EmploymentType> EmploymentTypes => Set<EmploymentType>();
+
+    public DbSet<Employee> Employees => Set<Employee>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -49,6 +55,41 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(c => c.Color).HasMaxLength(50);
             entity.Property(c => c.EngineType).HasMaxLength(50);
             entity.HasIndex(c => c.CustomerId);
+        });
+
+        modelBuilder.Entity<EmployeeTitle>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            entity.Property(t => t.Name).IsRequired().HasMaxLength(100);
+            entity.HasIndex(t => t.Name).IsUnique();
+        });
+
+        modelBuilder.Entity<EmploymentType>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            entity.Property(t => t.Name).IsRequired().HasMaxLength(100);
+            entity.HasIndex(t => t.Name).IsUnique();
+        });
+
+        modelBuilder.Entity<Employee>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FirstName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.LastName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.ContactNumber).IsRequired().HasMaxLength(30);
+            entity.Property(e => e.EmailAddress).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.PhysicalAddress).IsRequired().HasMaxLength(500);
+
+            // Block deleting a title/type that is still in use rather than cascading to employees.
+            entity.HasOne(e => e.Title)
+                .WithMany(t => t.Employees)
+                .HasForeignKey(e => e.TitleId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.EmploymentType)
+                .WithMany(t => t.Employees)
+                .HasForeignKey(e => e.EmploymentTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 

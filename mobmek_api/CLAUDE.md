@@ -6,6 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ASP.NET Core Web API on **.NET 10**, PostgreSQL via **EF Core 10** (Npgsql), Swagger docs, xUnit tests. The `Product` slice (entity → DTO → service → controller → tests) is sample scaffolding meant to be replaced with the real Mobmek domain.
 
+## Workflow for code-change requests (do this every time)
+
+Before writing or editing any code in response to a request:
+
+1. **Clarify first — ask, don't assume.** Ask the questions needed to be sure you understand exactly what's wanted (which entities/fields, required vs. optional, relationships, endpoints, edge cases, naming). Do not start coding until genuine ambiguity is resolved. A request that seems clear can still hide assumptions — surface them.
+2. **Challenge what looks wrong.** If something in the request seems mistaken, inconsistent with what's already here, or likely not what the user actually wants (e.g. a field marked required that's optional elsewhere, an odd name, a relationship that doesn't fit), **stop and ask whether they really want it** before proceeding. Be vigilant about this — flag it even when you're only somewhat unsure. The user would rather be asked than get the wrong thing.
+3. **Lay out a to-do list before changing anything.** Present the concrete, ordered steps you're about to take (files to add/edit, migration, tests) so the user can see exactly what will change, then work through them one by one and keep the list visible/updated as you go.
+
+The goal: build exactly the right feature, correctly — never silently guess.
+
 ## PATH gotcha (read first)
 
 The .NET 10 SDK lives in `~/.dotnet`; the system `dotnet` on this Mac is .NET 8. Any `dotnet` command below requires .NET 10 first on PATH:

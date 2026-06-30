@@ -12,6 +12,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<ICarService, CarService>();
+builder.Services.AddScoped<IEmployeeTitleService, EmployeeTitleService>();
+builder.Services.AddScoped<IEmploymentTypeService, EmploymentTypeService>();
+builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 
 // --- MVC / API ---
 builder.Services.AddControllers();
