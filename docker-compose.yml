@@ -34,14 +34,17 @@ services:
     ports:
       - "8080:8080"
 
-  # mobmek_frontend will be added here later, e.g.:
-  # frontend:
-  #   build:
-  #     context: ./mobmek_frontend
-  #   ports:
-  #     - "3000:3000"
-  #   depends_on:
-  #     - api
+  frontend:
+    build:
+      context: ./mobmek_frontend
+      dockerfile: Dockerfile
+    container_name: mobmek_frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      # nginx serves the built SPA on port 80 and proxies "/api" to the api service.
+      - "3000:80"
 
 volumes:
   mobmek_pgdata:
