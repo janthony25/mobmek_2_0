@@ -3,6 +3,7 @@ import { getCarMakes } from '@/api/carMakes'
 import { getCarModels } from '@/api/carModels'
 import { Button } from '@/components/ui/Button'
 import { Field, controlClass } from './controls'
+import { Combobox } from './Combobox'
 import type { Car, CarMake, CarModel } from '@/types'
 
 interface CarFormProps {
@@ -87,19 +88,16 @@ export function CarForm({ initial, onSubmit, onCancel }: CarFormProps) {
         </Field>
 
         <Field label="Model" required>
-          <select
+          {/* Keyed by makeId so switching make clears the typed text along with the models. */}
+          <Combobox
+            key={makeId}
+            options={models.map((m) => ({ value: m.id, label: m.name }))}
             value={modelId}
-            onChange={(e) => setModelId(e.target.value)}
+            onChange={setModelId}
             disabled={!makeId}
-            className={controlClass}
-          >
-            <option value="">{makeId ? 'Select…' : 'Pick a make first'}</option>
-            {models.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
+            placeholder={makeId ? 'Type to search…' : 'Pick a make first'}
+            emptyText="No matching models"
+          />
         </Field>
 
         <Field label="Year" required>

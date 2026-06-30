@@ -10,6 +10,7 @@ import { createLabour } from '@/api/labour'
 import { createJobServiceLine } from '@/api/jobServiceLines'
 import { Button } from '@/components/ui/Button'
 import { Field, controlClass } from '@/components/forms/controls'
+import { Combobox } from '@/components/forms/Combobox'
 import { useToast } from '@/components/ui/toast'
 import { currency } from '@/lib/format'
 import {
@@ -259,21 +260,19 @@ export function NewJobPage() {
         <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-5">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Details</h2>
           <Field label="Customer" required>
-            <select
+            <Combobox
+              options={customers.map((c) => ({
+                value: c.id,
+                label: `${c.firstName} ${c.lastName}`,
+              }))}
               value={customerId}
-              onChange={(e) => {
-                setCustomerId(e.target.value)
+              onChange={(id) => {
+                setCustomerId(id)
                 setCarId('')
               }}
-              className={controlClass}
-            >
-              <option value="">Select…</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.firstName} {c.lastName}
-                </option>
-              ))}
-            </select>
+              placeholder="Type to search customers…"
+              emptyText="No matching customers"
+            />
           </Field>
           <Field label="Car" required>
             <select

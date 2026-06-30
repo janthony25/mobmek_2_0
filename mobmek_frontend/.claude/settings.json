@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -c 'if ((.tool_input.file_path // \"\") | test(\"/package\\\\.json$\")) then {hookSpecificOutput:{hookEventName:\"PreToolUse\",permissionDecision:\"ask\",permissionDecisionReason:\"This edits package.json. If you are adding or changing a dependency, stop and confirm with the user first (per CLAUDE.md) — verify the need cannot be met by the current stack: in-house CRUD layer, useAsync, ui/ primitives, lib/format, Tailwind/React.\"}} else {} end'",
+            "statusMessage": "Checking package.json edit"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -c 'if ((.tool_input.command // \"\") | test(\"(npm (install|i|add)[[:space:]]+[^-[:space:]]|yarn add|pnpm add|bun add)\")) then {hookSpecificOutput:{hookEventName:\"PreToolUse\",permissionDecision:\"ask\",permissionDecisionReason:\"This installs a new dependency. Per CLAUDE.md, confirm with the user first and verify the need cannot be met by the current stack before adding any package.\"}} else {} end'",
+            "statusMessage": "Checking dependency install"
+          }
+        ]
+      }
+    ]
+  }
+}
