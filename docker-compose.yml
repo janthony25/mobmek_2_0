@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:17
+    container_name: mobmek_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mobmek
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"          # exposed so you can also run the API via `dotnet run` on the host
+    volumes:
+      - mobmek_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mobmek"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./mobmek_api
+      dockerfile: Dockerfile
+    container_name: mobmek_api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "8080"
+      # Inside the compose network the DB host is the service name "db", not localhost.
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=mobmek;Username=postgres;Password=postgres"
+    ports:
+      - "8080:8080"
+
+  # mobmek_frontend will be added here later, e.g.:
+  # frontend:
+  #   build:
+  #     context: ./mobmek_frontend
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - api
+
+volumes:
+  mobmek_pgdata:

@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MobmekApi/MobmekApi.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MobmekApi.Tests/MobmekApi.Tests.csproj" />
+  </Folder>
+</Solution>

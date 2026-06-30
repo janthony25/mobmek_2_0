@@ -1,0 +1,6 @@
+@MobmekApi_HostAddress = http://localhost:5159
+
+GET {{MobmekApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
