@@ -45,9 +45,10 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
         var servicesTotal = job.ServiceLines.Sum(s => s.LineTotal);
         var subTotal = Round(itemsTotal + labourTotal + servicesTotal);
 
-        // GST is inclusive: already part of the prices, so it's recorded for display, not added on top.
+        // GST is added on top of the subtotal. The rate is snapshotted from the GstSetting entity.
         var gstRate = (await gstSettingService.GetCurrentAsync(cancellationToken)).Rate;
         var taxAmount = Round(subTotal * gstRate);
+        var totalAmount = Round(subTotal + taxAmount);
 
         var invoice = new Invoice
         {
@@ -57,15 +58,13 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
             DocumentType = "Invoice",
             Status = "Active",
             DueDate = request.DueDate,
-            ModeOfPayment = string.IsNullOrWhiteSpace(request.ModeOfPayment) ? null : request.ModeOfPayment,
-            PaymentTerm = string.IsNullOrWhiteSpace(request.PaymentTerm) ? null : request.PaymentTerm,
             LabourPrice = labourTotal,
             SubTotal = subTotal,
             GstRate = gstRate,
             TaxAmount = taxAmount,
             Discount = 0m,
             ShippingFee = 0m,
-            TotalAmount = subTotal,
+            TotalAmount = totalAmount,
         };
 
         // Snapshot each part of the job as its own invoice line.
@@ -125,11 +124,36 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
         return ToDto(invoice);
     }
 
+    public async Task<InvoiceDto?> MarkPaidAsync(Guid jobId, Guid id, MarkInvoicePaidRequest request, CancellationToken cancellationToken = default)
+    {
+        var invoice = await db.Invoices
+            .Include(i => i.Items)
+            .FirstOrDefaultAsync(i => i.Id == id && i.JobId == jobId, cancellationToken);
+
+        // Only an active invoice can be paid — a rejected one stays rejected.
+        if (invoice is null || invoice.Status == "Rejected")
+        {
+            return null;
+        }
+
+        invoice.IsPaid = true;
+        invoice.DatePaid = request.DatePaid ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        invoice.AmountPaid = invoice.TotalAmount;
+        invoice.CashAmount = request.CashAmount;
+        invoice.CardAmount = request.CardAmount;
+        invoice.ModeOfPayment = string.IsNullOrWhiteSpace(request.ModeOfPayment) ? null : request.ModeOfPayment;
+        invoice.PaymentTerm = string.IsNullOrWhiteSpace(request.PaymentTerm) ? null : request.PaymentTerm;
+        await db.SaveChangesAsync(cancellationToken);
+
+        return ToDto(invoice);
+    }
+
     private static decimal Round(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
 
     private static InvoiceDto ToDto(Invoice i) =>
         new(i.Id, i.JobId, i.IssueName, i.Notes, i.DocumentType, i.Status, i.DueDate, i.PaymentTerm, i.ModeOfPayment,
             i.LabourPrice, i.SubTotal, i.GstRate, i.TaxAmount, i.Discount, i.ShippingFee, i.TotalAmount,
+            i.IsPaid, i.AmountPaid, i.DatePaid, i.CashAmount, i.CardAmount,
             i.Items.OrderBy(x => x.CreatedAtUtc)
                 .Select(x => new InvoiceItemDto(x.Id, x.InvoiceId, x.ItemName, x.Quantity, x.ItemPrice, x.ItemTotal))
                 .ToList(),

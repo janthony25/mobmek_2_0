@@ -25,7 +25,7 @@ import {
 import { CarForm } from '@/components/forms/CarForm'
 import { ResourceForm } from '@/components/crud/ResourceForm'
 import { useAsync } from '@/hooks/useAsync'
-import { JOB_STATUS_TONE, invoiceStatusTone } from '@/lib/badges'
+import { JOB_STATUS_TONE, invoiceStatusLabel, invoiceStatusTone } from '@/lib/badges'
 import { dueUrgency, URGENCY_BADGE } from '@/lib/dueDate'
 import { currency, date, orDash, time } from '@/lib/format'
 import { JOB_STATUS_LABELS } from '@/types'
@@ -386,7 +386,7 @@ function InvoiceRow({ invoice }: { invoice: Invoice }) {
       </div>
       <div className="flex items-center gap-3">
         <span className="font-semibold text-slate-900">{currency(invoice.totalAmount)}</span>
-        <Badge tone={invoiceStatusTone(invoice.status)}>{invoice.status}</Badge>
+        <Badge tone={invoiceStatusTone(invoice)}>{invoiceStatusLabel(invoice)}</Badge>
       </div>
     </div>
   )

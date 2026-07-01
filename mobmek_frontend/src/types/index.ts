@@ -247,6 +247,7 @@ export interface Invoice {
   /** "Active" or "Rejected". */
   status: string
   dueDate: string | null
+  /** Set when the invoice is marked paid — not known at generation time. */
   paymentTerm: string | null
   modeOfPayment: string | null
   labourPrice: number
@@ -257,6 +258,11 @@ export interface Invoice {
   discount: number
   shippingFee: number
   totalAmount: number
+  isPaid: boolean
+  amountPaid: number | null
+  datePaid: string | null
+  cashAmount: number | null
+  cardAmount: number | null
   items: InvoiceItem[]
   createdAtUtc: string
   updatedAtUtc: string | null
@@ -264,8 +270,14 @@ export interface Invoice {
 
 export interface CreateInvoiceRequest {
   dueDate: string | null
+}
+
+export interface MarkInvoicePaidRequest {
   modeOfPayment: string | null
   paymentTerm: string | null
+  cashAmount: number | null
+  cardAmount: number | null
+  datePaid: string | null
 }
 
 // --- GST setting -------------------------------------------------------------

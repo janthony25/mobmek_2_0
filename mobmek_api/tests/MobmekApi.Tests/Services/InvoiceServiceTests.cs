@@ -41,12 +41,12 @@ public class InvoiceServiceTests
         var (invoices, _, jobId) = await SeedFullJobAsync(db);
 
         var dueDate = new DateOnly(2026, 7, 31);
-        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(dueDate, "Card", "Net 14"));
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(dueDate));
 
         Assert.NotNull(invoice);
         Assert.Equal(dueDate, invoice!.DueDate);
-        Assert.Equal("Card", invoice.ModeOfPayment);
-        Assert.Equal("Net 14", invoice.PaymentTerm);
+        Assert.Null(invoice.ModeOfPayment);             // only known once the customer pays
+        Assert.Null(invoice.PaymentTerm);
         Assert.Equal("Brakes", invoice.IssueName);
         Assert.Equal("Thanks!", invoice.Notes);
         Assert.Equal("Invoice", invoice.DocumentType);
@@ -54,8 +54,8 @@ public class InvoiceServiceTests
         Assert.Equal(200m, invoice.LabourPrice);
         Assert.Equal(460m, invoice.SubTotal);          // 110 + 200 + 150
         Assert.Equal(0.15m, invoice.GstRate);          // default
-        Assert.Equal(69m, invoice.TaxAmount);          // 460 * 0.15 (inclusive, display only)
-        Assert.Equal(460m, invoice.TotalAmount);       // tax is inclusive, not added on top
+        Assert.Equal(69m, invoice.TaxAmount);          // 460 * 0.15
+        Assert.Equal(529m, invoice.TotalAmount);       // 460 subtotal + 69 GST added on top
 
         // One line per item + one consolidated labour line + one per service line.
         Assert.Equal(3, invoice.Items.Count);
@@ -70,7 +70,7 @@ public class InvoiceServiceTests
         await using var db = CreateContext();
         var invoices = new InvoiceService(db, new GstSettingService(db));
 
-        var invoice = await invoices.GenerateAsync(Guid.NewGuid(), new CreateInvoiceRequest(null, null, null));
+        var invoice = await invoices.GenerateAsync(Guid.NewGuid(), new CreateInvoiceRequest(null));
 
         Assert.Null(invoice);
     }
@@ -82,7 +82,7 @@ public class InvoiceServiceTests
         var (invoices, _, jobId) = await SeedFullJobAsync(db);
         await new GstSettingService(db).UpdateAsync(0.10m);
 
-        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null, null, null));
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
         Assert.Equal(0.10m, invoice!.GstRate);
         Assert.Equal(46m, invoice.TaxAmount);          // 460 * 0.10
 
@@ -94,11 +94,87 @@ public class InvoiceServiceTests
     }
 
     [Fact]
+    public async Task GenerateAsync_LeavesInvoiceUnpaid()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+
+        Assert.False(invoice!.IsPaid);
+        Assert.Null(invoice.AmountPaid);
+        Assert.Null(invoice.DatePaid);
+        Assert.Null(invoice.CashAmount);
+        Assert.Null(invoice.CardAmount);
+    }
+
+    [Fact]
+    public async Task MarkPaidAsync_StampsPayment_WithModeOfPaymentTermAndCashCardSplit()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+
+        var datePaid = new DateOnly(2026, 7, 1);
+        var paid = await invoices.MarkPaidAsync(jobId, invoice!.Id, new MarkInvoicePaidRequest("Card", "Net 14", 400m, 129m, datePaid));
+
+        Assert.True(paid!.IsPaid);
+        Assert.Equal(datePaid, paid.DatePaid);
+        Assert.Equal(529m, paid.AmountPaid);           // equals the total (460 + 69 GST)
+        Assert.Equal(400m, paid.CashAmount);
+        Assert.Equal(129m, paid.CardAmount);
+        Assert.Equal("Card", paid.ModeOfPayment);
+        Assert.Equal("Net 14", paid.PaymentTerm);
+    }
+
+    [Fact]
+    public async Task MarkPaidAsync_DefaultsDatePaidToToday_WhenOmitted()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+
+        var paid = await invoices.MarkPaidAsync(jobId, invoice!.Id, new MarkInvoicePaidRequest(null, null, null, null, null));
+
+        Assert.Equal(DateOnly.FromDateTime(DateTime.UtcNow), paid!.DatePaid);
+    }
+
+    [Fact]
+    public async Task MarkPaidAsync_ReturnsNull_WhenInvoiceBelongsToAnotherJobOrMissing()
+    {
+        await using var db = CreateContext();
+        var (invoices, jobs, jobId) = await SeedFullJobAsync(db);
+        var seededJob = await db.Jobs.AsNoTracking().FirstAsync();
+        var (otherJob, _) = await jobs.CreateAsync(new CreateJobRequest(
+            seededJob.CustomerId, seededJob.CarId, "Other", JobStatus.Open, 0, null, null));
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+
+        Assert.Null(await invoices.MarkPaidAsync(otherJob!.Id, invoice!.Id, new MarkInvoicePaidRequest(null, null, null, null, null)));
+        Assert.Null(await invoices.MarkPaidAsync(jobId, Guid.NewGuid(), new MarkInvoicePaidRequest(null, null, null, null, null)));
+    }
+
+    [Fact]
+    public async Task MarkPaidAsync_ReturnsNull_WhenInvoiceRejected()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+        await invoices.RejectAsync(jobId, invoice!.Id);
+
+        var paid = await invoices.MarkPaidAsync(jobId, invoice.Id, new MarkInvoicePaidRequest(null, null, null, null, null));
+
+        Assert.Null(paid);
+        var refetched = await invoices.GetByIdAsync(jobId, invoice.Id);
+        Assert.False(refetched!.IsPaid);               // still unpaid, still rejected
+        Assert.Equal("Rejected", refetched.Status);
+    }
+
+    [Fact]
     public async Task RejectAsync_SetsStatusRejected_WithoutDeleting()
     {
         await using var db = CreateContext();
         var (invoices, _, jobId) = await SeedFullJobAsync(db);
-        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null, null, null));
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
 
         var rejected = await invoices.RejectAsync(jobId, invoice!.Id);
 
@@ -114,7 +190,7 @@ public class InvoiceServiceTests
         var seededJob = await db.Jobs.AsNoTracking().FirstAsync();
         var (otherJob, _) = await jobs.CreateAsync(new CreateJobRequest(
             seededJob.CustomerId, seededJob.CarId, "Other", JobStatus.Open, 0, null, null));
-        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null, null, null));
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
 
         Assert.Null(await invoices.GetByIdAsync(otherJob!.Id, invoice!.Id));
         Assert.Null(await invoices.RejectAsync(otherJob.Id, invoice.Id));

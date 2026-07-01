@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react'
-import { generateInvoice, getInvoices, rejectInvoice } from '@/api/invoices'
+import { generateInvoice, getInvoices, markInvoicePaid, rejectInvoice } from '@/api/invoices'
+import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -7,13 +8,15 @@ import { StateMessage } from '@/components/ui/StateMessage'
 import { useToast } from '@/components/ui/toast'
 import { useAsync } from '@/hooks/useAsync'
 import { currency, date, orDash, percent } from '@/lib/format'
-import type { CreateInvoiceRequest, Invoice } from '@/types'
+import { invoiceStatusLabel, invoiceStatusTone } from '@/lib/badges'
+import type { CreateInvoiceRequest, Invoice, MarkInvoicePaidRequest } from '@/types'
 
 export function InvoicesSection({ jobId }: { jobId: string }) {
   const toast = useToast()
   const { data, loading, error, reload } = useAsync(() => getInvoices(jobId), [jobId])
   const [generating, setGenerating] = useState(false)
   const [rejecting, setRejecting] = useState<Invoice | null>(null)
+  const [paying, setPaying] = useState<Invoice | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   const toggle = (id: string) =>
@@ -69,7 +72,7 @@ export function InvoicesSection({ jobId }: { jobId: string }) {
                     <td className="px-4 py-3 align-top font-medium text-slate-900">{inv.issueName}</td>
                     <td className="px-4 py-3 align-top text-slate-600">{date(inv.createdAtUtc)}</td>
                     <td className="px-4 py-3 align-top">
-                      <StatusBadge status={inv.status} />
+                      <Badge tone={invoiceStatusTone(inv)}>{invoiceStatusLabel(inv)}</Badge>
                     </td>
                     <td className="px-4 py-3 align-top text-slate-600">{currency(inv.subTotal)}</td>
                     <td className="px-4 py-3 align-top text-slate-600">
@@ -81,6 +84,11 @@ export function InvoicesSection({ jobId }: { jobId: string }) {
                       <Button variant="ghost" size="sm" onClick={() => toggle(inv.id)}>
                         {expanded.has(inv.id) ? 'Hide' : 'View'}
                       </Button>
+                      {inv.status !== 'Rejected' && !inv.isPaid && (
+                        <Button variant="ghost" size="sm" onClick={() => setPaying(inv)}>
+                          Mark Paid
+                        </Button>
+                      )}
                       {inv.status !== 'Rejected' && (
                         <Button
                           variant="ghost"
@@ -118,6 +126,20 @@ export function InvoicesSection({ jobId }: { jobId: string }) {
         />
       </Modal>
 
+      <Modal open={paying !== null} title="Mark Invoice Paid" onClose={() => setPaying(null)}>
+        {paying && (
+          <MarkPaidForm
+            jobId={jobId}
+            invoice={paying}
+            onDone={() => {
+              setPaying(null)
+              reload()
+            }}
+            onCancel={() => setPaying(null)}
+          />
+        )}
+      </Modal>
+
       <ConfirmDialog
         open={rejecting !== null}
         title="Reject invoice"
@@ -127,19 +149,6 @@ export function InvoicesSection({ jobId }: { jobId: string }) {
         onCancel={() => setRejecting(null)}
       />
     </section>
-  )
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const rejected = status === 'Rejected'
-  return (
-    <span
-      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-        rejected ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'
-      }`}
-    >
-      {status}
-    </span>
   )
 }
 
@@ -169,9 +178,17 @@ function InvoiceLines({ invoice }: { invoice: Invoice }) {
       <dl className="grid grid-cols-2 gap-x-8 gap-y-1 text-xs text-slate-500 sm:grid-cols-4">
         <Meta label="Labour" value={currency(invoice.labourPrice)} />
         <Meta label="Due date" value={date(invoice.dueDate)} />
-        <Meta label="Payment term" value={orDash(invoice.paymentTerm)} />
-        <Meta label="Mode of payment" value={orDash(invoice.modeOfPayment)} />
         {invoice.notes && <Meta label="Notes" value={invoice.notes} />}
+        {invoice.isPaid && (
+          <>
+            <Meta label="Date paid" value={date(invoice.datePaid)} />
+            <Meta label="Amount paid" value={currency(invoice.amountPaid ?? 0)} />
+            <Meta label="Payment term" value={orDash(invoice.paymentTerm)} />
+            <Meta label="Mode of payment" value={orDash(invoice.modeOfPayment)} />
+            {invoice.cashAmount != null && <Meta label="Cash" value={currency(invoice.cashAmount)} />}
+            {invoice.cardAmount != null && <Meta label="Card" value={currency(invoice.cardAmount)} />}
+          </>
+        )}
       </dl>
     </div>
   )
@@ -197,8 +214,6 @@ function GenerateForm({
 }) {
   const toast = useToast()
   const [dueDate, setDueDate] = useState('')
-  const [modeOfPayment, setModeOfPayment] = useState('')
-  const [paymentTerm, setPaymentTerm] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -208,8 +223,6 @@ function GenerateForm({
     setError(null)
     const body: CreateInvoiceRequest = {
       dueDate: dueDate || null,
-      modeOfPayment: modeOfPayment.trim() || null,
-      paymentTerm: paymentTerm.trim() || null,
     }
     try {
       await generateInvoice(jobId, body)
@@ -225,14 +238,83 @@ function GenerateForm({
   return (
     <form onSubmit={submit} className="space-y-4">
       <p className="text-sm text-slate-500">
-        Lines and totals are built automatically from the job's items, labour and services. These
-        details are optional.
+        Lines and totals are built automatically from the job's items, labour and services. Mode
+        of payment and payment term are recorded when the invoice is marked paid.
       </p>
       <Field label="Due date">
         <input
           type="date"
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}
+          className={inputClass}
+        />
+      </Field>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="secondary" onClick={onCancel} disabled={busy}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={busy}>
+          Generate
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+function MarkPaidForm({
+  jobId,
+  invoice,
+  onDone,
+  onCancel,
+}: {
+  jobId: string
+  invoice: Invoice
+  onDone: () => void
+  onCancel: () => void
+}) {
+  const toast = useToast()
+  const [modeOfPayment, setModeOfPayment] = useState('')
+  const [paymentTerm, setPaymentTerm] = useState('')
+  const [cashAmount, setCashAmount] = useState('')
+  const [cardAmount, setCardAmount] = useState('')
+  const [datePaid, setDatePaid] = useState(() => new Date().toISOString().slice(0, 10))
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    const body: MarkInvoicePaidRequest = {
+      modeOfPayment: modeOfPayment.trim() || null,
+      paymentTerm: paymentTerm.trim() || null,
+      cashAmount: cashAmount.trim() === '' ? null : Number(cashAmount),
+      cardAmount: cardAmount.trim() === '' ? null : Number(cardAmount),
+      datePaid: datePaid || null,
+    }
+    try {
+      await markInvoicePaid(jobId, invoice.id, body)
+      toast.success('Invoice marked paid')
+      onDone()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-4">
+      <p className="text-sm text-slate-500">
+        Recording payment for “{invoice.issueName}” — total {currency(invoice.totalAmount)}. All
+        fields are optional.
+      </p>
+      <Field label="Date paid">
+        <input
+          type="date"
+          value={datePaid}
+          onChange={(e) => setDatePaid(e.target.value)}
           className={inputClass}
         />
       </Field>
@@ -254,13 +336,35 @@ function GenerateForm({
           className={inputClass}
         />
       </Field>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Cash amount">
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={cashAmount}
+            onChange={(e) => setCashAmount(e.target.value)}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Card amount">
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={cardAmount}
+            onChange={(e) => setCardAmount(e.target.value)}
+            className={inputClass}
+          />
+        </Field>
+      </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="secondary" onClick={onCancel} disabled={busy}>
           Cancel
         </Button>
         <Button type="submit" disabled={busy}>
-          Generate
+          Mark Paid
         </Button>
       </div>
     </form>

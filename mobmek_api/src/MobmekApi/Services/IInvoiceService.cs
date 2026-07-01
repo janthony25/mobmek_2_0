@@ -21,4 +21,11 @@ public interface IInvoiceService
     /// when the invoice is not found on <paramref name="jobId"/>.
     /// </summary>
     Task<InvoiceDto?> RejectAsync(Guid jobId, Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Marks an invoice as paid, snapshotting the payment date and the cash/card split. Returns
+    /// <c>null</c> when there is no payable ("Active") invoice with that id on <paramref name="jobId"/>
+    /// (not found or already rejected).
+    /// </summary>
+    Task<InvoiceDto?> MarkPaidAsync(Guid jobId, Guid id, MarkInvoicePaidRequest request, CancellationToken cancellationToken = default);
 }

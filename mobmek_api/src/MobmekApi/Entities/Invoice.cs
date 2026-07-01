@@ -26,10 +26,6 @@ public class Invoice : BaseEntity
 
     public DateOnly? DueDate { get; set; }
 
-    public string? PaymentTerm { get; set; }
-
-    public string? ModeOfPayment { get; set; }
-
     // --- Snapshotted money fields (computed at generation, never recalculated) ---
 
     public decimal LabourPrice { get; set; }
@@ -47,6 +43,29 @@ public class Invoice : BaseEntity
     public decimal ShippingFee { get; set; }
 
     public decimal TotalAmount { get; set; }
+
+    // --- Payment lifecycle (set when the invoice is marked paid) ---
+
+    /// <summary>Whether the invoice has been settled.</summary>
+    public bool IsPaid { get; set; }
+
+    /// <summary>Amount received, snapshotted when marked paid (normally equals <see cref="TotalAmount"/>).</summary>
+    public decimal? AmountPaid { get; set; }
+
+    /// <summary>Date the invoice was marked paid.</summary>
+    public DateOnly? DatePaid { get; set; }
+
+    /// <summary>Payment term the customer was given, recorded when the invoice is marked paid.</summary>
+    public string? PaymentTerm { get; set; }
+
+    /// <summary>How the customer paid (e.g. Cash, Card, Bank Transfer), recorded when marked paid.</summary>
+    public string? ModeOfPayment { get; set; }
+
+    /// <summary>Portion of the payment taken in cash (for payment-method analytics).</summary>
+    public decimal? CashAmount { get; set; }
+
+    /// <summary>Portion of the payment taken by card (for payment-method analytics).</summary>
+    public decimal? CardAmount { get; set; }
 
     // Lines (cascade-deleted with the invoice).
     public ICollection<InvoiceItem> Items { get; set; } = [];

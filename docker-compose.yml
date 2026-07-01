@@ -8,7 +8,9 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"          # exposed so you can also run the API via `dotnet run` on the host
+      # Host 5433 (not 5432) avoids the machine's EDB PostgreSQL 18 install that owns 5432.
+      # Container still listens on 5432; host tooling (`dotnet run`, `dotnet ef`) uses localhost:5433.
+      - "5433:5432"
     volumes:
       - mobmek_pgdata:/var/lib/postgresql/data
     healthcheck:

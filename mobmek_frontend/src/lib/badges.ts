@@ -1,5 +1,6 @@
 import type { Tone } from '@/components/ui/Badge'
 import { JobStatus } from '@/types'
+import type { Invoice } from '@/types'
 
 /** Colour tone per job status, for the appointment-history status badges. */
 export const JOB_STATUS_TONE: Record<JobStatus, Tone> = {
@@ -10,6 +11,12 @@ export const JOB_STATUS_TONE: Record<JobStatus, Tone> = {
   [JobStatus.Invoiced]: 'blue',
 }
 
-/** Invoice status is "Active" or "Rejected" (the API has no paid/unpaid concept). */
-export const invoiceStatusTone = (status: string): Tone =>
-  status.toLowerCase() === 'rejected' ? 'red' : 'green'
+/**
+ * An invoice's `status` field is only "Active" or "Rejected"; whether an active invoice has
+ * been paid is a separate `isPaid` flag, so the display label/tone combines both.
+ */
+export const invoiceStatusLabel = (invoice: Pick<Invoice, 'status' | 'isPaid'>): string =>
+  invoice.status.toLowerCase() === 'rejected' ? 'Rejected' : invoice.isPaid ? 'Paid' : 'Unpaid'
+
+export const invoiceStatusTone = (invoice: Pick<Invoice, 'status' | 'isPaid'>): Tone =>
+  invoice.status.toLowerCase() === 'rejected' ? 'red' : invoice.isPaid ? 'green' : 'amber'

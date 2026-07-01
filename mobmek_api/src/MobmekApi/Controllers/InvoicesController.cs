@@ -52,4 +52,14 @@ public class InvoicesController(IInvoiceService invoiceService) : ControllerBase
         var rejected = await invoiceService.RejectAsync(jobId, id, cancellationToken);
         return rejected is null ? NotFound() : Ok(rejected);
     }
+
+    /// <summary>Marks an invoice as paid, recording the payment date, mode of payment, payment term, and the cash/card split.</summary>
+    [HttpPost("{id:guid}/pay")]
+    [ProducesResponseType(typeof(InvoiceDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<InvoiceDto>> Pay(Guid jobId, Guid id, MarkInvoicePaidRequest request, CancellationToken cancellationToken)
+    {
+        var paid = await invoiceService.MarkPaidAsync(jobId, id, request, cancellationToken);
+        return paid is null ? NotFound() : Ok(paid);
+    }
 }

@@ -263,6 +263,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(i => i.Discount).HasColumnType("numeric(18,2)");
             entity.Property(i => i.ShippingFee).HasColumnType("numeric(18,2)");
             entity.Property(i => i.TotalAmount).HasColumnType("numeric(18,2)");
+            entity.Property(i => i.AmountPaid).HasColumnType("numeric(18,2)");
+            entity.Property(i => i.CashAmount).HasColumnType("numeric(18,2)");
+            entity.Property(i => i.CardAmount).HasColumnType("numeric(18,2)");
 
             // An invoice belongs to a job; deleting the job removes its invoices.
             entity.HasOne(i => i.Job)
