@@ -11,89 +11,31 @@ import { createJobServiceLine } from '@/api/jobServiceLines'
 import { Button } from '@/components/ui/Button'
 import { Field, controlClass } from '@/components/forms/controls'
 import { Combobox } from '@/components/forms/Combobox'
+import { PartsEditor } from '@/components/jobs/PartsEditor'
+import { LabourEditor } from '@/components/jobs/LabourEditor'
+import { RemindersSection } from '@/components/reminders/RemindersSection'
 import { useToast } from '@/components/ui/toast'
 import { currency } from '@/lib/format'
 import {
+  computeLabour,
+  computePart,
+  emptyLabour,
+  emptyPart,
+  num,
+  round2,
+  type LabourDraft,
+  type PartDraft,
+} from '@/lib/jobLineDrafts'
+import {
   JOB_STATUS_LABELS,
   JobStatus,
-  MARKUP_SOLUTION_LABELS,
-  MarkupSolution,
   type Car,
   type CreateJobRequest,
   type Customer,
   type Employee,
   type JobService,
+  type MarkupSolution,
 } from '@/types'
-
-// ── numeric helpers ───────────────────────────────────────────────────────────
-
-const num = (s: string): number | null => {
-  const t = s.trim()
-  if (t === '') return null
-  const n = Number(t)
-  return Number.isFinite(n) ? n : null
-}
-
-const round2 = (n: number) => (Math.sign(n) * Math.round(Math.abs(n) * 100)) / 100
-
-// ── draft row shapes ───────────────────────────────────────────────────────────
-
-interface PartDraft {
-  key: string
-  itemName: string
-  tradePrice: string
-  retailPrice: string
-  markupSolution: number
-  markup: string
-  sellingPrice: string
-  itemQuantity: string
-}
-
-interface LabourDraft {
-  key: string
-  hours: string
-  ratePerHour: string
-  fixedAmount: string
-}
-
-const newKey = () => Math.random().toString(36).slice(2)
-
-const emptyPart = (): PartDraft => ({
-  key: newKey(),
-  itemName: '',
-  tradePrice: '',
-  retailPrice: '',
-  markupSolution: MarkupSolution.Percentage,
-  markup: '0',
-  sellingPrice: '',
-  itemQuantity: '1',
-})
-
-const emptyLabour = (): LabourDraft => ({ key: newKey(), hours: '', ratePerHour: '', fixedAmount: '' })
-
-/** Mirrors the backend's JobItemService.Apply so the operator sees live figures. */
-function computePart(p: PartDraft) {
-  const trade = num(p.tradePrice)
-  const retail = num(p.retailPrice)
-  const markup = num(p.markup) ?? 0
-  const qty = num(p.itemQuantity) ?? 0
-  // Selling price is the markup applied to the retail price; the trade price is the cost,
-  // used only to derive profit. Without a retail price, the manual selling price is used.
-  const selling = round2(
-    retail != null
-      ? p.markupSolution === MarkupSolution.Percentage
-        ? retail * (1 + markup / 100)
-        : retail + markup
-      : num(p.sellingPrice) ?? 0,
-  )
-  const unitProfit = round2(selling - (trade ?? 0))
-  return { unitPrice: selling, itemTotal: round2(selling * qty), rowProfit: round2(unitProfit * qty) }
-}
-
-function computeLabour(l: LabourDraft) {
-  const fixed = num(l.fixedAmount)
-  return round2(fixed != null ? fixed : (num(l.hours) ?? 0) * (num(l.ratePerHour) ?? 0))
-}
 
 const STATUS_OPTIONS = Object.entries(JOB_STATUS_LABELS).map(([value, label]) => ({ value, label }))
 
@@ -362,17 +304,32 @@ export function NewJobPage() {
 
         <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-5">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Invoice notes</h2>
-          <Field label="Invoice notes">
-            <textarea
-              value={invoiceNotes}
-              rows={6}
-              onChange={(e) => setInvoiceNotes(e.target.value)}
-              className={controlClass}
-              placeholder="Shown on invoices generated from this job."
-            />
-          </Field>
+          <textarea
+            value={invoiceNotes}
+            rows={6}
+            onChange={(e) => setInvoiceNotes(e.target.value)}
+            className={controlClass}
+            placeholder="Shown on invoices generated from this job."
+          />
         </div>
       </section>
+
+      {/* Reminders — needs a customer + car first, since a reminder attaches to the car. */}
+      <div className="rounded-xl border border-slate-200 border-l-4 border-l-amber-500 bg-amber-50/40 p-5 shadow-md">
+        {customerId && carId ? (
+          <RemindersSection
+            customerId={customerId}
+            lockedCarId={carId}
+            title="⏰ Reminders"
+            description="Reminders for this car, e.g. next WOF or service."
+          />
+        ) : (
+          <>
+            <h2 className="text-lg font-semibold text-slate-900">⏰ Reminders</h2>
+            <p className="mt-2 text-sm text-slate-500">Choose a customer and car above to add reminders for this vehicle.</p>
+          </>
+        )}
+      </div>
 
       {/* Services */}
       <section className="rounded-lg border border-slate-200 bg-white p-5">
@@ -395,139 +352,19 @@ export function NewJobPage() {
         )}
       </section>
 
-      {/* Parts */}
-      <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Parts &amp; Items</h2>
-          <Button type="button" variant="secondary" size="sm" onClick={() => setParts((p) => [...p, emptyPart()])}>
-            + Add part
-          </Button>
-        </div>
-        {parts.length === 0 ? (
-          <p className="text-sm text-slate-500">No parts yet. Use “Add part” to add one.</p>
-        ) : (
-          <div className="space-y-3">
-            {parts.map((p) => {
-              const c = computePart(p)
-              return (
-                <div key={p.key} className="rounded-md border border-slate-200 p-3">
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <Field label="Item name" required className="col-span-2">
-                      <input value={p.itemName} onChange={(e) => updatePart(p.key, { itemName: e.target.value })} className={controlClass} />
-                    </Field>
-                    <Field label="Quantity">
-                      <input type="number" min={1} value={p.itemQuantity} onChange={(e) => updatePart(p.key, { itemQuantity: e.target.value })} className={controlClass} />
-                    </Field>
-                    <Field label="Trade price">
-                      <input type="number" step="0.01" min={0} value={p.tradePrice} onChange={(e) => updatePart(p.key, { tradePrice: e.target.value })} className={controlClass} />
-                    </Field>
-                    <Field label="Retail price">
-                      <input type="number" step="0.01" min={0} value={p.retailPrice} onChange={(e) => updatePart(p.key, { retailPrice: e.target.value })} className={controlClass} />
-                    </Field>
-                    <Field label="Markup type">
-                      <select
-                        value={p.markupSolution}
-                        onChange={(e) => updatePart(p.key, { markupSolution: Number(e.target.value) })}
-                        className={controlClass}
-                      >
-                        {Object.entries(MARKUP_SOLUTION_LABELS).map(([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    <Field label="Markup value">
-                      <input type="number" step="0.01" min={0} value={p.markup} onChange={(e) => updatePart(p.key, { markup: e.target.value })} className={controlClass} />
-                    </Field>
-                    <Field label="Selling price" className="sm:col-span-2">
-                      <input
-                        type="number"
-                        step="0.01"
-                        min={0}
-                        value={p.sellingPrice}
-                        onChange={(e) => updatePart(p.key, { sellingPrice: e.target.value })}
-                        disabled={num(p.retailPrice) != null}
-                        className={`${controlClass} ${num(p.retailPrice) != null ? 'bg-slate-50 text-slate-400' : ''}`}
-                        placeholder={num(p.retailPrice) != null ? 'Derived from markup' : 'Used when no retail price'}
-                      />
-                    </Field>
-                  </div>
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 text-sm">
-                    <div className="flex flex-wrap gap-x-6 gap-y-1 text-slate-600">
-                      <span>Unit price: <strong className="text-slate-900">{currency(c.unitPrice)}</strong></span>
-                      <span>Item total: <strong className="text-slate-900">{currency(c.itemTotal)}</strong></span>
-                      <span>Row profit: <strong className="text-slate-900">{currency(c.rowProfit)}</strong></span>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-600"
-                      onClick={() => setParts((prev) => prev.filter((x) => x.key !== p.key))}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </section>
+      <PartsEditor
+        parts={parts}
+        onAdd={() => setParts((p) => [...p, emptyPart()])}
+        onUpdate={updatePart}
+        onRemove={(key) => setParts((prev) => prev.filter((x) => x.key !== key))}
+      />
 
-      {/* Labour */}
-      <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Labour</h2>
-          <Button type="button" variant="secondary" size="sm" onClick={() => setLabour((l) => [...l, emptyLabour()])}>
-            + Add labour
-          </Button>
-        </div>
-        {labour.length === 0 ? (
-          <p className="text-sm text-slate-500">No labour yet. Use “Add labour” to add a line.</p>
-        ) : (
-          <div className="space-y-3">
-            {labour.map((l) => (
-              <div key={l.key} className="rounded-md border border-slate-200 p-3">
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <Field label="Hours">
-                    <input type="number" step="0.1" min={0} value={l.hours} onChange={(e) => updateLabour(l.key, { hours: e.target.value })} className={controlClass} />
-                  </Field>
-                  <Field label="Rate / hour">
-                    <input type="number" step="0.01" min={0} value={l.ratePerHour} onChange={(e) => updateLabour(l.key, { ratePerHour: e.target.value })} className={controlClass} />
-                  </Field>
-                  <Field label="Fixed amount">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min={0}
-                      value={l.fixedAmount}
-                      onChange={(e) => updateLabour(l.key, { fixedAmount: e.target.value })}
-                      className={controlClass}
-                      placeholder="Overrides hours × rate"
-                    />
-                  </Field>
-                  <div className="flex items-end justify-between gap-2">
-                    <div className="text-sm text-slate-600">
-                      Total: <strong className="text-slate-900">{currency(computeLabour(l))}</strong>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-600"
-                      onClick={() => setLabour((prev) => prev.filter((x) => x.key !== l.key))}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      <LabourEditor
+        labour={labour}
+        onAdd={() => setLabour((l) => [...l, emptyLabour()])}
+        onUpdate={updateLabour}
+        onRemove={(key) => setLabour((prev) => prev.filter((x) => x.key !== key))}
+      />
 
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 

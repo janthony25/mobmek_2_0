@@ -14,12 +14,17 @@ import { EmployeesPage } from '@/pages/EmployeesPage'
 import { EmployeeTitlesPage } from '@/pages/EmployeeTitlesPage'
 import { EmploymentTypesPage } from '@/pages/EmploymentTypesPage'
 import { TaxSettingsPage } from '@/pages/TaxSettingsPage'
+import { BusinessDetailsSettingsPage } from '@/pages/BusinessDetailsSettingsPage'
 import { ReminderTemplatesPage } from '@/pages/ReminderTemplatesPage'
+import { InvoicePrintPage } from '@/pages/InvoicePrintPage'
 
 function App() {
   useNumberInputWheelGuard()
   return (
     <Routes>
+      {/* Outside AppLayout: a bare, print-friendly page with no sidebar/notes panel. */}
+      <Route path="jobs/:jobId/invoices/:invoiceId/pdf" element={<InvoicePrintPage />} />
+
       <Route element={<AppLayout />}>
         <Route index element={<Navigate to="/customers" replace />} />
         <Route path="customers" element={<CustomersPage />} />
@@ -35,6 +40,7 @@ function App() {
         <Route path="employee-titles" element={<EmployeeTitlesPage />} />
         <Route path="employment-types" element={<EmploymentTypesPage />} />
         <Route path="tax" element={<TaxSettingsPage />} />
+        <Route path="business-details" element={<BusinessDetailsSettingsPage />} />
         <Route path="reminder-templates" element={<ReminderTemplatesPage />} />
         <Route path="*" element={<Navigate to="/customers" replace />} />
       </Route>

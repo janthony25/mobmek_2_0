@@ -23,6 +23,7 @@ builder.Services.AddScoped<IJobItemService, JobItemService>();
 builder.Services.AddScoped<ILabourService, LabourService>();
 builder.Services.AddScoped<IJobServiceLineService, JobServiceLineService>();
 builder.Services.AddScoped<IGstSettingService, GstSettingService>();
+builder.Services.AddScoped<IBusinessDetailsService, BusinessDetailsService>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<IReminderTemplateService, ReminderTemplateService>();
 builder.Services.AddScoped<INoteService, NoteService>();

@@ -294,6 +294,27 @@ export interface UpdateGstSettingRequest {
   rate: number
 }
 
+// --- Business details (letterhead) -------------------------------------------
+
+export interface BusinessDetails {
+  id: string
+  name: string
+  address: string | null
+  phone: string | null
+  email: string | null
+  abn: string | null
+  createdAtUtc: string
+  updatedAtUtc: string | null
+}
+
+export interface UpdateBusinessDetailsRequest {
+  name: string
+  address: string | null
+  phone: string | null
+  email: string | null
+  abn: string | null
+}
+
 // --- Products ----------------------------------------------------------------
 
 export interface Product {

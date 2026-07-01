@@ -39,6 +39,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<GstSetting> GstSettings => Set<GstSetting>();
 
+    public DbSet<BusinessDetails> BusinessDetails => Set<BusinessDetails>();
+
     public DbSet<ReminderTemplate> ReminderTemplates => Set<ReminderTemplate>();
 
     public DbSet<Note> Notes => Set<Note>();
@@ -293,6 +295,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.HasKey(g => g.Id);
             entity.Property(g => g.Rate).HasColumnType("numeric(5,4)");
+        });
+
+        modelBuilder.Entity<BusinessDetails>(entity =>
+        {
+            entity.HasKey(b => b.Id);
+            entity.Property(b => b.Name).IsRequired().HasMaxLength(200);
+            entity.Property(b => b.Address).HasMaxLength(500);
+            entity.Property(b => b.Phone).HasMaxLength(50);
+            entity.Property(b => b.Email).HasMaxLength(255);
+            entity.Property(b => b.Abn).HasMaxLength(50);
         });
 
         modelBuilder.Entity<ReminderTemplate>(entity =>

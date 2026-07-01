@@ -14,6 +14,7 @@ interface RemindersSectionProps {
   /** When set, the section is scoped to one car and new reminders attach to it. */
   lockedCarId?: string
   description?: string
+  title?: string
 }
 
 /** yyyy-mm-dd for "today", to flag overdue reminders. */
@@ -22,7 +23,7 @@ function todayISO(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function RemindersSection({ customerId, lockedCarId, description }: RemindersSectionProps) {
+export function RemindersSection({ customerId, lockedCarId, description, title = 'Reminders' }: RemindersSectionProps) {
   const templates = useAsync(() => getReminderTemplates(), [])
   const cars = useAsync(() => getCars(customerId), [customerId])
 
@@ -36,7 +37,7 @@ export function RemindersSection({ customerId, lockedCarId, description }: Remin
   return (
     <CrudSection<Reminder>
       resourceName="Reminder"
-      title="Reminders"
+      title={title}
       variant="section"
       description={description}
       load={() => getReminders({ customerId, carId: lockedCarId })}

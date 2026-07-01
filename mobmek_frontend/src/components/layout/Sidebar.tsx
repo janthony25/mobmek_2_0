@@ -40,6 +40,7 @@ const NAV_GROUPS: NavGroup[] = [
     heading: 'Settings',
     items: [
       { to: '/tax', label: 'Tax (GST)', icon: '💰' },
+      { to: '/business-details', label: 'Business Details', icon: '🏢' },
       { to: '/reminder-templates', label: 'Reminder Templates', icon: '⏰' },
     ],
   },
