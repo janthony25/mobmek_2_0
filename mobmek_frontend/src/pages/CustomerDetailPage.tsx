@@ -4,6 +4,7 @@ import { createCar, deleteCar, getCars, updateCar } from '@/api/cars'
 import { getJobs } from '@/api/jobs'
 import { CrudSection } from '@/components/crud/CrudSection'
 import { CarForm } from '@/components/forms/CarForm'
+import { RemindersSection } from '@/components/reminders/RemindersSection'
 import { StateMessage } from '@/components/ui/StateMessage'
 import { useAsync } from '@/hooks/useAsync'
 import { currency, orDash } from '@/lib/format'
@@ -62,6 +63,11 @@ export function CustomerDetailPage() {
         }
         onUpdate={(carId, v) => updateCar(carId, v as unknown as UpdateCarRequest).then(() => undefined)}
         onDelete={deleteCar}
+      />
+
+      <RemindersSection
+        customerId={id}
+        description="Service, WOF and follow-up reminders for this customer."
       />
 
       <CustomerJobs customerId={id} />

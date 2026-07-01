@@ -39,6 +39,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<GstSetting> GstSettings => Set<GstSetting>();
 
+    public DbSet<ReminderTemplate> ReminderTemplates => Set<ReminderTemplate>();
+
+    public DbSet<Note> Notes => Set<Note>();
+
+    public DbSet<Reminder> Reminders => Set<Reminder>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -284,6 +290,60 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.HasKey(g => g.Id);
             entity.Property(g => g.Rate).HasColumnType("numeric(5,4)");
+        });
+
+        modelBuilder.Entity<ReminderTemplate>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            entity.Property(t => t.Name).IsRequired().HasMaxLength(100);
+            entity.Property(t => t.Description).HasMaxLength(500);
+            entity.HasIndex(t => t.Name).IsUnique();
+        });
+
+        modelBuilder.Entity<Note>(entity =>
+        {
+            entity.HasKey(n => n.Id);
+            entity.Property(n => n.Title).IsRequired().HasMaxLength(200);
+            entity.Property(n => n.Body).HasMaxLength(4000);
+            entity.Property(n => n.Color).HasMaxLength(50);
+
+            // Optional link; a note survives (unlinked) if its customer is deleted.
+            entity.HasOne(n => n.Customer)
+                .WithMany()
+                .HasForeignKey(n => n.CustomerId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(n => n.CustomerId);
+        });
+
+        modelBuilder.Entity<Reminder>(entity =>
+        {
+            entity.HasKey(r => r.Id);
+            entity.Property(r => r.Title).IsRequired().HasMaxLength(200);
+            entity.Property(r => r.Notes).HasMaxLength(2000);
+
+            // A reminder belongs to a customer; deleting the customer removes their reminders.
+            entity.HasOne(r => r.Customer)
+                .WithMany()
+                .HasForeignKey(r => r.CustomerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Car link is optional; deleting the car leaves the reminder as customer-level.
+            entity.HasOne(r => r.Car)
+                .WithMany()
+                .HasForeignKey(r => r.CarId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Title is copied from the template, so a template can be deleted without
+            // losing the reminder — the link just clears.
+            entity.HasOne(r => r.ReminderTemplate)
+                .WithMany()
+                .HasForeignKey(r => r.ReminderTemplateId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(r => r.CustomerId);
+            entity.HasIndex(r => r.CarId);
+            entity.HasIndex(r => r.DueDate);
         });
     }
 

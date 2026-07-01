@@ -24,6 +24,9 @@ builder.Services.AddScoped<ILabourService, LabourService>();
 builder.Services.AddScoped<IJobServiceLineService, JobServiceLineService>();
 builder.Services.AddScoped<IGstSettingService, GstSettingService>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
+builder.Services.AddScoped<IReminderTemplateService, ReminderTemplateService>();
+builder.Services.AddScoped<INoteService, NoteService>();
+builder.Services.AddScoped<IReminderService, ReminderService>();
 
 // --- MVC / API ---
 builder.Services.AddControllers();

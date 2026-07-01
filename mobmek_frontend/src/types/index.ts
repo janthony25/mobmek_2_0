@@ -346,3 +346,77 @@ export interface EmploymentType {
 export interface NamedLookupRequest {
   name: string
 }
+
+// --- Notes (sticky board) ----------------------------------------------------
+
+export interface Note {
+  id: string
+  title: string
+  body: string | null
+  /** Palette key (see NOTE_COLORS); null falls back to the default sticky colour. */
+  color: string | null
+  isPinned: boolean
+  isDone: boolean
+  customerId: string | null
+  customerName: string | null
+  createdAtUtc: string
+  updatedAtUtc: string | null
+}
+
+export interface NoteRequest {
+  title: string
+  body: string | null
+  color: string | null
+  isPinned: boolean
+  isDone: boolean
+  customerId: string | null
+}
+
+// --- Reminder templates (reusable presets) -----------------------------------
+
+export interface ReminderTemplate {
+  id: string
+  name: string
+  description: string | null
+  /** Optional gap in months used to pre-fill a reminder's due date. */
+  defaultIntervalMonths: number | null
+  createdAtUtc: string
+  updatedAtUtc: string | null
+}
+
+export interface ReminderTemplateRequest {
+  name: string
+  description: string | null
+  defaultIntervalMonths: number | null
+}
+
+// --- Reminders (dated, customer/car) -----------------------------------------
+
+export interface Reminder {
+  id: string
+  customerId: string
+  customerName: string
+  carId: string | null
+  carLabel: string | null
+  reminderTemplateId: string | null
+  reminderTemplateName: string | null
+  title: string
+  /** Calendar date, "yyyy-mm-dd". */
+  dueDate: string
+  isDone: boolean
+  notes: string | null
+  createdAtUtc: string
+  updatedAtUtc: string | null
+}
+
+export interface CreateReminderRequest {
+  customerId: string
+  carId: string | null
+  reminderTemplateId: string | null
+  title: string
+  dueDate: string
+  isDone: boolean
+  notes: string | null
+}
+
+export type UpdateReminderRequest = Omit<CreateReminderRequest, 'customerId'>

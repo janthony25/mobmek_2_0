@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
+import { NotesPanel } from '@/components/notes/NotesPanel'
 
 export function AppLayout() {
   return (
@@ -10,6 +11,7 @@ export function AppLayout() {
           <Outlet />
         </div>
       </main>
+      <NotesPanel />
     </div>
   )
 }

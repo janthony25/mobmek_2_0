@@ -2,6 +2,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getCars } from '@/api/cars'
 import { getJobs } from '@/api/jobs'
 import { Button } from '@/components/ui/Button'
+import { RemindersSection } from '@/components/reminders/RemindersSection'
 import { StateMessage } from '@/components/ui/StateMessage'
 import { useAsync } from '@/hooks/useAsync'
 import { currency, orDash } from '@/lib/format'
@@ -83,6 +84,12 @@ export function CarDetailPage() {
           </div>
         )}
       </section>
+
+      <RemindersSection
+        customerId={customerId}
+        lockedCarId={carId}
+        description="Reminders for this car, e.g. next WOF or service."
+      />
     </div>
   )
 }

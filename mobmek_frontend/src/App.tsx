@@ -14,6 +14,7 @@ import { EmployeesPage } from '@/pages/EmployeesPage'
 import { EmployeeTitlesPage } from '@/pages/EmployeeTitlesPage'
 import { EmploymentTypesPage } from '@/pages/EmploymentTypesPage'
 import { TaxSettingsPage } from '@/pages/TaxSettingsPage'
+import { ReminderTemplatesPage } from '@/pages/ReminderTemplatesPage'
 
 function App() {
   useNumberInputWheelGuard()
@@ -34,6 +35,7 @@ function App() {
         <Route path="employee-titles" element={<EmployeeTitlesPage />} />
         <Route path="employment-types" element={<EmploymentTypesPage />} />
         <Route path="tax" element={<TaxSettingsPage />} />
+        <Route path="reminder-templates" element={<ReminderTemplatesPage />} />
         <Route path="*" element={<Navigate to="/customers" replace />} />
       </Route>
     </Routes>

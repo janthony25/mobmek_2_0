@@ -38,7 +38,10 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     heading: 'Settings',
-    items: [{ to: '/tax', label: 'Tax (GST)', icon: '💰' }],
+    items: [
+      { to: '/tax', label: 'Tax (GST)', icon: '💰' },
+      { to: '/reminder-templates', label: 'Reminder Templates', icon: '⏰' },
+    ],
   },
 ]
 
