@@ -19,8 +19,9 @@ public class NoteServiceTests
         return customer.Id;
     }
 
-    private static CreateNoteRequest NewNote(string title, bool pinned = false, Guid? customerId = null) =>
-        new(title, null, null, pinned, false, customerId);
+    private static CreateNoteRequest NewNote(
+        string title, bool pinned = false, Guid? customerId = null, DateOnly? dueDate = null) =>
+        new(title, null, dueDate, null, pinned, false, customerId);
 
     [Fact]
     public async Task CreateAsync_PersistsNote_WithoutCustomer()
@@ -63,6 +64,19 @@ public class NoteServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_PersistsDueDate()
+    {
+        await using var db = CreateContext();
+        var service = new NoteService(db);
+
+        var (note, error) = await service.CreateAsync(
+            NewNote("Follow up", dueDate: new DateOnly(2026, 9, 15)));
+
+        Assert.Equal(NoteWriteError.None, error);
+        Assert.Equal(new DateOnly(2026, 9, 15), note!.DueDate);
+    }
+
+    [Fact]
     public async Task GetAllAsync_OrdersPinnedFirst()
     {
         await using var db = CreateContext();
@@ -85,10 +99,11 @@ public class NoteServiceTests
         var (created, _) = await service.CreateAsync(NewNote("Old"));
 
         var (updated, error) = await service.UpdateAsync(
-            created!.Id, new UpdateNoteRequest("New", "body", "yellow", true, true, null));
+            created!.Id, new UpdateNoteRequest("New", "body", new DateOnly(2026, 10, 1), "yellow", true, true, null));
 
         Assert.Equal(NoteWriteError.None, error);
         Assert.Equal("New", updated!.Title);
+        Assert.Equal(new DateOnly(2026, 10, 1), updated.DueDate);
         Assert.True(updated.IsPinned);
         Assert.True(updated.IsDone);
         Assert.NotNull(updated.UpdatedAtUtc);
@@ -101,7 +116,7 @@ public class NoteServiceTests
         var service = new NoteService(db);
 
         var (note, error) = await service.UpdateAsync(
-            Guid.NewGuid(), new UpdateNoteRequest("X", null, null, false, false, null));
+            Guid.NewGuid(), new UpdateNoteRequest("X", null, null, null, false, false, null));
 
         Assert.Null(note);
         Assert.Equal(NoteWriteError.NotFound, error);

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { getCustomers } from '@/api/customers'
 import { createNote, deleteNote, getNotes, updateNote } from '@/api/notes'
 import { getReminders, updateReminder } from '@/api/reminders'
+import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/toast'
@@ -17,6 +18,7 @@ function toRequest(note: Note): NoteRequest {
   return {
     title: note.title,
     body: note.body,
+    dueDate: note.dueDate,
     color: note.color,
     isPinned: note.isPinned,
     isDone: note.isDone,
@@ -24,9 +26,24 @@ function toRequest(note: Note): NoteRequest {
   }
 }
 
-function todayISO(): string {
-  const d = new Date()
+function toISO(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function todayISO(): string {
+  return toISO(new Date())
+}
+
+function isoInDays(days: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  return toISO(d)
+}
+
+/** First 20 words of a note body; the rest is hidden behind a card click. */
+function preview(text: string, maxWords = 20): string {
+  const words = text.trim().split(/\s+/)
+  return words.length <= maxWords ? text : `${words.slice(0, maxWords).join(' ')}…`
 }
 
 /**
@@ -41,6 +58,7 @@ export function NotesPanel() {
   const customers = useAsync(getCustomers, [])
 
   const [editing, setEditing] = useState<Note | 'new' | null>(null)
+  const [viewing, setViewing] = useState<Note | null>(null)
   const [deleting, setDeleting] = useState<Note | null>(null)
 
   // Reload reminders when a detail page mutates them.
@@ -102,6 +120,7 @@ export function NotesPanel() {
   }
 
   const today = todayISO()
+  const soon = isoInDays(7)
   const upcoming = reminders.data ?? []
 
   return (
@@ -129,22 +148,28 @@ export function NotesPanel() {
         {notes.data?.map((note) => (
           <div
             key={note.id}
-            className={`rounded-lg border p-3 shadow-sm ${noteCardClass(note.color)} ${
-              note.isDone ? 'opacity-60' : ''
-            }`}
+            role="button"
+            tabIndex={0}
+            onClick={() => setViewing(note)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') setViewing(note)
+            }}
+            className={`cursor-pointer rounded-lg border p-3 text-left shadow-sm transition hover:shadow-md ${noteCardClass(
+              note.color,
+            )} ${note.isDone ? 'opacity-60' : ''}`}
           >
-            <div className="flex items-start justify-between gap-2">
-              <p className={`text-sm font-semibold text-slate-800 ${note.isDone ? 'line-through' : ''}`}>
-                {note.isPinned && <span title="Pinned">📌 </span>}
-                {note.title}
-              </p>
-            </div>
+            <p className={`text-sm font-semibold text-slate-800 ${note.isDone ? 'line-through' : ''}`}>
+              {note.isPinned && <span title="Pinned">📌 </span>}
+              {note.title}
+            </p>
+            {note.dueDate && <NoteDueBadge dueDate={note.dueDate} isDone={note.isDone} today={today} soon={soon} />}
             {note.body && (
-              <p className="mt-1 whitespace-pre-wrap text-xs text-slate-600">{note.body}</p>
+              <p className="mt-1 whitespace-pre-wrap text-xs text-slate-600">{preview(note.body)}</p>
             )}
             {note.customerId && (
               <Link
                 to={`/customers/${note.customerId}`}
+                onClick={(e) => e.stopPropagation()}
                 className="mt-1 inline-block text-xs font-medium text-slate-500 hover:underline"
               >
                 {note.customerName}
@@ -157,7 +182,6 @@ export function NotesPanel() {
               <PanelAction onClick={() => patchNote(note, { isDone: !note.isDone })}>
                 {note.isDone ? 'Reopen' : 'Done'}
               </PanelAction>
-              <PanelAction onClick={() => setEditing(note)}>Edit</PanelAction>
               <PanelAction onClick={() => setDeleting(note)} className="text-red-600">
                 Delete
               </PanelAction>
@@ -169,7 +193,7 @@ export function NotesPanel() {
       {/* Upcoming reminders */}
       <div className="mt-auto border-t border-slate-200 px-4 pb-4 pt-4">
         <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-500">
-          ⏰ Due soon
+          ⏰ Reminders
         </h2>
         {reminders.loading && <p className="text-xs text-slate-400">Loading…</p>}
         {reminders.data && upcoming.length === 0 && (
@@ -207,6 +231,59 @@ export function NotesPanel() {
           })}
         </div>
       </div>
+
+      <Modal open={viewing !== null} title="Note" onClose={() => setViewing(null)}>
+        {viewing && (
+          <div className="space-y-3">
+            <div>
+              <h3 className={`text-base font-semibold text-slate-900 ${viewing.isDone ? 'line-through' : ''}`}>
+                {viewing.isPinned && '📌 '}
+                {viewing.title}
+              </h3>
+              {viewing.dueDate && (
+                <NoteDueBadge dueDate={viewing.dueDate} isDone={viewing.isDone} today={today} soon={soon} />
+              )}
+            </div>
+            {viewing.body && (
+              <p className="whitespace-pre-wrap text-sm text-slate-700">{viewing.body}</p>
+            )}
+            {viewing.customerId && (
+              <Link
+                to={`/customers/${viewing.customerId}`}
+                onClick={() => setViewing(null)}
+                className="inline-block text-sm font-medium text-slate-600 hover:underline"
+              >
+                {viewing.customerName}
+              </Link>
+            )}
+            <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+              {viewing.isPinned && <span className="rounded bg-slate-100 px-2 py-0.5">Pinned</span>}
+              <span className="rounded bg-slate-100 px-2 py-0.5">{viewing.isDone ? 'Done' : 'Open'}</span>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+              <Button
+                variant="danger"
+                onClick={() => {
+                  const note = viewing
+                  setViewing(null)
+                  setDeleting(note)
+                }}
+              >
+                Delete
+              </Button>
+              <Button
+                onClick={() => {
+                  const note = viewing
+                  setViewing(null)
+                  setEditing(note)
+                }}
+              >
+                Edit
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal
         open={editing !== null}
@@ -246,10 +323,36 @@ function PanelAction({
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={(e) => {
+        e.stopPropagation() // don't open the card's view modal
+        onClick()
+      }}
       className={`rounded px-1.5 py-0.5 font-medium text-slate-600 hover:bg-white/60 ${className}`}
     >
       {children}
     </button>
+  )
+}
+
+function NoteDueBadge({
+  dueDate,
+  isDone,
+  today,
+  soon,
+}: {
+  dueDate: string
+  isDone: boolean
+  today: string
+  soon: string
+}) {
+  const overdue = !isDone && dueDate < today
+  const dueSoon = !isDone && !overdue && dueDate <= soon
+  const tone = overdue ? 'text-red-600' : dueSoon ? 'text-amber-700' : 'text-slate-500'
+  const label = overdue ? 'Overdue · ' : dueSoon ? 'Due soon · ' : 'Due '
+  return (
+    <p className={`mt-1 text-xs font-medium ${tone}`}>
+      {label}
+      {date(dueDate)}
+    </p>
   )
 }

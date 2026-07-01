@@ -14,6 +14,7 @@ public class NoteService(AppDbContext db) : INoteService
             n.Id,
             n.Title,
             n.Body,
+            n.DueDate,
             n.Color,
             n.IsPinned,
             n.IsDone,
@@ -54,6 +55,7 @@ public class NoteService(AppDbContext db) : INoteService
         {
             Title = request.Title,
             Body = request.Body,
+            DueDate = request.DueDate,
             Color = request.Color,
             IsPinned = request.IsPinned,
             IsDone = request.IsDone,
@@ -82,6 +84,7 @@ public class NoteService(AppDbContext db) : INoteService
 
         note.Title = request.Title;
         note.Body = request.Body;
+        note.DueDate = request.DueDate;
         note.Color = request.Color;
         note.IsPinned = request.IsPinned;
         note.IsDone = request.IsDone;

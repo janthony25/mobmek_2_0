@@ -353,6 +353,8 @@ export interface Note {
   id: string
   title: string
   body: string | null
+  /** Optional due date, "yyyy-mm-dd"; lets the board flag notes as due soon. */
+  dueDate: string | null
   /** Palette key (see NOTE_COLORS); null falls back to the default sticky colour. */
   color: string | null
   isPinned: boolean
@@ -366,6 +368,7 @@ export interface Note {
 export interface NoteRequest {
   title: string
   body: string | null
+  dueDate: string | null
   color: string | null
   isPinned: boolean
   isDone: boolean

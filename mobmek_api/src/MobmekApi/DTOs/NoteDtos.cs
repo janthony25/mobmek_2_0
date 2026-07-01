@@ -7,6 +7,7 @@ public record NoteDto(
     Guid Id,
     string Title,
     string? Body,
+    DateOnly? DueDate,
     string? Color,
     bool IsPinned,
     bool IsDone,
@@ -19,6 +20,7 @@ public record NoteDto(
 public record CreateNoteRequest(
     [Required, MaxLength(200)] string Title,
     [MaxLength(4000)] string? Body,
+    DateOnly? DueDate,
     [MaxLength(50)] string? Color,
     bool IsPinned,
     bool IsDone,
@@ -28,6 +30,7 @@ public record CreateNoteRequest(
 public record UpdateNoteRequest(
     [Required, MaxLength(200)] string Title,
     [MaxLength(4000)] string? Body,
+    DateOnly? DueDate,
     [MaxLength(50)] string? Color,
     bool IsPinned,
     bool IsDone,

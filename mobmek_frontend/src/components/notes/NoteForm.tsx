@@ -16,6 +16,7 @@ interface NoteFormProps {
 export function NoteForm({ initial, customerOptions, onSubmit, onCancel }: NoteFormProps) {
   const [title, setTitle] = useState(initial?.title ?? '')
   const [body, setBody] = useState(initial?.body ?? '')
+  const [dueDate, setDueDate] = useState(initial?.dueDate ?? '')
   const [color, setColor] = useState(initial?.color ?? NOTE_COLORS[0].key)
   const [isPinned, setIsPinned] = useState(initial?.isPinned ?? false)
   const [isDone, setIsDone] = useState(initial?.isDone ?? false)
@@ -35,6 +36,7 @@ export function NoteForm({ initial, customerOptions, onSubmit, onCancel }: NoteF
       await onSubmit({
         title: title.trim(),
         body: body.trim() === '' ? null : body.trim(),
+        dueDate: dueDate === '' ? null : dueDate,
         color,
         isPinned,
         isDone,
@@ -64,6 +66,15 @@ export function NoteForm({ initial, customerOptions, onSubmit, onCancel }: NoteF
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={3}
+          className={controlClass}
+        />
+      </Field>
+
+      <Field label="Due date (optional)">
+        <input
+          type="date"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
           className={controlClass}
         />
       </Field>

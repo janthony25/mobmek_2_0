@@ -12,6 +12,9 @@ public class Note : BaseEntity
 
     public string? Body { get; set; }
 
+    /// <summary>Optional date the note is due/relevant, so the board can flag it as due soon.</summary>
+    public DateOnly? DueDate { get; set; }
+
     /// <summary>Optional colour/label for the sticky on the board.</summary>
     public string? Color { get; set; }
 
