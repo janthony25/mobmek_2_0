@@ -8,6 +8,30 @@ Workshop-management UI (`mobmek_frontend`) for the **Mobmek API** — a .NET bac
 lives as a sibling directory (`../mobmek_api`) in the same git repo (`/Users/jun/mobmek_2_0`).
 React 19 + TypeScript + Vite, styled with Tailwind CSS v4. There is no test suite.
 
+## Workflow for code-change requests (do this every time)
+
+Before writing or editing any code in response to a request:
+
+- **Clarify first — ask, don't assume.** Ask the questions needed to be sure you understand
+  exactly what's wanted (which pages/components, which form fields and whether each is required
+  vs. optional, which API endpoints/DTOs are involved, the cascade/relationship between fields,
+  validation rules, loading/empty/error states, and naming). Do not start coding until genuine
+  ambiguity is resolved. A request that seems clear can still hide assumptions — surface them.
+- **Challenge what looks wrong.** If something in the request seems mistaken, inconsistent with
+  what's already here, or likely not what the user actually wants (e.g. a field marked required
+  that's optional in the DTO/elsewhere, an odd name, a cascade that doesn't fit, a free-typed
+  value where an id from a lookup is expected), stop and ask whether they really want it before
+  proceeding. Be vigilant — flag it even when you're only somewhat unsure. The user would rather
+  be asked than get the wrong thing.
+- **Lay out a to-do list before changing anything.** Present the concrete, ordered steps you're
+  about to take (files/components to add or edit, type changes in `src/types`, API modules,
+  routes) so the user can see exactly what will change, then work through them one by one and
+  keep the list visible/updated as you go.
+- **Verify before calling it done.** There's no test suite, so the gate is `npx tsc -b` (type
+  check) and `npm run lint` (oxlint) passing; offer to run the dev server for visual changes.
+
+The goal: build exactly the right feature, correctly — never silently guess.
+
 ## Tech stack (keep it lean)
 
 Runtime dependencies are deliberately minimal — **`react`, `react-dom`, `react-router-dom`**
