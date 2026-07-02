@@ -121,6 +121,85 @@ public class InvoiceServiceTests
         Assert.Null(invoice.CardAmount);
     }
 
+    // --- Quotations ---
+
+    [Fact]
+    public async Task GenerateQuotationAsync_PricesLikeAnInvoice_WithQuotationDocumentType()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+
+        var dueDate = new DateOnly(2026, 7, 31);
+        var quotation = await invoices.GenerateQuotationAsync(jobId, new CreateInvoiceRequest(dueDate));
+
+        Assert.NotNull(quotation);
+        Assert.Equal("Quotation", quotation!.DocumentType);
+        Assert.Equal("Active", quotation.Status);
+        Assert.Equal("QUO-0001", quotation.InvoiceNumber);
+        Assert.Equal(dueDate, quotation.DueDate);
+        Assert.Equal(460m, quotation.SubTotal);        // same snapshot as an invoice: 110 + 200 + 150
+        Assert.Equal(69m, quotation.TaxAmount);        // 460 * 0.15
+        Assert.Equal(529m, quotation.TotalAmount);     // GST added on top
+        Assert.False(quotation.IsPaid);
+        Assert.Equal(3, quotation.Items.Count);
+        Assert.Contains(quotation.Items, i => i.ItemName == "Pads" && i.ItemTotal == 110m);
+        Assert.Contains(quotation.Items, i => i.ItemName == "Labour" && i.ItemTotal == 200m);
+        Assert.Contains(quotation.Items, i => i.ItemName == "Oil change" && i.ItemTotal == 150m);
+    }
+
+    [Fact]
+    public async Task GenerateQuotationAsync_NumbersIndependentlyOfInvoices()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+        var firstQuotation = await invoices.GenerateQuotationAsync(jobId, new CreateInvoiceRequest(null));
+        var secondQuotation = await invoices.GenerateQuotationAsync(jobId, new CreateInvoiceRequest(null));
+        var secondInvoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+
+        Assert.Equal("INV-0001", invoice!.InvoiceNumber);
+        Assert.Equal("QUO-0001", firstQuotation!.InvoiceNumber);
+        Assert.Equal("QUO-0002", secondQuotation!.InvoiceNumber);
+        Assert.Equal("INV-0002", secondInvoice!.InvoiceNumber);
+    }
+
+    [Fact]
+    public async Task GenerateQuotationAsync_ReturnsNull_WhenJobMissing()
+    {
+        await using var db = CreateContext();
+        var invoices = new InvoiceService(db, new GstSettingService(db));
+
+        Assert.Null(await invoices.GenerateQuotationAsync(Guid.NewGuid(), new CreateInvoiceRequest(null)));
+    }
+
+    [Fact]
+    public async Task MarkPaidAsync_ReturnsNull_ForQuotation()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var quotation = await invoices.GenerateQuotationAsync(jobId, new CreateInvoiceRequest(null));
+
+        var paid = await invoices.MarkPaidAsync(jobId, quotation!.Id, new MarkInvoicePaidRequest("Cash", null, null, null, null));
+
+        Assert.Null(paid);
+        var refetched = await invoices.GetByIdAsync(jobId, quotation.Id);
+        Assert.False(refetched!.IsPaid);               // a quotation is never payable
+    }
+
+    [Fact]
+    public async Task RejectAsync_WorksOnQuotation()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var quotation = await invoices.GenerateQuotationAsync(jobId, new CreateInvoiceRequest(null));
+
+        var rejected = await invoices.RejectAsync(jobId, quotation!.Id);
+
+        Assert.Equal("Rejected", rejected!.Status);
+        Assert.NotNull(await invoices.GetByIdAsync(jobId, quotation.Id)); // kept for the record
+    }
+
     [Fact]
     public async Task MarkPaidAsync_StampsPayment_WithModeOfPaymentTermAndCashCardSplit()
     {

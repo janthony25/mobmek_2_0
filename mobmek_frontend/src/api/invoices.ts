@@ -8,6 +8,8 @@ export const getInvoice = (jobId: string, id: string) =>
   apiGet<Invoice>(`${base(jobId)}/${id}`)
 export const generateInvoice = (jobId: string, body: CreateInvoiceRequest) =>
   apiPost<Invoice>(base(jobId), body)
+export const generateQuotation = (jobId: string, body: CreateInvoiceRequest) =>
+  apiPost<Invoice>(`${base(jobId)}/quotation`, body)
 export const rejectInvoice = (jobId: string, id: string) =>
   apiPost<Invoice>(`${base(jobId)}/${id}/reject`, {})
 export const markInvoicePaid = (jobId: string, id: string, body: MarkInvoicePaidRequest) =>

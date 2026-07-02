@@ -17,7 +17,11 @@ type ModeOfPayment = (typeof MODES_OF_PAYMENT)[number]
 
 export function InvoicesSection({ jobId }: { jobId: string }) {
   const toast = useToast()
-  const { data, loading, error, reload } = useAsync(() => getInvoices(jobId), [jobId])
+  // Quotations share the invoices endpoint but live in their own QuotationsSection.
+  const { data, loading, error, reload } = useAsync(
+    () => getInvoices(jobId).then((list) => list.filter((inv) => inv.documentType !== 'Quotation')),
+    [jobId],
+  )
   const [generating, setGenerating] = useState(false)
   const [rejecting, setRejecting] = useState<Invoice | null>(null)
   const [paying, setPaying] = useState<Invoice | null>(null)

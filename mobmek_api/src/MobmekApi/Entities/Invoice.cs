@@ -17,7 +17,8 @@ public class Invoice : BaseEntity
     public required string IssueName { get; set; }
 
     /// <summary>
-    /// Business-wide sequential number backing the printed invoice ID (INV-0001, ...). Assigned
+    /// Business-wide sequential number backing the printed document ID, counted per
+    /// <see cref="DocumentType"/> (INV-0001 for invoices, QUO-0001 for quotations). Assigned
     /// in <see cref="Services.InvoiceService"/> as (current max + 1); not DB-generated, so it
     /// isn't safe against concurrent generation, matching the app's other invoice invariants
     /// (see todo-list.md) that aren't yet guarded for concurrency.
@@ -26,7 +27,7 @@ public class Invoice : BaseEntity
 
     public string? Notes { get; set; }
 
-    /// <summary>"Invoice" for now (quotations may be added later).</summary>
+    /// <summary>"Invoice" or "Quotation". A quotation is priced like an invoice but is never payable.</summary>
     public string DocumentType { get; set; } = "Invoice";
 
     /// <summary>"Active" or "Rejected".</summary>

@@ -35,6 +35,10 @@ export function InvoicePrintPage() {
   const business = businessQuery.data!
   const job = jobQuery.data!
   const invoice = invoiceQuery.data!
+  // The route serves both document types; a quotation prints with its own heading and
+  // a validity date instead of a due date.
+  const isQuotation = invoice.documentType === 'Quotation'
+  const documentLabel = isQuotation ? 'Quotation' : 'Invoice'
 
   return (
     <div className="min-h-screen bg-slate-100 print:bg-white">
@@ -60,9 +64,9 @@ export function InvoicePrintPage() {
             </p>
           </div>
           <div className="text-right">
-            <h2 className="text-2xl font-bold uppercase tracking-wide text-slate-900">Invoice</h2>
+            <h2 className="text-2xl font-bold uppercase tracking-wide text-slate-900">{documentLabel}</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Invoice ID: <span className="font-medium text-slate-700">{invoice.invoiceNumber}</span>
+              {documentLabel} ID: <span className="font-medium text-slate-700">{invoice.invoiceNumber}</span>
             </p>
             {business.gstNumber && (
               <p className="text-sm text-slate-500">
@@ -85,7 +89,7 @@ export function InvoicePrintPage() {
                 <dd className="w-28 text-slate-700">{date(invoice.createdAtUtc)}</dd>
               </div>
               <div className="flex justify-end gap-2">
-                <dt className="text-slate-400">Due</dt>
+                <dt className="text-slate-400">{isQuotation ? 'Valid until' : 'Due'}</dt>
                 <dd className="w-28 text-slate-700">{date(invoice.dueDate)}</dd>
               </div>
             </dl>

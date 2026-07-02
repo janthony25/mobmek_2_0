@@ -17,6 +17,14 @@ public interface IInvoiceService
     Task<InvoiceDto?> GenerateAsync(Guid jobId, CreateInvoiceRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Generates a quotation from the job's items, labour and service lines. Priced exactly like
+    /// an invoice (same line snapshotting and GST treatment) but carries DocumentType
+    /// "Quotation", numbers independently (QUO-0001, ...), and can never be marked paid.
+    /// Returns <c>null</c> when the job does not exist.
+    /// </summary>
+    Task<InvoiceDto?> GenerateQuotationAsync(Guid jobId, CreateInvoiceRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Marks an invoice as rejected (kept for the record, never deleted) and removes any
     /// cash-flow ledger rows its payment posted. Returns <c>null</c> when the invoice is
     /// not found on <paramref name="jobId"/>.
@@ -27,8 +35,8 @@ public interface IInvoiceService
     /// Marks an invoice as paid, snapshotting the payment date and the cash/card split, and
     /// posts the payment into the cash-flow ledger (routed by the CashFlowSettings account
     /// mapping; skipped while no routing is configured). Returns <c>null</c> when there is no
-    /// payable ("Active") invoice with that id on <paramref name="jobId"/> (not found or
-    /// already rejected).
+    /// payable ("Active") invoice with that id on <paramref name="jobId"/> (not found,
+    /// already rejected, or a quotation — quotations are never payable).
     /// </summary>
     Task<InvoiceDto?> MarkPaidAsync(Guid jobId, Guid id, MarkInvoicePaidRequest request, CancellationToken cancellationToken = default);
 }

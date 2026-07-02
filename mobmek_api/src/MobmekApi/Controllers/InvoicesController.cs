@@ -43,6 +43,21 @@ public class InvoicesController(IInvoiceService invoiceService) : ControllerBase
         return CreatedAtAction(nameof(GetById), new { jobId, id = created.Id }, created);
     }
 
+    /// <summary>Generates a quotation from the job's items, labour and service lines. Priced like an invoice but never payable.</summary>
+    [HttpPost("quotation")]
+    [ProducesResponseType(typeof(InvoiceDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<InvoiceDto>> CreateQuotation(Guid jobId, CreateInvoiceRequest request, CancellationToken cancellationToken)
+    {
+        var created = await invoiceService.GenerateQuotationAsync(jobId, request, cancellationToken);
+        if (created is null)
+        {
+            return Problem(detail: $"Job '{jobId}' does not exist.", statusCode: StatusCodes.Status404NotFound);
+        }
+
+        return CreatedAtAction(nameof(GetById), new { jobId, id = created.Id }, created);
+    }
+
     /// <summary>Marks an invoice as rejected. The invoice is kept for the record, never deleted.</summary>
     [HttpPost("{id:guid}/reject")]
     [ProducesResponseType(typeof(InvoiceDto), StatusCodes.Status200OK)]

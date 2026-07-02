@@ -13,6 +13,7 @@ import {
 import { getJobServices } from '@/api/jobServices'
 import { Field, controlClass } from '@/components/forms/controls'
 import { InvoicesSection } from '@/components/jobs/InvoicesSection'
+import { QuotationsSection } from '@/components/jobs/QuotationsSection'
 import { PartsEditor } from '@/components/jobs/PartsEditor'
 import { LabourEditor } from '@/components/jobs/LabourEditor'
 import { RemindersSection } from '@/components/reminders/RemindersSection'
@@ -254,6 +255,8 @@ export function JobDetailPage() {
   return (
     <div className="space-y-6 pb-24">
       <InvoicesSection jobId={id} />
+
+      <QuotationsSection jobId={id} />
 
       <div className="rounded-xl border border-slate-200 border-l-4 border-l-amber-500 bg-amber-50/40 p-5 shadow-md">
         <RemindersSection

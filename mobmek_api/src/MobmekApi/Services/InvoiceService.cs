@@ -27,7 +27,13 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
         return invoice is null ? null : ToDto(invoice);
     }
 
-    public async Task<InvoiceDto?> GenerateAsync(Guid jobId, CreateInvoiceRequest request, CancellationToken cancellationToken = default)
+    public Task<InvoiceDto?> GenerateAsync(Guid jobId, CreateInvoiceRequest request, CancellationToken cancellationToken = default) =>
+        GenerateDocumentAsync(jobId, request, "Invoice", cancellationToken);
+
+    public Task<InvoiceDto?> GenerateQuotationAsync(Guid jobId, CreateInvoiceRequest request, CancellationToken cancellationToken = default) =>
+        GenerateDocumentAsync(jobId, request, "Quotation", cancellationToken);
+
+    private async Task<InvoiceDto?> GenerateDocumentAsync(Guid jobId, CreateInvoiceRequest request, string documentType, CancellationToken cancellationToken)
     {
         var job = await db.Jobs
             .Include(j => j.Items)
@@ -50,8 +56,11 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
         var taxAmount = Round(subTotal * gstRate);
         var totalAmount = Round(subTotal + taxAmount);
 
-        // Business-wide sequential number for the printed invoice ID (INV-0001, ...).
-        var nextSequenceNumber = (await db.Invoices.MaxAsync(i => (int?)i.SequenceNumber, cancellationToken) ?? 0) + 1;
+        // Business-wide sequential number for the printed document ID, counted per document
+        // type so invoices (INV-0001, ...) and quotations (QUO-0001, ...) number independently.
+        var nextSequenceNumber = (await db.Invoices
+            .Where(i => i.DocumentType == documentType)
+            .MaxAsync(i => (int?)i.SequenceNumber, cancellationToken) ?? 0) + 1;
 
         var invoice = new Invoice
         {
@@ -59,7 +68,7 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
             SequenceNumber = nextSequenceNumber,
             IssueName = job.Title,
             Notes = job.InvoiceNotes,
-            DocumentType = "Invoice",
+            DocumentType = documentType,
             Status = "Active",
             DueDate = request.DueDate,
             LabourPrice = labourTotal,
@@ -138,8 +147,9 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
             .Include(i => i.Items)
             .FirstOrDefaultAsync(i => i.Id == id && i.JobId == jobId, cancellationToken);
 
-        // Only an active invoice can be paid — a rejected one stays rejected.
-        if (invoice is null || invoice.Status == "Rejected")
+        // Only an active invoice can be paid — a rejected one stays rejected, and a
+        // quotation is never payable (it must be issued as an invoice first).
+        if (invoice is null || invoice.Status == "Rejected" || invoice.DocumentType == "Quotation")
         {
             return null;
         }
@@ -259,7 +269,7 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
     private static decimal Round(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
 
     private static InvoiceDto ToDto(Invoice i) =>
-        new(i.Id, i.JobId, $"INV-{i.SequenceNumber:D4}", i.IssueName, i.Notes, i.DocumentType, i.Status, i.DueDate, i.PaymentTerm, i.ModeOfPayment,
+        new(i.Id, i.JobId, $"{(i.DocumentType == "Quotation" ? "QUO" : "INV")}-{i.SequenceNumber:D4}", i.IssueName, i.Notes, i.DocumentType, i.Status, i.DueDate, i.PaymentTerm, i.ModeOfPayment,
             i.LabourPrice, i.SubTotal, i.GstRate, i.TaxAmount, i.Discount, i.ShippingFee, i.TotalAmount,
             i.IsPaid, i.AmountPaid, i.DatePaid, i.CashAmount, i.CardAmount,
             i.Items.OrderBy(x => x.CreatedAtUtc)
