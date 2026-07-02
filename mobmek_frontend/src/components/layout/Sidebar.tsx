@@ -29,6 +29,14 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    heading: 'Finance',
+    items: [
+      { to: '/cash-flow', label: 'Cash Flow', icon: '💵' },
+      { to: '/cash-accounts', label: 'Cash Accounts', icon: '🏦' },
+      { to: '/transaction-categories', label: 'Categories', icon: '🗂️' },
+    ],
+  },
+  {
     heading: 'Staff',
     items: [
       { to: '/employees', label: 'Employees', icon: '🧑‍🔧' },

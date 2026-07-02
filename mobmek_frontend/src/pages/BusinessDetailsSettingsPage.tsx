@@ -15,18 +15,26 @@ export function BusinessDetailsSettingsPage() {
 
   const [name, setName] = useState('')
   const [address, setAddress] = useState('')
-  const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
-  const [abn, setAbn] = useState('')
+  const [businessPhone, setBusinessPhone] = useState('')
+  const [telephone, setTelephone] = useState('')
+  const [gstNumber, setGstNumber] = useState('')
+  const [website, setWebsite] = useState('')
+  const [bankDetails, setBankDetails] = useState('')
+  const [logoUrl, setLogoUrl] = useState('')
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     if (!data) return
     setName(data.name)
     setAddress(data.address ?? '')
-    setPhone(data.phone ?? '')
     setEmail(data.email ?? '')
-    setAbn(data.abn ?? '')
+    setBusinessPhone(data.businessPhone ?? '')
+    setTelephone(data.telephone ?? '')
+    setGstNumber(data.gstNumber ?? '')
+    setWebsite(data.website ?? '')
+    setBankDetails(data.bankDetails ?? '')
+    setLogoUrl(data.logoUrl ?? '')
   }, [data])
 
   if (loading) return <StateMessage title="Loading business details…" />
@@ -42,9 +50,13 @@ export function BusinessDetailsSettingsPage() {
       await updateBusinessDetails({
         name: name.trim(),
         address: address.trim() || null,
-        phone: phone.trim() || null,
         email: email.trim() || null,
-        abn: abn.trim() || null,
+        businessPhone: businessPhone.trim() || null,
+        telephone: telephone.trim() || null,
+        gstNumber: gstNumber.trim() || null,
+        website: website.trim() || null,
+        bankDetails: bankDetails.trim() || null,
+        logoUrl: logoUrl.trim() || null,
       })
       toast.success('Business details updated')
       reload()
@@ -73,19 +85,46 @@ export function BusinessDetailsSettingsPage() {
           <span className="mb-1 block text-sm font-medium text-slate-700">Address</span>
           <textarea value={address} rows={2} onChange={(e) => setAddress(e.target.value)} className={inputClass} />
         </label>
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-slate-700">Business email</span>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
+        </label>
         <div className="grid grid-cols-2 gap-4">
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Phone</span>
-            <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass} />
+            <span className="mb-1 block text-sm font-medium text-slate-700">Business phone #</span>
+            <input
+              type="text"
+              value={businessPhone}
+              onChange={(e) => setBusinessPhone(e.target.value)}
+              className={inputClass}
+            />
           </label>
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Email</span>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
+            <span className="mb-1 block text-sm font-medium text-slate-700">Telephone #</span>
+            <input type="text" value={telephone} onChange={(e) => setTelephone(e.target.value)} className={inputClass} />
           </label>
         </div>
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">ABN</span>
-          <input type="text" value={abn} onChange={(e) => setAbn(e.target.value)} className={inputClass} />
+          <span className="mb-1 block text-sm font-medium text-slate-700">GST No</span>
+          <input type="text" value={gstNumber} onChange={(e) => setGstNumber(e.target.value)} className={inputClass} />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-slate-700">Website</span>
+          <input type="text" value={website} onChange={(e) => setWebsite(e.target.value)} className={inputClass} />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-slate-700">Bank/payment details</span>
+          <textarea
+            value={bankDetails}
+            rows={3}
+            placeholder={'Account name: ...\nBank: ...\nAccount number: ...'}
+            onChange={(e) => setBankDetails(e.target.value)}
+            className={inputClass}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-slate-700">Logo image URL</span>
+          <input type="text" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} className={inputClass} />
         </label>
 
         <div className="flex items-center gap-4 border-t border-slate-100 pt-4">

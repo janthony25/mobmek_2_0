@@ -18,6 +18,7 @@ public record InvoiceItemDto(
 public record InvoiceDto(
     Guid Id,
     Guid JobId,
+    string InvoiceNumber,
     string IssueName,
     string? Notes,
     string DocumentType,

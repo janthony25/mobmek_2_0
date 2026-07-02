@@ -7,9 +7,13 @@ public record BusinessDetailsDto(
     Guid Id,
     string Name,
     string? Address,
-    string? Phone,
     string? Email,
-    string? Abn,
+    string? BusinessPhone,
+    string? Telephone,
+    string? GstNumber,
+    string? Website,
+    string? BankDetails,
+    string? LogoUrl,
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc);
 
@@ -17,6 +21,10 @@ public record BusinessDetailsDto(
 public record UpdateBusinessDetailsRequest(
     [Required, MaxLength(200)] string Name,
     [MaxLength(500)] string? Address,
-    [MaxLength(50)] string? Phone,
     [MaxLength(255)] string? Email,
-    [MaxLength(50)] string? Abn);
+    [MaxLength(50)] string? BusinessPhone,
+    [MaxLength(50)] string? Telephone,
+    [MaxLength(50)] string? GstNumber,
+    [MaxLength(255)] string? Website,
+    [MaxLength(1000)] string? BankDetails,
+    [MaxLength(500)] string? LogoUrl);

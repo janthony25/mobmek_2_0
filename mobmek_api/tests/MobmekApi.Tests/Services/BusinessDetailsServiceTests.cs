@@ -47,16 +47,24 @@ public class BusinessDetailsServiceTests
         var request = new UpdateBusinessDetailsRequest(
             "Jun's Garage",
             "1 Main St",
-            "0400 000 000",
             "shop@example.com",
-            "12 345 678 901");
+            "0400 000 000",
+            "09 123 4567",
+            "12 345 678 901",
+            "www.junsgarage.co.nz",
+            "Account Name: Jun's Garage\nBank: ANZ\nAccount: 12-3456-7890123-00",
+            "https://example.com/logo.png");
         var updated = await service.UpdateAsync(request);
 
         Assert.Equal("Jun's Garage", updated.Name);
         Assert.Equal("1 Main St", updated.Address);
-        Assert.Equal("0400 000 000", updated.Phone);
         Assert.Equal("shop@example.com", updated.Email);
-        Assert.Equal("12 345 678 901", updated.Abn);
+        Assert.Equal("0400 000 000", updated.BusinessPhone);
+        Assert.Equal("09 123 4567", updated.Telephone);
+        Assert.Equal("12 345 678 901", updated.GstNumber);
+        Assert.Equal("www.junsgarage.co.nz", updated.Website);
+        Assert.Equal("Account Name: Jun's Garage\nBank: ANZ\nAccount: 12-3456-7890123-00", updated.BankDetails);
+        Assert.Equal("https://example.com/logo.png", updated.LogoUrl);
         Assert.NotNull(updated.UpdatedAtUtc);
 
         var reloaded = await service.GetCurrentAsync();

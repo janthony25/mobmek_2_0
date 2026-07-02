@@ -17,15 +17,18 @@ public interface IInvoiceService
     Task<InvoiceDto?> GenerateAsync(Guid jobId, CreateInvoiceRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Marks an invoice as rejected (kept for the record, never deleted). Returns <c>null</c>
-    /// when the invoice is not found on <paramref name="jobId"/>.
+    /// Marks an invoice as rejected (kept for the record, never deleted) and removes any
+    /// cash-flow ledger rows its payment posted. Returns <c>null</c> when the invoice is
+    /// not found on <paramref name="jobId"/>.
     /// </summary>
     Task<InvoiceDto?> RejectAsync(Guid jobId, Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Marks an invoice as paid, snapshotting the payment date and the cash/card split. Returns
-    /// <c>null</c> when there is no payable ("Active") invoice with that id on <paramref name="jobId"/>
-    /// (not found or already rejected).
+    /// Marks an invoice as paid, snapshotting the payment date and the cash/card split, and
+    /// posts the payment into the cash-flow ledger (routed by the CashFlowSettings account
+    /// mapping; skipped while no routing is configured). Returns <c>null</c> when there is no
+    /// payable ("Active") invoice with that id on <paramref name="jobId"/> (not found or
+    /// already rejected).
     /// </summary>
     Task<InvoiceDto?> MarkPaidAsync(Guid jobId, Guid id, MarkInvoicePaidRequest request, CancellationToken cancellationToken = default);
 }

@@ -16,6 +16,14 @@ public class Invoice : BaseEntity
     /// <summary>Headline for the invoice, captured from the job's title.</summary>
     public required string IssueName { get; set; }
 
+    /// <summary>
+    /// Business-wide sequential number backing the printed invoice ID (INV-0001, ...). Assigned
+    /// in <see cref="Services.InvoiceService"/> as (current max + 1); not DB-generated, so it
+    /// isn't safe against concurrent generation, matching the app's other invoice invariants
+    /// (see todo-list.md) that aren't yet guarded for concurrency.
+    /// </summary>
+    public int SequenceNumber { get; set; }
+
     public string? Notes { get; set; }
 
     /// <summary>"Invoice" for now (quotations may be added later).</summary>

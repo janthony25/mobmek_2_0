@@ -28,6 +28,15 @@ builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<IReminderTemplateService, ReminderTemplateService>();
 builder.Services.AddScoped<INoteService, NoteService>();
 builder.Services.AddScoped<IReminderService, ReminderService>();
+builder.Services.AddScoped<ICashAccountService, CashAccountService>();
+builder.Services.AddScoped<ITransactionCategoryService, TransactionCategoryService>();
+builder.Services.AddScoped<ICashTransactionService, CashTransactionService>();
+builder.Services.AddScoped<ICashFlowSettingsService, CashFlowSettingsService>();
+
+// Transaction receipts land on local disk for now; swap this registration for an
+// S3-backed IFileStorage when file storage moves to the cloud.
+builder.Services.AddSingleton<IFileStorage>(new LocalFileStorage(
+    Path.Combine(builder.Environment.ContentRootPath, builder.Configuration["FileStorage:RootPath"] ?? "uploads")));
 
 // --- MVC / API ---
 builder.Services.AddControllers();
@@ -51,6 +60,7 @@ if (app.Environment.IsDevelopment())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
     await CarReferenceDataSeeder.SeedAsync(db);
+    await CashFlowSeeder.SeedAsync(db);
 }
 
 // --- HTTP pipeline ---

@@ -47,6 +47,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<Reminder> Reminders => Set<Reminder>();
 
+    public DbSet<CashAccount> CashAccounts => Set<CashAccount>();
+
+    public DbSet<TransactionCategory> TransactionCategories => Set<TransactionCategory>();
+
+    public DbSet<CashTransaction> CashTransactions => Set<CashTransaction>();
+
+    public DbSet<TransactionAttachment> TransactionAttachments => Set<TransactionAttachment>();
+
+    public DbSet<CashFlowSettings> CashFlowSettings => Set<CashFlowSettings>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -302,9 +312,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.HasKey(b => b.Id);
             entity.Property(b => b.Name).IsRequired().HasMaxLength(200);
             entity.Property(b => b.Address).HasMaxLength(500);
-            entity.Property(b => b.Phone).HasMaxLength(50);
             entity.Property(b => b.Email).HasMaxLength(255);
-            entity.Property(b => b.Abn).HasMaxLength(50);
+            entity.Property(b => b.BusinessPhone).HasMaxLength(50);
+            entity.Property(b => b.Telephone).HasMaxLength(50);
+            entity.Property(b => b.GstNumber).HasMaxLength(50);
+            entity.Property(b => b.Website).HasMaxLength(255);
+            entity.Property(b => b.BankDetails).HasMaxLength(1000);
+            entity.Property(b => b.LogoUrl).HasMaxLength(500);
         });
 
         modelBuilder.Entity<ReminderTemplate>(entity =>
@@ -359,6 +373,78 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.HasIndex(r => r.CustomerId);
             entity.HasIndex(r => r.CarId);
             entity.HasIndex(r => r.DueDate);
+        });
+        modelBuilder.Entity<CashAccount>(entity =>
+        {
+            entity.HasKey(a => a.Id);
+            entity.Property(a => a.Name).IsRequired().HasMaxLength(200);
+            entity.Property(a => a.Type).IsRequired().HasMaxLength(30);
+            entity.Property(a => a.AccountNumber).HasMaxLength(50);
+            entity.Property(a => a.OpeningBalance).HasColumnType("numeric(18,2)");
+        });
+
+        modelBuilder.Entity<TransactionCategory>(entity =>
+        {
+            entity.HasKey(c => c.Id);
+            entity.Property(c => c.Name).IsRequired().HasMaxLength(100);
+            entity.Property(c => c.Direction).IsRequired().HasMaxLength(10);
+            entity.Property(c => c.Group).IsRequired().HasMaxLength(50);
+            entity.Property(c => c.DefaultGstTreatment).IsRequired().HasMaxLength(20);
+            entity.HasIndex(c => c.Name).IsUnique();
+        });
+
+        modelBuilder.Entity<CashTransaction>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            entity.Property(t => t.Direction).IsRequired().HasMaxLength(10);
+            entity.Property(t => t.Amount).HasColumnType("numeric(18,2)");
+            entity.Property(t => t.Description).IsRequired().HasMaxLength(500);
+            entity.Property(t => t.Counterparty).HasMaxLength(200);
+            entity.Property(t => t.GstTreatment).IsRequired().HasMaxLength(20);
+            entity.Property(t => t.Notes).HasMaxLength(2000);
+
+            // The ledger is history: an account or category that still has transactions
+            // cannot be deleted (archive instead).
+            entity.HasOne(t => t.Account)
+                .WithMany(a => a.Transactions)
+                .HasForeignKey(t => t.AccountId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(t => t.Category)
+                .WithMany()
+                .HasForeignKey(t => t.CategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // If an invoice disappears (its job was deleted), the ledger row survives
+            // unlinked — the money still moved.
+            entity.HasOne(t => t.Invoice)
+                .WithMany()
+                .HasForeignKey(t => t.InvoiceId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(t => t.AccountId);
+            entity.HasIndex(t => t.CategoryId);
+            entity.HasIndex(t => t.Date);
+            entity.HasIndex(t => t.InvoiceId);
+            entity.HasIndex(t => t.TransferGroupId);
+        });
+
+        modelBuilder.Entity<TransactionAttachment>(entity =>
+        {
+            entity.HasKey(a => a.Id);
+            entity.Property(a => a.FileName).IsRequired().HasMaxLength(255);
+            entity.Property(a => a.ContentType).IsRequired().HasMaxLength(100);
+            entity.Property(a => a.StorageKey).IsRequired().HasMaxLength(500);
+
+            entity.HasOne(a => a.CashTransaction)
+                .WithMany(t => t.Attachments)
+                .HasForeignKey(a => a.CashTransactionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<CashFlowSettings>(entity =>
+        {
+            entity.HasKey(s => s.Id);
         });
     }
 

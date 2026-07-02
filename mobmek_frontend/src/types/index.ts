@@ -241,6 +241,7 @@ export interface InvoiceItem {
 export interface Invoice {
   id: string
   jobId: string
+  invoiceNumber: string
   issueName: string
   notes: string | null
   documentType: string
@@ -300,9 +301,15 @@ export interface BusinessDetails {
   id: string
   name: string
   address: string | null
-  phone: string | null
   email: string | null
-  abn: string | null
+  businessPhone: string | null
+  telephone: string | null
+  /** GST registration number, shown on generated invoices. */
+  gstNumber: string | null
+  website: string | null
+  /** Free-text bank/payment details shown on invoices for bank-transfer payers. */
+  bankDetails: string | null
+  logoUrl: string | null
   createdAtUtc: string
   updatedAtUtc: string | null
 }
@@ -310,9 +317,13 @@ export interface BusinessDetails {
 export interface UpdateBusinessDetailsRequest {
   name: string
   address: string | null
-  phone: string | null
   email: string | null
-  abn: string | null
+  businessPhone: string | null
+  telephone: string | null
+  gstNumber: string | null
+  website: string | null
+  bankDetails: string | null
+  logoUrl: string | null
 }
 
 // --- Products ----------------------------------------------------------------
@@ -456,3 +467,148 @@ export interface CreateReminderRequest {
 }
 
 export type UpdateReminderRequest = Omit<CreateReminderRequest, 'customerId'>
+
+// --- Cash flow ----------------------------------------------------------------
+
+export interface CashAccount {
+  id: string
+  name: string
+  /** "Bank", "Cash", "DigitalWallet" or "CreditCard". */
+  type: string
+  accountNumber: string | null
+  openingBalance: number
+  /** Calendar date, "yyyy-mm-dd" — the ledger for this account starts here. */
+  openingDate: string
+  isArchived: boolean
+  /** Derived on the backend: opening balance + inflows − outflows. */
+  currentBalance: number
+  createdAtUtc: string
+  updatedAtUtc: string | null
+}
+
+export interface CashAccountRequest {
+  name: string
+  type: string
+  accountNumber: string | null
+  openingBalance: number
+  openingDate: string
+  isArchived?: boolean
+}
+
+export const CASH_ACCOUNT_TYPES = ['Bank', 'Cash', 'DigitalWallet', 'CreditCard'] as const
+
+export const CASH_ACCOUNT_TYPE_LABELS: Record<string, string> = {
+  Bank: 'Bank account',
+  Cash: 'Cash / till',
+  DigitalWallet: 'Digital wallet',
+  CreditCard: 'Credit card',
+}
+
+export interface TransactionCategory {
+  id: string
+  name: string
+  /** "In", "Out" or "Either". */
+  direction: string
+  group: string
+  /** Seeded system categories are rename/archive-only. */
+  isSystem: boolean
+  /** "Taxable", "Exempt" or "ZeroRated". */
+  defaultGstTreatment: string
+  excludeFromOperatingExpense: boolean
+  isArchived: boolean
+  createdAtUtc: string
+  updatedAtUtc: string | null
+}
+
+export interface TransactionCategoryRequest {
+  name: string
+  direction: string
+  group: string
+  defaultGstTreatment: string | null
+  excludeFromOperatingExpense: boolean
+  isArchived?: boolean
+}
+
+export interface TransactionAttachment {
+  id: string
+  cashTransactionId: string
+  fileName: string
+  contentType: string
+  sizeBytes: number
+  createdAtUtc: string
+}
+
+export interface CashTransaction {
+  id: string
+  accountId: string
+  accountName: string
+  /** "In" or "Out". */
+  direction: string
+  /** Always positive; the direction carries the sign. GST-inclusive. */
+  amount: number
+  /** Calendar date, "yyyy-mm-dd" — when the cash actually moved. */
+  date: string
+  description: string
+  categoryId: string
+  categoryName: string
+  counterparty: string | null
+  /** Set when auto-posted from an invoice payment — read-only in the ledger. */
+  invoiceId: string | null
+  /** Set on the two paired legs of a transfer — managed together. */
+  transferGroupId: string | null
+  /** "Taxable", "Exempt" or "ZeroRated". */
+  gstTreatment: string
+  notes: string | null
+  attachments: TransactionAttachment[]
+  createdAtUtc: string
+  updatedAtUtc: string | null
+}
+
+export interface CashTransactionPage {
+  items: CashTransaction[]
+  page: number
+  pageSize: number
+  totalCount: number
+  /** Filter-wide totals (not just this page); transfer legs excluded. */
+  totalIn: number
+  totalOut: number
+}
+
+export interface CashTransactionRequest {
+  accountId: string
+  direction: string
+  amount: number
+  date: string
+  description: string
+  categoryId: string
+  counterparty: string | null
+  /** Omit (null) to use the category's default. */
+  gstTreatment: string | null
+  notes: string | null
+}
+
+export interface CreateTransferRequest {
+  fromAccountId: string
+  toAccountId: string
+  amount: number
+  date: string
+  description: string | null
+  notes: string | null
+}
+
+export interface CashFlowSettings {
+  id: string
+  defaultAccountId: string | null
+  cashAccountId: string | null
+  cardAccountId: string | null
+  bankTransferAccountId: string | null
+  createdAtUtc: string
+  updatedAtUtc: string | null
+}
+
+export interface UpdateCashFlowSettingsRequest {
+  defaultAccountId: string | null
+  cashAccountId: string | null
+  cardAccountId: string | null
+  bankTransferAccountId: string | null
+}

@@ -15,9 +15,13 @@ public class BusinessDetailsService(AppDbContext db) : IBusinessDetailsService
         var details = await GetOrCreateAsync(cancellationToken);
         details.Name = request.Name;
         details.Address = request.Address;
-        details.Phone = request.Phone;
         details.Email = request.Email;
-        details.Abn = request.Abn;
+        details.BusinessPhone = request.BusinessPhone;
+        details.Telephone = request.Telephone;
+        details.GstNumber = request.GstNumber;
+        details.Website = request.Website;
+        details.BankDetails = request.BankDetails;
+        details.LogoUrl = request.LogoUrl;
         await db.SaveChangesAsync(cancellationToken);
         return ToDto(details);
     }
@@ -37,5 +41,6 @@ public class BusinessDetailsService(AppDbContext db) : IBusinessDetailsService
     }
 
     private static BusinessDetailsDto ToDto(BusinessDetails b) =>
-        new(b.Id, b.Name, b.Address, b.Phone, b.Email, b.Abn, b.CreatedAtUtc, b.UpdatedAtUtc);
+        new(b.Id, b.Name, b.Address, b.Email, b.BusinessPhone, b.Telephone, b.GstNumber, b.Website, b.BankDetails, b.LogoUrl,
+            b.CreatedAtUtc, b.UpdatedAtUtc);
 }

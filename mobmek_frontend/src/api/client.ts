@@ -69,3 +69,21 @@ export const apiGet = <T>(path: string): Promise<T> => request<T>('GET', path)
 export const apiPost = <T>(path: string, body: unknown): Promise<T> => request<T>('POST', path, body)
 export const apiPut = <T>(path: string, body: unknown): Promise<T> => request<T>('PUT', path, body)
 export const apiDelete = (path: string): Promise<void> => request<void>('DELETE', path)
+
+/** POSTs a multipart form (file uploads); the browser sets the Content-Type boundary itself. */
+export async function apiPostForm<T>(path: string, form: FormData): Promise<T> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: 'POST',
+    headers: { Accept: 'application/json' },
+    body: form,
+  })
+
+  if (!response.ok) {
+    throw await toApiError(response, path)
+  }
+
+  return (await response.json()) as T
+}
+
+/** Absolute-ish URL for links the browser fetches itself (file downloads). */
+export const apiUrl = (path: string): string => `${BASE_URL}${path}`

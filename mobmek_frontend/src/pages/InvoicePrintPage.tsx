@@ -3,11 +3,9 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { getBusinessDetails } from '@/api/businessDetails'
 import { getInvoice } from '@/api/invoices'
 import { getJob } from '@/api/jobs'
-import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { StateMessage } from '@/components/ui/StateMessage'
 import { useAsync } from '@/hooks/useAsync'
-import { invoiceStatusLabel, invoiceStatusTone } from '@/lib/badges'
 import { currency, date, orDash, percent } from '@/lib/format'
 
 export function InvoicePrintPage() {
@@ -50,19 +48,27 @@ export function InvoicePrintPage() {
       <div className="mx-auto max-w-3xl bg-white p-10 shadow-sm print:max-w-none print:shadow-none">
         <header className="flex items-start justify-between gap-6 border-b border-slate-200 pb-6">
           <div>
+            {business.logoUrl && (
+              <img src={business.logoUrl} alt={business.name} className="mb-2 h-10 object-contain" />
+            )}
             <h1 className="text-xl font-bold text-slate-900">{business.name}</h1>
             {business.address && <p className="mt-1 whitespace-pre-line text-sm text-slate-500">{business.address}</p>}
             <p className="mt-1 text-sm text-slate-500">
-              {[business.phone, business.email].filter(Boolean).join(' · ')}
+              {[business.businessPhone, business.telephone, business.email, business.website]
+                .filter(Boolean)
+                .join(' · ')}
             </p>
-            {business.abn && <p className="text-sm text-slate-500">ABN {business.abn}</p>}
           </div>
           <div className="text-right">
             <h2 className="text-2xl font-bold uppercase tracking-wide text-slate-900">Invoice</h2>
-            <p className="mt-1 text-sm font-medium text-slate-700">{invoice.issueName}</p>
-            <div className="mt-2">
-              <Badge tone={invoiceStatusTone(invoice)}>{invoiceStatusLabel(invoice)}</Badge>
-            </div>
+            <p className="mt-1 text-sm text-slate-500">
+              Invoice ID: <span className="font-medium text-slate-700">{invoice.invoiceNumber}</span>
+            </p>
+            {business.gstNumber && (
+              <p className="text-sm text-slate-500">
+                GST No: <span className="font-medium text-slate-700">{business.gstNumber}</span>
+              </p>
+            )}
           </div>
         </header>
 
@@ -71,7 +77,6 @@ export function InvoicePrintPage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Bill to</p>
             <p className="mt-1 text-sm font-medium text-slate-900">{orDash(job.customerName)}</p>
             <p className="text-sm text-slate-600">{orDash(job.carDescription)}</p>
-            <p className="text-sm text-slate-600">Job: {job.title}</p>
           </div>
           <div className="text-right">
             <dl className="space-y-1 text-sm">
@@ -157,6 +162,13 @@ export function InvoicePrintPage() {
           <section className="mt-8">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Notes</p>
             <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{invoice.notes}</p>
+          </section>
+        )}
+
+        {business.bankDetails && (
+          <section className="mt-8">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Payment details</p>
+            <p className="mt-1 whitespace-pre-line text-sm text-slate-700">{business.bankDetails}</p>
           </section>
         )}
 

@@ -17,6 +17,9 @@ import { TaxSettingsPage } from '@/pages/TaxSettingsPage'
 import { BusinessDetailsSettingsPage } from '@/pages/BusinessDetailsSettingsPage'
 import { ReminderTemplatesPage } from '@/pages/ReminderTemplatesPage'
 import { InvoicePrintPage } from '@/pages/InvoicePrintPage'
+import { CashFlowPage } from '@/pages/CashFlowPage'
+import { CashAccountsPage } from '@/pages/CashAccountsPage'
+import { TransactionCategoriesPage } from '@/pages/TransactionCategoriesPage'
 
 function App() {
   useNumberInputWheelGuard()
@@ -39,6 +42,9 @@ function App() {
         <Route path="employees" element={<EmployeesPage />} />
         <Route path="employee-titles" element={<EmployeeTitlesPage />} />
         <Route path="employment-types" element={<EmploymentTypesPage />} />
+        <Route path="cash-flow" element={<CashFlowPage />} />
+        <Route path="cash-accounts" element={<CashAccountsPage />} />
+        <Route path="transaction-categories" element={<TransactionCategoriesPage />} />
         <Route path="tax" element={<TaxSettingsPage />} />
         <Route path="business-details" element={<BusinessDetailsSettingsPage />} />
         <Route path="reminder-templates" element={<ReminderTemplatesPage />} />
