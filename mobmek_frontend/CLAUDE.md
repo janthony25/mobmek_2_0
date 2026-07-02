@@ -27,8 +27,16 @@ Before writing or editing any code in response to a request:
   about to take (files/components to add or edit, type changes in `src/types`, API modules,
   routes) so the user can see exactly what will change, then work through them one by one and
   keep the list visible/updated as you go.
-- **Verify before calling it done.** There's no test suite, so the gate is `npx tsc -b` (type
-  check) and `npm run lint` (oxlint) passing; offer to run the dev server for visual changes.
+- **Verify before calling it done.** There's no test suite, so `npx tsc -b` (type check) and
+  `npm run lint` (oxlint) passing is the mandatory gate for every change — it's cheap, always run it.
+  Live browser verification (dev server + click through, screenshots) is **not required for every
+  change** — reserve it for new components, layout/structural rework, or new interactive behavior
+  (a new button/action, a new form, a cascading field). Skip it for copy/className/formatting
+  tweaks, renames, or anything the type checker already proves correct. When it is warranted,
+  do the smallest check that proves it (one interaction, one screenshot) rather than a full
+  multi-step session, and don't spin up a research subagent just to verify a UI change — read the
+  file directly. If you skip visual verification, say so explicitly rather than implying it was
+  tested.
 
 The goal: build exactly the right feature, correctly — never silently guess.
 

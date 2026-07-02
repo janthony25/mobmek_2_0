@@ -57,6 +57,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<CashFlowSettings> CashFlowSettings => Set<CashFlowSettings>();
 
+    public DbSet<RecurringTransaction> RecurringTransactions => Set<RecurringTransaction>();
+
+    public DbSet<PlannedTransaction> PlannedTransactions => Set<PlannedTransaction>();
+
+    public DbSet<Payee> Payees => Set<Payee>();
+
+    public DbSet<CategorizationRule> CategorizationRules => Set<CategorizationRule>();
+
+    public DbSet<CashFlowAuditLog> CashFlowAuditLogs => Set<CashFlowAuditLog>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -402,6 +412,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(t => t.Counterparty).HasMaxLength(200);
             entity.Property(t => t.GstTreatment).IsRequired().HasMaxLength(20);
             entity.Property(t => t.Notes).HasMaxLength(2000);
+            // DB default (not just a C# initializer) so rows that pre-date the status
+            // column are backfilled to "Cleared" by the migration.
+            entity.Property(t => t.Status).IsRequired().HasMaxLength(15).HasDefaultValue("Cleared");
 
             // The ledger is history: an account or category that still has transactions
             // cannot be deleted (archive instead).
@@ -422,11 +435,76 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasForeignKey(t => t.InvoiceId)
                 .OnDelete(DeleteBehavior.SetNull);
 
+            // Same reasoning: deleting the schedule doesn't erase the history it produced.
+            entity.HasOne(t => t.RecurringTransaction)
+                .WithMany()
+                .HasForeignKey(t => t.RecurringTransactionId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // A payee is a label over history; deleting it leaves the Counterparty text behind.
+            entity.HasOne(t => t.Payee)
+                .WithMany()
+                .HasForeignKey(t => t.PayeeId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             entity.HasIndex(t => t.AccountId);
             entity.HasIndex(t => t.CategoryId);
             entity.HasIndex(t => t.Date);
             entity.HasIndex(t => t.InvoiceId);
             entity.HasIndex(t => t.TransferGroupId);
+            entity.HasIndex(t => t.SplitGroupId);
+            entity.HasIndex(t => t.RecurringTransactionId);
+            entity.HasIndex(t => t.PayeeId);
+            entity.HasIndex(t => t.Status);
+        });
+
+        modelBuilder.Entity<Payee>(entity =>
+        {
+            entity.HasKey(p => p.Id);
+            entity.Property(p => p.Name).IsRequired().HasMaxLength(200);
+            entity.Property(p => p.DefaultGstTreatment).HasMaxLength(20);
+            entity.Property(p => p.Notes).HasMaxLength(2000);
+            entity.HasIndex(p => p.Name).IsUnique();
+
+            entity.HasOne(p => p.DefaultCategory)
+                .WithMany()
+                .HasForeignKey(p => p.DefaultCategoryId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<CategorizationRule>(entity =>
+        {
+            entity.HasKey(r => r.Id);
+            entity.Property(r => r.Name).IsRequired().HasMaxLength(200);
+            entity.Property(r => r.MatchField).IsRequired().HasMaxLength(20);
+            entity.Property(r => r.MatchType).IsRequired().HasMaxLength(20);
+            entity.Property(r => r.MatchValue).IsRequired().HasMaxLength(200);
+            entity.Property(r => r.Direction).HasMaxLength(10);
+            entity.Property(r => r.AmountMin).HasColumnType("numeric(18,2)");
+            entity.Property(r => r.AmountMax).HasColumnType("numeric(18,2)");
+            entity.Property(r => r.SetGstTreatment).HasMaxLength(20);
+
+            // A rule that assigns a category blocks deleting that category (archive instead).
+            entity.HasOne(r => r.SetCategory)
+                .WithMany()
+                .HasForeignKey(r => r.SetCategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(r => r.SetPayee)
+                .WithMany()
+                .HasForeignKey(r => r.SetPayeeId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<CashFlowAuditLog>(entity =>
+        {
+            entity.HasKey(a => a.Id);
+            entity.Property(a => a.EntityType).IsRequired().HasMaxLength(50);
+            entity.Property(a => a.Action).IsRequired().HasMaxLength(20);
+            entity.Property(a => a.Summary).IsRequired().HasMaxLength(1000);
+            entity.Property(a => a.Changes).HasMaxLength(8000);
+            entity.HasIndex(a => new { a.EntityType, a.EntityId });
+            entity.HasIndex(a => a.CreatedAtUtc);
         });
 
         modelBuilder.Entity<TransactionAttachment>(entity =>
@@ -445,6 +523,50 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<CashFlowSettings>(entity =>
         {
             entity.HasKey(s => s.Id);
+            entity.Property(s => s.SafetyBufferAmount).HasColumnType("numeric(18,2)");
+        });
+
+        modelBuilder.Entity<RecurringTransaction>(entity =>
+        {
+            entity.HasKey(r => r.Id);
+            entity.Property(r => r.Description).IsRequired().HasMaxLength(500);
+            entity.Property(r => r.Direction).IsRequired().HasMaxLength(10);
+            entity.Property(r => r.Amount).HasColumnType("numeric(18,2)");
+            entity.Property(r => r.Counterparty).HasMaxLength(200);
+            entity.Property(r => r.GstTreatment).IsRequired().HasMaxLength(20);
+            entity.Property(r => r.Frequency).IsRequired().HasMaxLength(20);
+
+            // History (materialised CashTransactions) outlives the account/category it
+            // references, same as CashTransaction itself — archive/restrict, don't cascade.
+            entity.HasOne(r => r.Account)
+                .WithMany()
+                .HasForeignKey(r => r.AccountId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(r => r.Category)
+                .WithMany()
+                .HasForeignKey(r => r.CategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PlannedTransaction>(entity =>
+        {
+            entity.HasKey(p => p.Id);
+            entity.Property(p => p.Description).IsRequired().HasMaxLength(500);
+            entity.Property(p => p.Direction).IsRequired().HasMaxLength(10);
+            entity.Property(p => p.Amount).HasColumnType("numeric(18,2)");
+            entity.Property(p => p.Status).IsRequired().HasMaxLength(20);
+            entity.Property(p => p.ScenarioTag).HasMaxLength(20);
+
+            entity.HasOne(p => p.Account)
+                .WithMany()
+                .HasForeignKey(p => p.AccountId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(p => p.Category)
+                .WithMany()
+                .HasForeignKey(p => p.CategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 

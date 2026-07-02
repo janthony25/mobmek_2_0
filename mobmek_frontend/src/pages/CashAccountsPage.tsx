@@ -151,6 +151,8 @@ function InvoiceRoutingSection({ accountsVersion }: { accountsVersion: number })
   const [cashAccountId, setCashAccountId] = useState('')
   const [cardAccountId, setCardAccountId] = useState('')
   const [bankTransferAccountId, setBankTransferAccountId] = useState('')
+  const [safetyBufferAmount, setSafetyBufferAmount] = useState('0')
+  const [lockDate, setLockDate] = useState('')
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
@@ -159,6 +161,8 @@ function InvoiceRoutingSection({ accountsVersion }: { accountsVersion: number })
     setCashAccountId(settings.data.cashAccountId ?? '')
     setCardAccountId(settings.data.cardAccountId ?? '')
     setBankTransferAccountId(settings.data.bankTransferAccountId ?? '')
+    setSafetyBufferAmount(String(settings.data.safetyBufferAmount))
+    setLockDate(settings.data.lockDate ?? '')
   }, [settings.data])
 
   const save = async (e: FormEvent) => {
@@ -170,8 +174,10 @@ function InvoiceRoutingSection({ accountsVersion }: { accountsVersion: number })
         cashAccountId: cashAccountId || null,
         cardAccountId: cardAccountId || null,
         bankTransferAccountId: bankTransferAccountId || null,
+        safetyBufferAmount: Number(safetyBufferAmount),
+        lockDate: lockDate || null,
       })
-      toast.success('Invoice payment routing saved')
+      toast.success('Cash flow settings saved')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     } finally {
@@ -203,6 +209,30 @@ function InvoiceRoutingSection({ accountsVersion }: { accountsVersion: number })
           {routeSelect('Cash payments', cashAccountId, setCashAccountId, 'Use default account')}
           {routeSelect('Card payments', cardAccountId, setCardAccountId, 'Use default account')}
           {routeSelect('Bank transfers', bankTransferAccountId, setBankTransferAccountId, 'Use default account')}
+          <Field label="Safety buffer">
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={safetyBufferAmount}
+              onChange={(e) => setSafetyBufferAmount(e.target.value)}
+              className={controlClass}
+            />
+            <span className="mt-1 block text-xs font-normal text-slate-500">
+              Minimum cash to keep on hand; the forecast flags the first date the balance is projected to drop below this.
+            </span>
+          </Field>
+          <Field label="Lock transactions up to">
+            <input
+              type="date"
+              value={lockDate}
+              onChange={(e) => setLockDate(e.target.value)}
+              className={controlClass}
+            />
+            <span className="mt-1 block text-xs font-normal text-slate-500">
+              Transactions dated on or before this can't be added, edited or deleted — set it after handing figures to your accountant. Leave empty for no lock.
+            </span>
+          </Field>
         </div>
         <div className="mt-4 flex justify-end">
           <Button type="submit" disabled={busy || settings.loading}>

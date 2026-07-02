@@ -47,6 +47,14 @@ interface CrudSectionProps<T> {
   /** Fired after any successful create/update/delete (e.g. to refresh a parent). */
   onChanged?: () => void
 
+  /** Optional extra per-row action rendered before Edit/Delete (e.g. "Mark as done"). */
+  extraAction?: {
+    label: (row: T) => string
+    onClick: (row: T) => Promise<void>
+    /** Hide the action for a given row, e.g. once it's already done. */
+    hidden?: (row: T) => boolean
+  }
+
   emptyText?: string
 }
 
@@ -71,6 +79,7 @@ export function CrudSection<T>({
   onDelete,
   onAdd,
   onChanged,
+  extraAction,
   emptyText,
 }: CrudSectionProps<T>) {
   const toast = useToast()
@@ -100,6 +109,14 @@ export function CrudSection<T>({
     await onDelete(getId(deleting))
     toast.success(`${resourceName} deleted`)
     setDeleting(null)
+    reload()
+    onChanged?.()
+  }
+
+  const handleExtraAction = async (row: T) => {
+    if (!extraAction) return
+    await extraAction.onClick(row)
+    toast.success(`${resourceName} updated`)
     reload()
     onChanged?.()
   }
@@ -179,6 +196,11 @@ export function CrudSection<T>({
                     <Button variant="ghost" size="sm" onClick={() => setEditing({ mode: 'edit', row })}>
                       Edit
                     </Button>
+                    {extraAction && !extraAction.hidden?.(row) && (
+                      <Button variant="ghost" size="sm" onClick={() => handleExtraAction(row)}>
+                        {extraAction.label(row)}
+                      </Button>
+                    )}
                     <Button variant="ghost" size="sm" className="text-red-600" onClick={() => setDeleting(row)}>
                       Delete
                     </Button>

@@ -105,28 +105,28 @@ export function CarDetailPage() {
         </div>
 
         <div className="lg:col-span-2">
-          <Card title="Appointment History">
-            {jobsState.loading && <p className="text-sm text-slate-500">Loading appointments…</p>}
-            {jobsState.error && <p className="text-sm text-red-600">{jobsState.error.message}</p>}
-            {!jobsState.loading && carJobs.length === 0 && (
-              <p className="text-sm text-slate-500">No jobs for this car yet. Use “New job” to create one.</p>
-            )}
-            {carJobs.length > 0 && (
-              <div className="divide-y divide-slate-100">
-                {carJobs.map((job) => (
-                  <AppointmentRow key={job.id} job={job} />
-                ))}
-              </div>
-            )}
-          </Card>
+          <RemindersSection
+            customerId={customerId}
+            lockedCarId={carId}
+            description="Reminders for this car, e.g. next WOF or service."
+          />
         </div>
       </div>
 
-      <RemindersSection
-        customerId={customerId}
-        lockedCarId={carId}
-        description="Reminders for this car, e.g. next WOF or service."
-      />
+      <Card title="Jobs">
+        {jobsState.loading && <p className="text-sm text-slate-500">Loading jobs…</p>}
+        {jobsState.error && <p className="text-sm text-red-600">{jobsState.error.message}</p>}
+        {!jobsState.loading && carJobs.length === 0 && (
+          <p className="text-sm text-slate-500">No jobs for this car yet. Use “New job” to create one.</p>
+        )}
+        {carJobs.length > 0 && (
+          <div className="divide-y divide-slate-100">
+            {carJobs.map((job) => (
+              <AppointmentRow key={job.id} job={job} />
+            ))}
+          </div>
+        )}
+      </Card>
 
       <Modal open={editOpen} title="Edit vehicle" onClose={() => setEditOpen(false)}>
         <CarForm initial={car} onSubmit={handleUpdateCar} onCancel={() => setEditOpen(false)} />

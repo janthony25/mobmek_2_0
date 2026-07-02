@@ -79,6 +79,19 @@ export function RemindersSection({ customerId, lockedCarId, description, title =
       }
       onUpdate={(id, v) => updateReminder(id, v as UpdateReminderRequest).then(() => undefined)}
       onDelete={deleteReminder}
+      extraAction={{
+        label: () => 'Mark as done',
+        hidden: (r) => r.isDone,
+        onClick: (r) =>
+          updateReminder(r.id, {
+            carId: r.carId,
+            reminderTemplateId: r.reminderTemplateId,
+            title: r.title,
+            dueDate: r.dueDate,
+            notes: r.notes,
+            isDone: true,
+          }).then(() => undefined),
+      }}
       onChanged={notifyBoardChanged}
       emptyText="No reminders yet"
     />

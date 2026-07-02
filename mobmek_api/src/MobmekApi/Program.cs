@@ -32,6 +32,13 @@ builder.Services.AddScoped<ICashAccountService, CashAccountService>();
 builder.Services.AddScoped<ITransactionCategoryService, TransactionCategoryService>();
 builder.Services.AddScoped<ICashTransactionService, CashTransactionService>();
 builder.Services.AddScoped<ICashFlowSettingsService, CashFlowSettingsService>();
+builder.Services.AddScoped<IRecurringTransactionService, RecurringTransactionService>();
+builder.Services.AddScoped<IPlannedTransactionService, PlannedTransactionService>();
+builder.Services.AddScoped<IForecastService, ForecastService>();
+builder.Services.AddScoped<ICashFlowAuditService, CashFlowAuditService>();
+builder.Services.AddScoped<IPayeeService, PayeeService>();
+builder.Services.AddScoped<ICategorizationRuleService, CategorizationRuleService>();
+builder.Services.AddHostedService<RecurringTransactionPostingJob>();
 
 // Transaction receipts land on local disk for now; swap this registration for an
 // S3-backed IFileStorage when file storage moves to the cloud.

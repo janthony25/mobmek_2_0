@@ -11,6 +11,8 @@ public record CashFlowSettingsDto(
     Guid? CashAccountId,
     Guid? CardAccountId,
     Guid? BankTransferAccountId,
+    decimal SafetyBufferAmount,
+    DateOnly? LockDate,
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc);
 
@@ -18,4 +20,6 @@ public record UpdateCashFlowSettingsRequest(
     Guid? DefaultAccountId,
     Guid? CashAccountId,
     Guid? CardAccountId,
-    Guid? BankTransferAccountId);
+    Guid? BankTransferAccountId,
+    decimal SafetyBufferAmount,
+    DateOnly? LockDate);

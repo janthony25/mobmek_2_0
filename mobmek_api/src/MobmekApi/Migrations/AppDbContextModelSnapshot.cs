@@ -224,6 +224,49 @@ namespace MobmekApi.Migrations
                     b.ToTable("CashAccounts");
                 });
 
+            modelBuilder.Entity("MobmekApi.Entities.CashFlowAuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Changes")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAtUtc");
+
+                    b.HasIndex("EntityType", "EntityId");
+
+                    b.ToTable("CashFlowAuditLogs");
+                });
+
             modelBuilder.Entity("MobmekApi.Entities.CashFlowSettings", b =>
                 {
                     b.Property<Guid>("Id")
@@ -244,6 +287,12 @@ namespace MobmekApi.Migrations
 
                     b.Property<Guid?>("DefaultAccountId")
                         .HasColumnType("uuid");
+
+                    b.Property<DateOnly?>("LockDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("SafetyBufferAmount")
+                        .HasColumnType("numeric(18,2)");
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -300,6 +349,22 @@ namespace MobmekApi.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
+                    b.Property<Guid?>("PayeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("RecurringTransactionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("SplitGroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(15)
+                        .HasColumnType("character varying(15)")
+                        .HasDefaultValue("Cleared");
+
                     b.Property<Guid?>("TransferGroupId")
                         .HasColumnType("uuid");
 
@@ -316,9 +381,84 @@ namespace MobmekApi.Migrations
 
                     b.HasIndex("InvoiceId");
 
+                    b.HasIndex("PayeeId");
+
+                    b.HasIndex("RecurringTransactionId");
+
+                    b.HasIndex("SplitGroupId");
+
+                    b.HasIndex("Status");
+
                     b.HasIndex("TransferGroupId");
 
                     b.ToTable("CashTransactions");
+                });
+
+            modelBuilder.Entity("MobmekApi.Entities.CategorizationRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("AmountMax")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal?>("AmountMin")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Direction")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("MatchField")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("MatchType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("MatchValue")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SetCategoryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SetGstTreatment")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid?>("SetPayeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SetCategoryId");
+
+                    b.HasIndex("SetPayeeId");
+
+                    b.ToTable("CategorizationRules");
                 });
 
             modelBuilder.Entity("MobmekApi.Entities.Customer", b =>
@@ -882,6 +1022,99 @@ namespace MobmekApi.Migrations
                     b.ToTable("Notes");
                 });
 
+            modelBuilder.Entity("MobmekApi.Entities.Payee", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DefaultCategoryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DefaultGstTreatment")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DefaultCategoryId");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Payees");
+                });
+
+            modelBuilder.Entity("MobmekApi.Entities.PlannedTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Direction")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<DateOnly>("ExpectedDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("ScenarioTag")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("CategoryId");
+
+                    b.ToTable("PlannedTransactions");
+                });
+
             modelBuilder.Entity("MobmekApi.Entities.Product", b =>
                 {
                     b.Property<Guid>("Id")
@@ -912,6 +1145,75 @@ namespace MobmekApi.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Products");
+                });
+
+            modelBuilder.Entity("MobmekApi.Entities.RecurringTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateOnly>("AnchorDate")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("AutoPost")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Counterparty")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Direction")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Frequency")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("GstTreatment")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("Interval")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsPaused")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("CategoryId");
+
+                    b.ToTable("RecurringTransactions");
                 });
 
             modelBuilder.Entity("MobmekApi.Entities.Reminder", b =>
@@ -1141,11 +1443,43 @@ namespace MobmekApi.Migrations
                         .HasForeignKey("InvoiceId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("MobmekApi.Entities.Payee", "Payee")
+                        .WithMany()
+                        .HasForeignKey("PayeeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("MobmekApi.Entities.RecurringTransaction", "RecurringTransaction")
+                        .WithMany()
+                        .HasForeignKey("RecurringTransactionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Account");
 
                     b.Navigation("Category");
 
                     b.Navigation("Invoice");
+
+                    b.Navigation("Payee");
+
+                    b.Navigation("RecurringTransaction");
+                });
+
+            modelBuilder.Entity("MobmekApi.Entities.CategorizationRule", b =>
+                {
+                    b.HasOne("MobmekApi.Entities.TransactionCategory", "SetCategory")
+                        .WithMany()
+                        .HasForeignKey("SetCategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MobmekApi.Entities.Payee", "SetPayee")
+                        .WithMany()
+                        .HasForeignKey("SetPayeeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("SetCategory");
+
+                    b.Navigation("SetPayee");
                 });
 
             modelBuilder.Entity("MobmekApi.Entities.Employee", b =>
@@ -1276,6 +1610,53 @@ namespace MobmekApi.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Customer");
+                });
+
+            modelBuilder.Entity("MobmekApi.Entities.Payee", b =>
+                {
+                    b.HasOne("MobmekApi.Entities.TransactionCategory", "DefaultCategory")
+                        .WithMany()
+                        .HasForeignKey("DefaultCategoryId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("DefaultCategory");
+                });
+
+            modelBuilder.Entity("MobmekApi.Entities.PlannedTransaction", b =>
+                {
+                    b.HasOne("MobmekApi.Entities.CashAccount", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MobmekApi.Entities.TransactionCategory", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+
+                    b.Navigation("Category");
+                });
+
+            modelBuilder.Entity("MobmekApi.Entities.RecurringTransaction", b =>
+                {
+                    b.HasOne("MobmekApi.Entities.CashAccount", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MobmekApi.Entities.TransactionCategory", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+
+                    b.Navigation("Category");
                 });
 
             modelBuilder.Entity("MobmekApi.Entities.Reminder", b =>

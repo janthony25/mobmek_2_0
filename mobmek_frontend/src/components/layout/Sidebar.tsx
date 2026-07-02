@@ -32,8 +32,12 @@ const NAV_GROUPS: NavGroup[] = [
     heading: 'Finance',
     items: [
       { to: '/cash-flow', label: 'Cash Flow', icon: '💵' },
+      { to: '/recurring-planned', label: 'Recurring & Planned', icon: '🔁' },
+      { to: '/forecast', label: 'Forecast', icon: '📈' },
       { to: '/cash-accounts', label: 'Cash Accounts', icon: '🏦' },
       { to: '/transaction-categories', label: 'Categories', icon: '🗂️' },
+      { to: '/payees', label: 'Payees', icon: '🤝' },
+      { to: '/categorization-rules', label: 'Rules', icon: '⚙️' },
     ],
   },
   {

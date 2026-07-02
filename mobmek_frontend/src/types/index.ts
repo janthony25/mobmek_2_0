@@ -538,6 +538,14 @@ export interface TransactionAttachment {
   createdAtUtc: string
 }
 
+export const TRANSACTION_STATUSES = ['Pending', 'Cleared', 'Reconciled'] as const
+
+export const TRANSACTION_STATUS_LABELS: Record<string, string> = {
+  Pending: 'Pending',
+  Cleared: 'Cleared',
+  Reconciled: 'Reconciled',
+}
+
 export interface CashTransaction {
   id: string
   accountId: string
@@ -551,17 +559,27 @@ export interface CashTransaction {
   description: string
   categoryId: string
   categoryName: string
+  /** Optional link to a normalized payee; counterparty holds the display text. */
+  payeeId: string | null
   counterparty: string | null
+  /** "Pending", "Cleared" or "Reconciled" (reconciled rows are immutable). */
+  status: string
   /** Set when auto-posted from an invoice payment — read-only in the ledger. */
   invoiceId: string | null
+  /** The invoice's job, for jumping from a ledger row to its source. */
+  jobId: string | null
   /** Set on the two paired legs of a transfer — managed together. */
   transferGroupId: string | null
+  /** Set on the sibling lines of a split payment — edited/deleted as a group. */
+  splitGroupId: string | null
   /** "Taxable", "Exempt" or "ZeroRated". */
   gstTreatment: string
   notes: string | null
   attachments: TransactionAttachment[]
   createdAtUtc: string
   updatedAtUtc: string | null
+  /** Account balance after this row; only on single-account unthinned views. */
+  runningBalance: number | null
 }
 
 export interface CashTransactionPage {
@@ -581,9 +599,13 @@ export interface CashTransactionRequest {
   date: string
   description: string
   categoryId: string
+  /** When set, the payee's name becomes the counterparty text. */
+  payeeId: string | null
   counterparty: string | null
   /** Omit (null) to use the category's default. */
   gstTreatment: string | null
+  /** "Pending" or "Cleared"; null = Cleared on create / keep current on update. */
+  status: string | null
   notes: string | null
 }
 
@@ -596,12 +618,181 @@ export interface CreateTransferRequest {
   notes: string | null
 }
 
+export interface SplitTransactionLine {
+  amount: number
+  categoryId: string
+  gstTreatment: string | null
+  /** Line-specific text; null uses the split's shared description. */
+  description: string | null
+}
+
+export interface SplitTransactionRequest {
+  accountId: string
+  direction: string
+  date: string
+  description: string
+  payeeId: string | null
+  counterparty: string | null
+  status: string | null
+  notes: string | null
+  /** At least two lines. */
+  lines: SplitTransactionLine[]
+}
+
+export type BulkTransactionAction = 'SetCategory' | 'SetStatus' | 'Delete'
+
+export interface BulkTransactionRequest {
+  ids: string[]
+  action: BulkTransactionAction
+  categoryId: string | null
+  status: string | null
+}
+
+export interface BulkSkippedRow {
+  id: string
+  reason: string
+}
+
+export interface BulkTransactionResult {
+  updatedCount: number
+  skipped: BulkSkippedRow[]
+}
+
+// --- Payees & categorization rules -----------------------------------------------
+
+export interface Payee {
+  id: string
+  name: string
+  defaultCategoryId: string | null
+  defaultCategoryName: string | null
+  defaultGstTreatment: string | null
+  notes: string | null
+  isArchived: boolean
+  createdAtUtc: string
+  updatedAtUtc: string | null
+}
+
+export interface PayeeRequest {
+  name: string
+  defaultCategoryId: string | null
+  defaultGstTreatment: string | null
+  notes: string | null
+  isArchived?: boolean
+}
+
+export interface PayeeSummary {
+  id: string
+  name: string
+  transactionCount: number
+  firstDate: string | null
+  lastDate: string | null
+  totalIn12Months: number
+  totalOut12Months: number
+}
+
+export const RULE_MATCH_FIELDS = ['Either', 'Description', 'Counterparty'] as const
+
+export const RULE_MATCH_FIELD_LABELS: Record<string, string> = {
+  Either: 'Description or counterparty',
+  Description: 'Description',
+  Counterparty: 'Counterparty',
+}
+
+export const RULE_MATCH_TYPES = ['Contains', 'StartsWith', 'Equals'] as const
+
+export const RULE_MATCH_TYPE_LABELS: Record<string, string> = {
+  Contains: 'Contains',
+  StartsWith: 'Starts with',
+  Equals: 'Equals',
+}
+
+export interface CategorizationRule {
+  id: string
+  name: string
+  /** Lowest priority wins when several rules match. */
+  priority: number
+  matchField: string
+  matchType: string
+  matchValue: string
+  direction: string | null
+  amountMin: number | null
+  amountMax: number | null
+  setCategoryId: string
+  setCategoryName: string
+  setGstTreatment: string | null
+  setPayeeId: string | null
+  setPayeeName: string | null
+  isActive: boolean
+  createdAtUtc: string
+  updatedAtUtc: string | null
+}
+
+export interface CategorizationRuleRequest {
+  name: string
+  priority: number
+  matchField: string
+  matchType: string
+  matchValue: string
+  direction: string | null
+  amountMin: number | null
+  amountMax: number | null
+  setCategoryId: string
+  setGstTreatment: string | null
+  setPayeeId: string | null
+  isActive: boolean
+}
+
+export interface RuleSuggestion {
+  ruleId: string
+  ruleName: string
+  categoryId: string
+  categoryName: string
+  gstTreatment: string | null
+  payeeId: string | null
+  payeeName: string | null
+}
+
+export interface ApplyRuleResult {
+  matchCount: number
+  updatedCount: number
+}
+
+// --- Audit trail ------------------------------------------------------------------
+
+export interface AuditFieldChange {
+  field: string
+  old: string | null
+  new: string | null
+}
+
+export interface CashFlowAuditLog {
+  id: string
+  entityType: string
+  entityId: string
+  /** "Created", "Updated" or "Deleted". */
+  action: string
+  summary: string
+  changes: AuditFieldChange[] | null
+  timestampUtc: string
+}
+
+export interface CashFlowAuditPage {
+  items: CashFlowAuditLog[]
+  page: number
+  pageSize: number
+  totalCount: number
+}
+
 export interface CashFlowSettings {
   id: string
   defaultAccountId: string | null
   cashAccountId: string | null
   cardAccountId: string | null
   bankTransferAccountId: string | null
+  /** Minimum cash the owner wants kept; drives the forecast's shortage detection. */
+  safetyBufferAmount: number
+  /** Transactions dated on/before this are locked against changes. */
+  lockDate: string | null
   createdAtUtc: string
   updatedAtUtc: string | null
 }
@@ -611,4 +802,152 @@ export interface UpdateCashFlowSettingsRequest {
   cashAccountId: string | null
   cardAccountId: string | null
   bankTransferAccountId: string | null
+  safetyBufferAmount: number
+  lockDate: string | null
+}
+
+// --- Recurring & planned transactions -------------------------------------------
+
+export const RECURRING_FREQUENCIES = ['Weekly', 'Fortnightly', 'Monthly', 'Quarterly', 'Annually'] as const
+
+export const RECURRING_FREQUENCY_LABELS: Record<string, string> = {
+  Weekly: 'Weekly',
+  Fortnightly: 'Fortnightly',
+  Monthly: 'Monthly',
+  Quarterly: 'Quarterly',
+  Annually: 'Annually',
+}
+
+export interface RecurringTransaction {
+  id: string
+  description: string
+  /** "In" or "Out". */
+  direction: string
+  amount: number
+  categoryId: string
+  categoryName: string
+  accountId: string
+  accountName: string
+  counterparty: string | null
+  /** "Taxable", "Exempt" or "ZeroRated". */
+  gstTreatment: string
+  /** "Weekly", "Fortnightly", "Monthly", "Quarterly" or "Annually". */
+  frequency: string
+  interval: number
+  /** Calendar date, "yyyy-mm-dd" — the first occurrence. */
+  anchorDate: string
+  endDate: string | null
+  autoPost: boolean
+  isPaused: boolean
+  /** Computed: earliest un-posted occurrence, or null when paused/exhausted. */
+  nextOccurrenceDate: string | null
+  /** Computed: amount normalised to a per-month cost. */
+  monthlyEquivalentAmount: number
+  createdAtUtc: string
+  updatedAtUtc: string | null
+}
+
+export interface RecurringTransactionRequest {
+  description: string
+  direction: string
+  amount: number
+  categoryId: string
+  accountId: string
+  counterparty: string | null
+  gstTreatment: string | null
+  frequency: string
+  interval: number
+  anchorDate: string
+  endDate: string | null
+  autoPost: boolean
+  /** Only read by update; create always starts unpaused. */
+  isPaused?: boolean
+}
+
+export interface DueOccurrence {
+  recurringTransactionId: string
+  description: string
+  direction: string
+  amount: number
+  accountId: string
+  accountName: string
+  date: string
+}
+
+export const PLANNED_TRANSACTION_SCENARIO_TAGS = ['BestCase', 'WorstCase'] as const
+
+export const PLANNED_TRANSACTION_SCENARIO_LABELS: Record<string, string> = {
+  BestCase: 'Best case only',
+  WorstCase: 'Worst case only',
+}
+
+export const PLANNED_TRANSACTION_STATUSES = ['Planned', 'Posted', 'Cancelled'] as const
+
+export interface PlannedTransaction {
+  id: string
+  description: string
+  /** "In" or "Out". */
+  direction: string
+  amount: number
+  /** Calendar date, "yyyy-mm-dd". */
+  expectedDate: string
+  categoryId: string
+  categoryName: string
+  accountId: string | null
+  accountName: string | null
+  /** "Planned" (editable) → "Posted" or "Cancelled" (terminal). */
+  status: string
+  /** Null = included in every scenario ("Always"); otherwise confines it to "BestCase" or "WorstCase". */
+  scenarioTag: string | null
+  createdAtUtc: string
+  updatedAtUtc: string | null
+}
+
+export interface CreatePlannedTransactionRequest {
+  description: string
+  direction: string
+  amount: number
+  expectedDate: string
+  categoryId: string
+  accountId: string | null
+  scenarioTag: string | null
+}
+
+export interface UpdatePlannedTransactionRequest extends CreatePlannedTransactionRequest {
+  status: string
+}
+
+// --- Forecast --------------------------------------------------------------------
+
+export const FORECAST_SCENARIOS = ['BestCase', 'Expected', 'WorstCase'] as const
+
+export const FORECAST_SCENARIO_LABELS: Record<string, string> = {
+  BestCase: 'Best case',
+  Expected: 'Expected',
+  WorstCase: 'Worst case',
+}
+
+export interface ForecastPoint {
+  date: string
+  openingBalance: number
+  in: number
+  out: number
+  closingBalance: number
+}
+
+export interface ForecastMonthPoint {
+  year: number
+  month: number
+  in: number
+  out: number
+  closingBalance: number
+}
+
+export interface ForecastResult {
+  horizonDays: number
+  scenario: string
+  openingBalance: number
+  dailyPoints: ForecastPoint[]
+  monthlyPoints: ForecastMonthPoint[]
+  shortageDate: string | null
 }

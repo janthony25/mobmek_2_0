@@ -125,8 +125,8 @@ public class CashAccountServiceTests
         await using var db = CreateContext();
         var service = new CashAccountService(db);
         var account = await service.CreateAsync(NewAccount());
-        var settingsService = new CashFlowSettingsService(db);
-        await settingsService.UpdateAsync(new UpdateCashFlowSettingsRequest(account.Id, account.Id, null, null));
+        var settingsService = new CashFlowSettingsService(db, new CashFlowAuditService(db));
+        await settingsService.UpdateAsync(new UpdateCashFlowSettingsRequest(account.Id, account.Id, null, null, 0m, null));
 
         var result = await service.DeleteAsync(account.Id);
 

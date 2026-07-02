@@ -11,18 +11,40 @@ public class CashTransactionsController(ICashTransactionService transactionServi
 {
     private const long MaxAttachmentBytes = 10 * 1024 * 1024;
 
-    /// <summary>One page of the ledger, newest first, with filter-wide in/out totals.</summary>
+    /// <summary>
+    /// One page of the ledger, newest first, with filter-wide in/out totals. Rows carry a
+    /// running balance when the filter is scoped to one account (no category/payee/direction/
+    /// status/search thinning).
+    /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(CashTransactionPageDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<CashTransactionPageDto>> GetPaged(
-        [FromQuery] Guid? accountId, [FromQuery] Guid? categoryId, [FromQuery] string? direction,
+        [FromQuery] Guid? accountId, [FromQuery] Guid? categoryId, [FromQuery] Guid? payeeId,
+        [FromQuery] string? direction, [FromQuery] string? status,
         [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] string? search,
+        [FromQuery] Guid? splitGroupId = null,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
         var result = await transactionService.GetPagedAsync(
-            new CashTransactionFilter(accountId, categoryId, direction, from, to, search, page, pageSize), cancellationToken);
+            new CashTransactionFilter(accountId, categoryId, payeeId, direction, status, from, to, search, page, pageSize, splitGroupId), cancellationToken);
         return Ok(result);
+    }
+
+    /// <summary>Everything matching the filter as a CSV download.</summary>
+    [HttpGet("export")]
+    [Produces("text/csv")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> Export(
+        [FromQuery] Guid? accountId, [FromQuery] Guid? categoryId, [FromQuery] Guid? payeeId,
+        [FromQuery] string? direction, [FromQuery] string? status,
+        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] string? search,
+        CancellationToken cancellationToken = default)
+    {
+        var csv = await transactionService.ExportCsvAsync(
+            new CashTransactionFilter(accountId, categoryId, payeeId, direction, status, from, to, search), cancellationToken);
+        return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv",
+            $"cash-transactions-{DateTime.UtcNow:yyyyMMdd}.csv");
     }
 
     /// <summary>Returns a single transaction with its attachments.</summary>
@@ -93,6 +115,49 @@ public class CashTransactionsController(ICashTransactionService transactionServi
         return Created(string.Empty, legs);
     }
 
+    /// <summary>Records one payment split across two or more categories; returns the sibling lines.</summary>
+    [HttpPost("split")]
+    [ProducesResponseType(typeof(IReadOnlyList<CashTransactionDto>), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IReadOnlyList<CashTransactionDto>>> CreateSplit(
+        CreateSplitTransactionRequest request, CancellationToken cancellationToken)
+    {
+        var (lines, error) = await transactionService.CreateSplitAsync(request, cancellationToken);
+        if (error != CashTransactionWriteError.None)
+        {
+            return MapError(error);
+        }
+
+        return Created(string.Empty, lines);
+    }
+
+    /// <summary>Replaces a split group's lines wholesale (attachments on replaced lines go with them).</summary>
+    [HttpPut("split/{splitGroupId:guid}")]
+    [ProducesResponseType(typeof(IReadOnlyList<CashTransactionDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<IReadOnlyList<CashTransactionDto>>> UpdateSplit(
+        Guid splitGroupId, UpdateSplitTransactionRequest request, CancellationToken cancellationToken)
+    {
+        var (lines, error) = await transactionService.UpdateSplitAsync(splitGroupId, request, cancellationToken);
+        return error == CashTransactionWriteError.None ? Ok(lines) : MapError(error);
+    }
+
+    /// <summary>
+    /// Applies one action ("SetCategory", "SetStatus" or "Delete") to many rows. Protected
+    /// rows are skipped and reported with reasons rather than failing the batch.
+    /// </summary>
+    [HttpPost("bulk")]
+    [ProducesResponseType(typeof(BulkCashTransactionResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<BulkCashTransactionResultDto>> Bulk(
+        BulkCashTransactionRequest request, CancellationToken cancellationToken)
+    {
+        var (result, error) = await transactionService.BulkAsync(request, cancellationToken);
+        return error == CashTransactionWriteError.None ? Ok(result) : MapError(error);
+    }
+
     /// <summary>Uploads a receipt/document (max 10 MB) onto a transaction.</summary>
     [HttpPost("{id:guid}/attachments")]
     [ProducesResponseType(typeof(TransactionAttachmentDto), StatusCodes.Status201Created)]
@@ -151,8 +216,16 @@ public class CashTransactionsController(ICashTransactionService transactionServi
         CashTransactionWriteError.DirectionMismatchesCategory => BadRequest("The category doesn't apply to that direction."),
         CashTransactionWriteError.NonPositiveAmount => BadRequest("Amount must be greater than zero."),
         CashTransactionWriteError.SameAccountTransfer => BadRequest("A transfer needs two different accounts."),
+        CashTransactionWriteError.PayeeNotFound => BadRequest("The payee does not exist."),
+        CashTransactionWriteError.PayeeArchived => BadRequest("The payee is archived."),
+        CashTransactionWriteError.InvalidStatus => BadRequest("Status must be \"Pending\" or \"Cleared\" (reconciliation sets \"Reconciled\")."),
+        CashTransactionWriteError.SplitNeedsTwoLines => BadRequest("A split needs at least two lines."),
+        CashTransactionWriteError.InvalidBulkAction => BadRequest("Action must be \"SetCategory\", \"SetStatus\" or \"Delete\" (with its required field)."),
         CashTransactionWriteError.InvoiceLinkedReadOnly => Conflict("This row was posted from an invoice payment; correct it from the invoice."),
         CashTransactionWriteError.TransferLegReadOnly => Conflict("Transfer legs can't be edited; delete the transfer and recreate it."),
+        CashTransactionWriteError.SplitLineReadOnly => Conflict("Split lines are edited as a group; use the split endpoints."),
+        CashTransactionWriteError.ReconciledReadOnly => Conflict("Reconciled rows are immutable; reverse and re-enter instead."),
+        CashTransactionWriteError.PeriodLocked => Conflict("That date falls in a locked period; move the lock date in settings first."),
         _ => BadRequest(),
     };
 }

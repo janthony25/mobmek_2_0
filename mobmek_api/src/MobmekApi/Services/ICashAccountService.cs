@@ -19,6 +19,9 @@ public interface ICashAccountService
 
     Task<CashAccountDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>Sum of the derived balances of all non-archived accounts — the forecast's opening position.</summary>
+    Task<decimal> GetTotalBalanceAsync(CancellationToken cancellationToken = default);
+
     Task<CashAccountDto> CreateAsync(CreateCashAccountRequest request, CancellationToken cancellationToken = default);
 
     Task<CashAccountDto?> UpdateAsync(Guid id, UpdateCashAccountRequest request, CancellationToken cancellationToken = default);

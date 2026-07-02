@@ -33,6 +33,27 @@ public class CashAccountService(AppDbContext db) : ICashAccountService
         return account is null ? null : ToDto(account, await BalanceAsync(account, cancellationToken));
     }
 
+    public async Task<decimal> GetTotalBalanceAsync(CancellationToken cancellationToken = default)
+    {
+        var accounts = await db.CashAccounts.AsNoTracking().Where(a => !a.IsArchived).ToListAsync(cancellationToken);
+        if (accounts.Count == 0)
+        {
+            return 0m;
+        }
+
+        var sums = await db.CashTransactions.AsNoTracking()
+            .Where(t => accounts.Select(a => a.Id).Contains(t.AccountId))
+            .GroupBy(t => t.Direction)
+            .Select(g => new { Direction = g.Key, Total = g.Sum(t => t.Amount) })
+            .ToListAsync(cancellationToken);
+
+        var openingTotal = accounts.Sum(a => a.OpeningBalance);
+        var inTotal = sums.Where(s => s.Direction == "In").Sum(s => s.Total);
+        var outTotal = sums.Where(s => s.Direction == "Out").Sum(s => s.Total);
+
+        return openingTotal + inTotal - outTotal;
+    }
+
     public async Task<CashAccountDto> CreateAsync(CreateCashAccountRequest request, CancellationToken cancellationToken = default)
     {
         var account = new CashAccount

@@ -31,8 +31,20 @@ public class CashTransaction : BaseEntity
 
     public TransactionCategory? Category { get; set; }
 
-    /// <summary>Supplier / payer name.</summary>
+    /// <summary>Supplier / payer name (display text; copied from the payee when one is linked).</summary>
     public string? Counterparty { get; set; }
+
+    /// <summary>Optional link to a normalized <see cref="Payee"/>; kept (not cascaded) if the payee is deleted.</summary>
+    public Guid? PayeeId { get; set; }
+
+    public Payee? Payee { get; set; }
+
+    /// <summary>
+    /// "Pending" (entered but not yet confirmed against the bank), "Cleared" (the default for
+    /// manual entries — the money moved) or "Reconciled" (ticked off in a completed
+    /// reconciliation; immutable from then on).
+    /// </summary>
+    public string Status { get; set; } = "Cleared";
 
     /// <summary>Set when this row was auto-posted from an invoice payment; cleared (not cascaded) if the invoice's job is deleted, because the money still moved.</summary>
     public Guid? InvoiceId { get; set; }
@@ -41,6 +53,17 @@ public class CashTransaction : BaseEntity
 
     /// <summary>Pairs the two legs of an account-to-account transfer; both legs are managed together.</summary>
     public Guid? TransferGroupId { get; set; }
+
+    /// <summary>
+    /// Groups sibling rows entered as one split payment (one real-world payment covering
+    /// several categories). Split rows are edited/deleted as a group, like transfer legs.
+    /// </summary>
+    public Guid? SplitGroupId { get; set; }
+
+    /// <summary>Set when this row was materialised from a <see cref="RecurringTransaction"/> occurrence; kept (not cascaded) if the schedule is deleted, because the money still moved.</summary>
+    public Guid? RecurringTransactionId { get; set; }
+
+    public RecurringTransaction? RecurringTransaction { get; set; }
 
     /// <summary>"Taxable", "Exempt" or "ZeroRated" — drives the GST estimate (GST content of a taxable amount = Amount × rate ÷ (1 + rate)).</summary>
     public string GstTreatment { get; set; } = "Taxable";

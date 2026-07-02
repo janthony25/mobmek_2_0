@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace MobmekApi.Services;
 
-public class CashFlowSettingsService(AppDbContext db) : ICashFlowSettingsService
+public class CashFlowSettingsService(AppDbContext db, ICashFlowAuditService audit) : ICashFlowSettingsService
 {
     public async Task<CashFlowSettingsDto> GetCurrentAsync(CancellationToken cancellationToken = default) =>
         ToDto(await GetOrCreateAsync(cancellationToken));
@@ -28,10 +28,27 @@ public class CashFlowSettingsService(AppDbContext db) : ICashFlowSettingsService
         }
 
         var settings = await GetOrCreateAsync(cancellationToken);
+
+        var changes = new List<AuditFieldChange>();
+        AuditDiff.Add(changes, "Default account", settings.DefaultAccountId, request.DefaultAccountId);
+        AuditDiff.Add(changes, "Cash account", settings.CashAccountId, request.CashAccountId);
+        AuditDiff.Add(changes, "Card account", settings.CardAccountId, request.CardAccountId);
+        AuditDiff.Add(changes, "Bank transfer account", settings.BankTransferAccountId, request.BankTransferAccountId);
+        AuditDiff.Add(changes, "Safety buffer", settings.SafetyBufferAmount, request.SafetyBufferAmount);
+        AuditDiff.Add(changes, "Lock date", settings.LockDate, request.LockDate);
+
         settings.DefaultAccountId = request.DefaultAccountId;
         settings.CashAccountId = request.CashAccountId;
         settings.CardAccountId = request.CardAccountId;
         settings.BankTransferAccountId = request.BankTransferAccountId;
+        settings.SafetyBufferAmount = request.SafetyBufferAmount;
+        settings.LockDate = request.LockDate;
+
+        if (changes.Count > 0)
+        {
+            audit.Record("CashFlowSettings", settings.Id, "Updated", AuditDiff.Summarize(changes), changes);
+        }
+
         await db.SaveChangesAsync(cancellationToken);
 
         return ToDto(settings);
@@ -53,5 +70,5 @@ public class CashFlowSettingsService(AppDbContext db) : ICashFlowSettingsService
 
     private static CashFlowSettingsDto ToDto(CashFlowSettings s) =>
         new(s.Id, s.DefaultAccountId, s.CashAccountId, s.CardAccountId, s.BankTransferAccountId,
-            s.CreatedAtUtc, s.UpdatedAtUtc);
+            s.SafetyBufferAmount, s.LockDate, s.CreatedAtUtc, s.UpdatedAtUtc);
 }

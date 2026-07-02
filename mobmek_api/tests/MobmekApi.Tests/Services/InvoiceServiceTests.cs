@@ -218,7 +218,7 @@ public class InvoiceServiceTests
         var bank = await accounts.CreateAsync(new CreateCashAccountRequest("Bank", "Bank", null, 0m, new DateOnly(2026, 1, 1)));
         var till = await accounts.CreateAsync(new CreateCashAccountRequest("Till", "Cash", null, 0m, new DateOnly(2026, 1, 1)));
         var savings = await accounts.CreateAsync(new CreateCashAccountRequest("Savings", "Bank", null, 0m, new DateOnly(2026, 1, 1)));
-        await new CashFlowSettingsService(db).UpdateAsync(new UpdateCashFlowSettingsRequest(bank.Id, till.Id, bank.Id, savings.Id));
+        await new CashFlowSettingsService(db, new CashFlowAuditService(db)).UpdateAsync(new UpdateCashFlowSettingsRequest(bank.Id, till.Id, bank.Id, savings.Id, 0m, null));
         return (bank, till, savings);
     }
 
