@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Modal } from '@/components/ui/Modal'
+import { PaginatedList } from '@/components/ui/PaginatedList'
 import { StateMessage } from '@/components/ui/StateMessage'
 import { useToast } from '@/components/ui/toast'
 import { CarIcon, PencilIcon, PlusIcon, TrashIcon } from '@/components/ui/icons'
@@ -117,11 +118,12 @@ export function CarDetailPage() {
           <p className="text-sm text-slate-500">No jobs for this car yet. Use “New job” to create one.</p>
         )}
         {carJobs.length > 0 && (
-          <div className="divide-y divide-slate-100">
-            {carJobs.map((job) => (
-              <AppointmentRow key={job.id} job={job} />
-            ))}
-          </div>
+          <PaginatedList
+            items={carJobs}
+            pageSize={15}
+            getKey={(job) => job.id}
+            renderItem={(job) => <AppointmentRow job={job} />}
+          />
         )}
       </Card>
 

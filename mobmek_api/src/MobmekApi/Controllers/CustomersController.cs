@@ -18,6 +18,19 @@ public class CustomersController(ICustomerService customerService) : ControllerB
         return Ok(customers);
     }
 
+    /// <summary>Returns one page of customers with list-card aggregates, optionally filtered by <c>?search=</c>.</summary>
+    [HttpGet("paged")]
+    [ProducesResponseType(typeof(PagedResult<CustomerListItemDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResult<CustomerListItemDto>>> GetPaged(
+        CancellationToken cancellationToken,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null)
+    {
+        var result = await customerService.GetPagedAsync(page, pageSize, search, cancellationToken);
+        return Ok(result);
+    }
+
     /// <summary>Returns a single customer by id.</summary>
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(CustomerDto), StatusCodes.Status200OK)]

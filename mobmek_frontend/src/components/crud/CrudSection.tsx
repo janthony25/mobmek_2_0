@@ -1,13 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Pagination } from '@/components/ui/Pagination'
 import { StateMessage } from '@/components/ui/StateMessage'
 import { useToast } from '@/components/ui/toast'
 import { useAsync } from '@/hooks/useAsync'
 import { ResourceForm } from './ResourceForm'
 import type { Column, FieldSchema } from './types'
+import { pageCount } from '@/lib/paging'
+import type { PagedResult } from '@/types'
 
 /** Props passed to a custom form renderer (used for cascading forms). */
 export interface CrudFormProps<T> {
@@ -26,7 +29,14 @@ interface CrudSectionProps<T> {
   /** When set, the heading toggles the section body (starts expanded). */
   collapsible?: boolean
 
-  load: () => Promise<T[]>
+  /** Loads the full list; paginate client-side via `pageSize`. Use `loadPaged` instead for server-side pagination. */
+  load?: () => Promise<T[]>
+  /** Server-side mode: fetches one page at a time and shows a search box. Replaces `load`. */
+  loadPaged?: (query: { page: number; pageSize: number; search: string }) => Promise<PagedResult<T>>
+  /** Rows per page. With `load`, slices client-side; with `loadPaged`, sent to the server. Omit for no pagination. */
+  pageSize?: number
+  /** Rows per page for the cards view (defaults to `pageSize`). */
+  cardsPageSize?: number
   /** Bump to force a reload from a parent (e.g. when scope changes). */
   reloadKey?: unknown
   getId: (row: T) => string
@@ -69,6 +79,9 @@ export function CrudSection<T>({
   variant = 'page',
   collapsible = false,
   load,
+  loadPaged,
+  pageSize,
+  cardsPageSize,
   reloadKey,
   getId,
   rowLabel,
@@ -86,14 +99,60 @@ export function CrudSection<T>({
   emptyText,
 }: CrudSectionProps<T>) {
   const toast = useToast()
-  const { data, loading, error, reload } = useAsync(load, [reloadKey])
   const [editing, setEditing] = useState<Editing<T>>(null)
   const [deleting, setDeleting] = useState<T | null>(null)
   const [view, setView] = useState<'list' | 'cards'>(defaultView ?? 'list')
   const [collapsed, setCollapsed] = useState(false)
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
 
   const heading = title ?? `${resourceName}s`
   const showCards = renderCard != null && view === 'cards'
+  const serverMode = loadPaged != null
+  const effectivePageSize = showCards ? (cardsPageSize ?? pageSize) : pageSize
+
+  // Debounce the search box so we don't hit the API on every keystroke.
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setDebouncedSearch(search.trim())
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(handle)
+  }, [search])
+
+  // In server mode a page/size/search change refetches; in client mode those deps are inert.
+  const { data: result, loading, error, reload } = useAsync(
+    async (): Promise<{ rows: T[]; total: number; fetchedPage: number }> => {
+      if (loadPaged) {
+        const res = await loadPaged({ page, pageSize: effectivePageSize ?? 20, search: debouncedSearch })
+        return { rows: res.items, total: res.totalCount, fetchedPage: res.page }
+      }
+      const rows = await load!()
+      return { rows, total: rows.length, fetchedPage: 1 }
+    },
+    [reloadKey, serverMode && page, serverMode && effectivePageSize, serverMode && debouncedSearch],
+  )
+
+  const total = result?.total ?? 0
+  const totalPages = effectivePageSize ? pageCount(total, effectivePageSize) : 1
+  // Clamp rather than reset so deleting the last row of the last page stays in range.
+  const safePage = Math.min(page, totalPages)
+  const rows =
+    result == null
+      ? null
+      : serverMode || !effectivePageSize
+        ? result.rows
+        : result.rows.slice((safePage - 1) * effectivePageSize, safePage * effectivePageSize)
+  // In server mode, describe the page the rows actually came from — `page` runs ahead of
+  // `result` for a frame between a pager click and the refetch landing.
+  const displayPage = serverMode ? result?.fetchedPage ?? 1 : safePage
+
+  // Server mode returns an empty page once the last row of the last page is deleted;
+  // step back so the pager stays in range (client mode clamps via safePage instead).
+  useEffect(() => {
+    if (serverMode && result && page > totalPages) setPage(totalPages)
+  }, [serverMode, result, page, totalPages])
 
   const handleSubmit = async (values: Record<string, unknown>) => {
     if (editing?.mode === 'edit') {
@@ -161,13 +220,25 @@ export function CrudSection<T>({
           {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
         </div>
         <div className="flex items-center gap-2">
+          {serverMode && (
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={`Search ${heading.toLowerCase()}…`}
+              className="w-48 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none"
+            />
+          )}
           {renderCard != null && (
             <div className="inline-flex rounded-md border border-slate-300 bg-white p-0.5">
               {(['cards', 'list'] as const).map((v) => (
                 <button
                   key={v}
                   type="button"
-                  onClick={() => setView(v)}
+                  onClick={() => {
+                    setView(v)
+                    setPage(1)
+                  }}
                   className={`rounded px-2.5 py-1 text-xs font-medium capitalize transition-colors ${
                     view === v ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
                   }`}
@@ -183,19 +254,22 @@ export function CrudSection<T>({
 
       {!collapsed && loading && <StateMessage title={`Loading ${heading.toLowerCase()}…`} />}
       {!collapsed && error && <StateMessage title={`Could not load ${heading.toLowerCase()}`} description={error.message} />}
-      {!collapsed && data && data.length === 0 && (
-        <StateMessage title={emptyText ?? `No ${heading.toLowerCase()} yet`} description={`Use “Add ${resourceName}” to create one.`} />
+      {!collapsed && rows && total === 0 && (
+        <StateMessage
+          title={debouncedSearch ? `No ${heading.toLowerCase()} match “${debouncedSearch}”` : emptyText ?? `No ${heading.toLowerCase()} yet`}
+          description={debouncedSearch ? 'Try a different search.' : `Use “Add ${resourceName}” to create one.`}
+        />
       )}
 
-      {!collapsed && data && data.length > 0 && showCards && (
+      {!collapsed && rows && rows.length > 0 && showCards && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {data.map((row) => (
+          {rows.map((row) => (
             <div key={getId(row)}>{renderCard(row)}</div>
           ))}
         </div>
       )}
 
-      {!collapsed && data && data.length > 0 && !showCards && (
+      {!collapsed && rows && rows.length > 0 && !showCards && (
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -209,7 +283,7 @@ export function CrudSection<T>({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {data.map((row) => (
+              {rows.map((row) => (
                 <tr key={getId(row)} className="hover:bg-slate-50">
                   {columns.map((col) => (
                     <td key={col.header} className={`px-4 py-3 align-top ${col.className ?? 'text-slate-600'}`}>
@@ -234,6 +308,10 @@ export function CrudSection<T>({
             </tbody>
           </table>
         </div>
+      )}
+
+      {!collapsed && !loading && total > 0 && effectivePageSize != null && (
+        <Pagination page={displayPage} pageSize={effectivePageSize} total={total} onPageChange={setPage} />
       )}
 
       <Modal

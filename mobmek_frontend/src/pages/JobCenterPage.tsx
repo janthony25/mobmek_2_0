@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { createJob, deleteJob, getJobs, updateJob } from '@/api/jobs'
+import { createJob, deleteJob, getJobsPaged, updateJob } from '@/api/jobs'
 import { CrudSection } from '@/components/crud/CrudSection'
 import { JobForm } from '@/components/forms/JobForm'
 import { currency, orDash } from '@/lib/format'
@@ -14,7 +14,8 @@ export function JobCenterPage() {
       title="Job Center"
       description="Workshop jobs across all customers. Open a job to manage items, labour, services and mechanics."
       onAdd={() => navigate('/jobs/new')}
-      load={() => getJobs()}
+      loadPaged={({ page, pageSize, search }) => getJobsPaged(page, pageSize, search)}
+      pageSize={15}
       getId={(j) => j.id}
       rowLabel={(j) => j.title}
       columns={[

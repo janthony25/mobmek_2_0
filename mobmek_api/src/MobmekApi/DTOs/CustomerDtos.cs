@@ -14,6 +14,33 @@ public record CustomerDto(
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc);
 
+/// <summary>A customer's car as shown on the customer list, with its active-reminder info.</summary>
+public record CustomerCarSummaryDto(
+    Guid Id,
+    int Year,
+    string? CarMakeName,
+    string? CarModelName,
+    int ActiveReminderCount,
+    DateOnly? NextReminderDueDate);
+
+/// <summary>
+/// Customer list-page shape: the customer plus the aggregates the list cards display,
+/// so the client doesn't have to fetch every car/note/reminder separately.
+/// </summary>
+public record CustomerListItemDto(
+    Guid Id,
+    string FirstName,
+    string LastName,
+    string PhoneNumber,
+    string? EmailAddress,
+    string? PhysicalAddress,
+    string? Notes,
+    DateTime CreatedAtUtc,
+    DateTime? UpdatedAtUtc,
+    IReadOnlyList<CustomerCarSummaryDto> Cars,
+    int ActiveNoteCount,
+    DateOnly? NextNoteDueDate);
+
 /// <summary>Payload for creating a customer.</summary>
 public record CreateCustomerRequest(
     [Required, MaxLength(100)] string FirstName,

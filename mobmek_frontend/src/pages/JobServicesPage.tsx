@@ -18,6 +18,7 @@ export function JobServicesPage() {
       title="Catalog Services"
       description="Reusable services that can be added to jobs."
       load={() => getJobServices()}
+      pageSize={50}
       getId={(s) => s.id}
       rowLabel={(s) => s.name}
       columns={[

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Modal } from '@/components/ui/Modal'
+import { PaginatedList } from '@/components/ui/PaginatedList'
 import { StateMessage } from '@/components/ui/StateMessage'
 import { useToast } from '@/components/ui/toast'
 import {
@@ -228,11 +229,12 @@ export function CustomerDetailPage() {
               <p className="text-sm text-slate-500">No jobs yet. Create one from the Job Center.</p>
             )}
             {jobs.length > 0 && (
-              <div className="divide-y divide-slate-100">
-                {jobs.map((job) => (
-                  <AppointmentRow key={job.id} job={job} />
-                ))}
-              </div>
+              <PaginatedList
+                items={jobs}
+                pageSize={5}
+                getKey={(job) => job.id}
+                renderItem={(job) => <AppointmentRow job={job} />}
+              />
             )}
           </Card>
 
@@ -243,11 +245,12 @@ export function CustomerDetailPage() {
               <p className="text-sm text-slate-500">No invoices yet.</p>
             )}
             {invoices.length > 0 && (
-              <div className="divide-y divide-slate-100">
-                {invoices.map((invoice) => (
-                  <InvoiceRow key={invoice.id} invoice={invoice} />
-                ))}
-              </div>
+              <PaginatedList
+                items={invoices}
+                pageSize={10}
+                getKey={(invoice) => invoice.id}
+                renderItem={(invoice) => <InvoiceRow invoice={invoice} />}
+              />
             )}
           </Card>
         </div>

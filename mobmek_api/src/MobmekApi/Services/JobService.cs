@@ -8,6 +8,8 @@ namespace MobmekApi.Services;
 
 public class JobService(AppDbContext db) : IJobService
 {
+    private const int MaxPageSize = 200;
+
     // Inline projection so EF resolves customer/car/mechanic names via joins.
     private static readonly Expression<Func<Job, JobDto>> ToDto =
         j => new JobDto(
@@ -42,6 +44,38 @@ public class JobService(AppDbContext db) : IJobService
             .OrderByDescending(j => j.CreatedAtUtc)
             .Select(ToDto)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<PagedResult<JobDto>> GetPagedAsync(int page, int pageSize, string? search, CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
+
+        var query = db.Jobs.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            // ToLower().Contains translates to LOWER(...) LIKE on Postgres and also works
+            // on the in-memory test provider (unlike EF.Functions.ILike).
+            var term = search.Trim().ToLower();
+            query = query.Where(j =>
+                j.Title.ToLower().Contains(term) ||
+                (j.Customer!.FirstName + " " + j.Customer.LastName).ToLower().Contains(term) ||
+                j.Car!.CarMake!.Name.ToLower().Contains(term) ||
+                j.Car.CarModel!.Name.ToLower().Contains(term) ||
+                j.Car.Rego.ToLower().Contains(term));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderByDescending(j => j.CreatedAtUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(ToDto)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<JobDto>(items, totalCount, page, pageSize);
     }
 
     public async Task<JobDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)

@@ -18,6 +18,12 @@ public interface IJobService
 {
     Task<IReadOnlyList<JobDto>> GetAllAsync(Guid? customerId = null, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Returns one page of jobs (newest first). <paramref name="search"/> matches the title,
+    /// customer name, car make/model or rego, case-insensitively.
+    /// </summary>
+    Task<PagedResult<JobDto>> GetPagedAsync(int page, int pageSize, string? search, CancellationToken cancellationToken = default);
+
     Task<JobDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<(JobDto? Job, JobWriteError Error)> CreateAsync(CreateJobRequest request, CancellationToken cancellationToken = default);

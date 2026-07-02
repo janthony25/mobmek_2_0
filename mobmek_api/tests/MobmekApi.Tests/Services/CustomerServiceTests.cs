@@ -124,4 +124,83 @@ public class CustomerServiceTests
 
         Assert.False(deleted);
     }
+
+    [Fact]
+    public async Task GetPagedAsync_SlicesByPage_AndReportsTotalCount()
+    {
+        await using var db = CreateContext();
+        var service = new CustomerService(db);
+        foreach (var last in new[] { "Adams", "Baker", "Clark", "Davis", "Evans" })
+        {
+            await service.CreateAsync(new CreateCustomerRequest("Ann", last, "0", null, null, null));
+        }
+
+        var page2 = await service.GetPagedAsync(page: 2, pageSize: 2, search: null);
+
+        Assert.Equal(5, page2.TotalCount);
+        Assert.Equal(2, page2.Page);
+        Assert.Equal(2, page2.PageSize);
+        Assert.Collection(page2.Items,
+            c => Assert.Equal("Clark", c.LastName),
+            c => Assert.Equal("Davis", c.LastName));
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_PageBeyondEnd_ReturnsEmptyWithTotal()
+    {
+        await using var db = CreateContext();
+        var service = new CustomerService(db);
+        await service.CreateAsync(new CreateCustomerRequest("Solo", "Customer", "0", null, null, null));
+
+        var result = await service.GetPagedAsync(page: 3, pageSize: 10, search: null);
+
+        Assert.Empty(result.Items);
+        Assert.Equal(1, result.TotalCount);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SearchMatchesNamePhoneAndEmail_CaseInsensitively()
+    {
+        await using var db = CreateContext();
+        var service = new CustomerService(db);
+        await service.CreateAsync(new CreateCustomerRequest("Ada", "Lovelace", "021-555-777", "ada@example.com", null, null));
+        await service.CreateAsync(new CreateCustomerRequest("Grace", "Hopper", "09-1234", null, null, null));
+
+        Assert.Single((await service.GetPagedAsync(1, 10, "LOVELACE")).Items);
+        Assert.Single((await service.GetPagedAsync(1, 10, "ada love")).Items); // across full name
+        Assert.Single((await service.GetPagedAsync(1, 10, "021-555")).Items);
+        Assert.Single((await service.GetPagedAsync(1, 10, "ada@example")).Items);
+        Assert.Equal(2, (await service.GetPagedAsync(1, 10, "  ")).TotalCount); // blank = no filter
+        Assert.Empty((await service.GetPagedAsync(1, 10, "nobody")).Items);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_ReturnsCardAggregates_ExcludingDoneItems()
+    {
+        await using var db = CreateContext();
+        var service = new CustomerService(db);
+        var customer = await service.CreateAsync(new CreateCustomerRequest("Ada", "Lovelace", "0", null, null, null));
+
+        var make = new Entities.CarMake { Name = "Toyota" };
+        var model = new Entities.CarModel { Name = "Hilux", CarMake = make };
+        var car = new Entities.Car { CustomerId = customer.Id, CarMake = make, CarModel = model, Year = 2020, Rego = "ABC123" };
+        db.Cars.Add(car);
+        db.Reminders.Add(new Entities.Reminder { CustomerId = customer.Id, CarId = car.Id, Title = "WOF", DueDate = new DateOnly(2026, 8, 1) });
+        db.Reminders.Add(new Entities.Reminder { CustomerId = customer.Id, CarId = car.Id, Title = "Service", DueDate = new DateOnly(2026, 7, 10) });
+        db.Reminders.Add(new Entities.Reminder { CustomerId = customer.Id, CarId = car.Id, Title = "Done", DueDate = new DateOnly(2026, 1, 1), IsDone = true });
+        db.Notes.Add(new Entities.Note { CustomerId = customer.Id, Title = "Call back", DueDate = new DateOnly(2026, 7, 20) });
+        db.Notes.Add(new Entities.Note { CustomerId = customer.Id, Title = "Done note", IsDone = true });
+        await db.SaveChangesAsync();
+
+        var result = await service.GetPagedAsync(1, 10, null);
+
+        var item = Assert.Single(result.Items);
+        var carSummary = Assert.Single(item.Cars);
+        Assert.Equal("Toyota", carSummary.CarMakeName);
+        Assert.Equal("Hilux", carSummary.CarModelName);
+        Assert.Equal(2, carSummary.ActiveReminderCount);
+        Assert.Equal(new DateOnly(2026, 7, 10), carSummary.NextReminderDueDate); // earliest active
+        Assert.Equal(1, item.ActiveNoteCount);
+        Assert.Equal(new DateOnly(2026, 7, 20), item.NextNoteDueDate);
+    }
 }

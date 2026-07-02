@@ -17,6 +17,7 @@ export function ProductsPage() {
       resourceName="Product"
       description="Parts and products available in the workshop."
       load={getProducts}
+      pageSize={50}
       getId={(p) => p.id}
       rowLabel={(p) => p.name}
       columns={[

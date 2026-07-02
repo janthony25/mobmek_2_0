@@ -18,6 +18,19 @@ public class JobsController(IJobService jobService) : ControllerBase
         return Ok(jobs);
     }
 
+    /// <summary>Returns one page of jobs (newest first), optionally filtered by <c>?search=</c>.</summary>
+    [HttpGet("paged")]
+    [ProducesResponseType(typeof(PagedResult<JobDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResult<JobDto>>> GetPaged(
+        CancellationToken cancellationToken,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 15,
+        [FromQuery] string? search = null)
+    {
+        var result = await jobService.GetPagedAsync(page, pageSize, search, cancellationToken);
+        return Ok(result);
+    }
+
     /// <summary>Returns a single job by id.</summary>
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(JobDto), StatusCodes.Status200OK)]

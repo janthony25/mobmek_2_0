@@ -1,24 +1,20 @@
 import { Link } from 'react-router-dom'
 import { dueUrgency, URGENCY_BADGE, URGENCY_TEXT } from '@/lib/dueDate'
 import { BellIcon, CarIcon, MailIcon, NoteIcon, PhoneIcon } from '@/components/ui/icons'
-import type { Car, Customer, Note, Reminder } from '@/types'
+import type { CustomerListItem } from '@/types'
 
 /** First letters of first + last name, e.g. "James Wilson" -> "JW". */
-function initials(c: Customer): string {
+function initials(c: CustomerListItem): string {
   return `${c.firstName.charAt(0)}${c.lastName.charAt(0)}`.toUpperCase()
 }
 
 interface CustomerCardProps {
-  customer: Customer
-  cars: Car[]
-  /** Active (not-done) notes linked to this customer. */
-  notes: Note[]
-  /** Active (not-done) reminders for this customer, keyed to cars by carId. */
-  reminders: Reminder[]
+  /** List item carrying the car/note/reminder aggregates the card displays. */
+  customer: CustomerListItem
 }
 
-export function CustomerCard({ customer, cars, notes, reminders }: CustomerCardProps) {
-  const noteUrgency = dueUrgency(notes.map((n) => n.dueDate))
+export function CustomerCard({ customer }: CustomerCardProps) {
+  const noteUrgency = dueUrgency([customer.nextNoteDueDate])
   const since = new Date(customer.createdAtUtc).getFullYear()
 
   return (
@@ -42,12 +38,12 @@ export function CustomerCard({ customer, cars, notes, reminders }: CustomerCardP
         <div className="flex shrink-0 items-center gap-1.5">
           <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
             <CarIcon className="h-3.5 w-3.5" />
-            {cars.length}
+            {customer.cars.length}
           </span>
-          {notes.length > 0 && (
+          {customer.activeNoteCount > 0 && (
             <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${URGENCY_BADGE[noteUrgency]}`}>
               <NoteIcon className="h-3.5 w-3.5" />
-              {notes.length}
+              {customer.activeNoteCount}
             </span>
           )}
         </div>
@@ -68,21 +64,20 @@ export function CustomerCard({ customer, cars, notes, reminders }: CustomerCardP
       </div>
 
       {/* Vehicle tags, each with an active-reminder marker coloured by how soon it's due. */}
-      {cars.length > 0 && (
+      {customer.cars.length > 0 && (
         <div className="mt-auto flex flex-wrap gap-2 pt-1">
-          {cars.map((car) => {
-            const carReminders = reminders.filter((r) => r.carId === car.id)
-            const urgency = dueUrgency(carReminders.map((r) => r.dueDate))
+          {customer.cars.map((car) => {
+            const urgency = dueUrgency([car.nextReminderDueDate])
             return (
               <span
                 key={car.id}
                 className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2.5 py-1 text-xs text-slate-700"
               >
                 {car.year} {car.carMakeName} {car.carModelName}
-                {carReminders.length > 0 && (
+                {car.activeReminderCount > 0 && (
                   <span className={`inline-flex items-center gap-1 border-l border-slate-300 pl-1.5 font-medium ${URGENCY_TEXT[urgency]}`}>
                     <BellIcon className="h-3.5 w-3.5" />
-                    {carReminders.length}
+                    {car.activeReminderCount}
                   </span>
                 )}
               </span>

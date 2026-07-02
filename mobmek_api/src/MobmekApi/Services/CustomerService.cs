@@ -7,6 +7,8 @@ namespace MobmekApi.Services;
 
 public class CustomerService(AppDbContext db) : ICustomerService
 {
+    private const int MaxPageSize = 200;
+
     public async Task<IReadOnlyList<CustomerDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await db.Customers
@@ -15,6 +17,62 @@ public class CustomerService(AppDbContext db) : ICustomerService
             .ThenBy(c => c.FirstName)
             .Select(c => ToDto(c))
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<PagedResult<CustomerListItemDto>> GetPagedAsync(int page, int pageSize, string? search, CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
+
+        var query = db.Customers.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            // ToLower().Contains translates to LOWER(...) LIKE on Postgres and also works
+            // on the in-memory test provider (unlike EF.Functions.ILike).
+            var term = search.Trim().ToLower();
+            query = query.Where(c =>
+                (c.FirstName + " " + c.LastName).ToLower().Contains(term) ||
+                c.PhoneNumber.ToLower().Contains(term) ||
+                (c.EmailAddress != null && c.EmailAddress.ToLower().Contains(term)));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderBy(c => c.LastName)
+            .ThenBy(c => c.FirstName)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(c => new CustomerListItemDto(
+                c.Id,
+                c.FirstName,
+                c.LastName,
+                c.PhoneNumber,
+                c.EmailAddress,
+                c.PhysicalAddress,
+                c.Notes,
+                c.CreatedAtUtc,
+                c.UpdatedAtUtc,
+                c.Cars
+                    .OrderBy(car => car.CreatedAtUtc)
+                    .Select(car => new CustomerCarSummaryDto(
+                        car.Id,
+                        car.Year,
+                        car.CarMake!.Name,
+                        car.CarModel!.Name,
+                        db.Reminders.Count(r => r.CarId == car.Id && !r.IsDone),
+                        db.Reminders
+                            .Where(r => r.CarId == car.Id && !r.IsDone)
+                            .Min(r => (DateOnly?)r.DueDate)))
+                    .ToList(),
+                db.Notes.Count(n => n.CustomerId == c.Id && !n.IsDone),
+                db.Notes
+                    .Where(n => n.CustomerId == c.Id && !n.IsDone)
+                    .Min(n => n.DueDate)))
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<CustomerListItemDto>(items, totalCount, page, pageSize);
     }
 
     public async Task<CustomerDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)

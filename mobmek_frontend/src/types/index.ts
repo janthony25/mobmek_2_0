@@ -3,6 +3,16 @@
 // Enums are expressed as `const` objects + union types because the project's
 // TypeScript config enables `erasableSyntaxOnly`, which forbids `enum`.
 
+// --- Shared ------------------------------------------------------------------
+
+/** One page of a server-paginated list plus the total row count. */
+export interface PagedResult<T> {
+  items: T[]
+  totalCount: number
+  page: number
+  pageSize: number
+}
+
 // --- Customers ---------------------------------------------------------------
 
 export interface Customer {
@@ -24,6 +34,25 @@ export interface CustomerRequest {
   emailAddress: string | null
   physicalAddress: string | null
   notes: string | null
+}
+
+/** A customer's car as shown on the customer list, with its active-reminder info. */
+export interface CustomerCarSummary {
+  id: string
+  year: number
+  carMakeName: string | null
+  carModelName: string | null
+  activeReminderCount: number
+  /** Earliest active reminder due date, "yyyy-mm-dd". */
+  nextReminderDueDate: string | null
+}
+
+/** Customer list-page shape: the customer plus the aggregates the cards display. */
+export interface CustomerListItem extends Customer {
+  cars: CustomerCarSummary[]
+  activeNoteCount: number
+  /** Earliest active note due date, "yyyy-mm-dd". */
+  nextNoteDueDate: string | null
 }
 
 // --- Cars --------------------------------------------------------------------

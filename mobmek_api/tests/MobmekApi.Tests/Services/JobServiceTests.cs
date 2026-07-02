@@ -125,4 +125,44 @@ public class JobServiceTests
 
         Assert.False(await service.DeleteAsync(Guid.NewGuid()));
     }
+
+    [Fact]
+    public async Task GetPagedAsync_OrdersNewestFirst_AndSlices()
+    {
+        await using var db = CreateContext();
+        var (customerId, carId) = await SeedCustomerWithCarAsync(db);
+        var service = new JobService(db);
+        for (var i = 0; i < 3; i++)
+        {
+            var (job, _) = await service.CreateAsync(
+                new CreateJobRequest(customerId, carId, $"Job {i}", JobStatus.Open, 0, null, null));
+            var entity = await db.Jobs.FirstAsync(j => j.Id == job!.Id);
+            entity.CreatedAtUtc = new DateTime(2026, 1, 1 + i, 0, 0, 0, DateTimeKind.Utc);
+        }
+        await db.SaveChangesAsync();
+
+        var page1 = await service.GetPagedAsync(page: 1, pageSize: 2, search: null);
+        var page2 = await service.GetPagedAsync(page: 2, pageSize: 2, search: null);
+
+        Assert.Equal(3, page1.TotalCount);
+        Assert.Collection(page1.Items,
+            j => Assert.Equal("Job 2", j.Title),
+            j => Assert.Equal("Job 1", j.Title));
+        Assert.Equal("Job 0", Assert.Single(page2.Items).Title);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SearchMatchesTitleCustomerAndCar_CaseInsensitively()
+    {
+        await using var db = CreateContext();
+        var (customerId, carId) = await SeedCustomerWithCarAsync(db); // Owner Person, Toyota Hilux ABC123
+        var service = new JobService(db);
+        await service.CreateAsync(NewJob(customerId, carId)); // "Brake job"
+
+        Assert.Single((await service.GetPagedAsync(1, 10, "BRAKE")).Items);
+        Assert.Single((await service.GetPagedAsync(1, 10, "owner person")).Items);
+        Assert.Single((await service.GetPagedAsync(1, 10, "hilux")).Items);
+        Assert.Single((await service.GetPagedAsync(1, 10, "abc123")).Items);
+        Assert.Empty((await service.GetPagedAsync(1, 10, "no-match")).Items);
+    }
 }

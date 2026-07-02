@@ -1,15 +1,10 @@
-import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { createCustomer, deleteCustomer, getCustomers, updateCustomer } from '@/api/customers'
-import { getCars } from '@/api/cars'
-import { getNotes } from '@/api/notes'
-import { getReminders } from '@/api/reminders'
+import { createCustomer, deleteCustomer, getCustomersPaged, updateCustomer } from '@/api/customers'
 import { CrudSection } from '@/components/crud/CrudSection'
 import { CustomerCard } from '@/components/customers/CustomerCard'
-import { useAsync } from '@/hooks/useAsync'
 import type { FieldSchema } from '@/components/crud/types'
 import { orDash } from '@/lib/format'
-import type { Car, Customer, CustomerRequest, Note, Reminder } from '@/types'
+import type { CustomerListItem, CustomerRequest } from '@/types'
 
 const fields: FieldSchema[] = [
   { name: 'firstName', label: 'First name', type: 'text', required: true },
@@ -21,60 +16,19 @@ const fields: FieldSchema[] = [
 ]
 
 export function CustomersPage() {
-  // The card view shows each customer's vehicles, plus note/reminder counts; fetch each
-  // collection once and group by customer rather than making a request per card.
-  const { data: cars } = useAsync(() => getCars(), [])
-  const { data: notes } = useAsync(() => getNotes(), [])
-  const { data: reminders } = useAsync(() => getReminders(), [])
-
-  const carsByCustomer = useMemo(() => {
-    const map = new Map<string, Car[]>()
-    for (const car of cars ?? []) {
-      const list = map.get(car.customerId)
-      if (list) list.push(car)
-      else map.set(car.customerId, [car])
-    }
-    return map
-  }, [cars])
-
-  const notesByCustomer = useMemo(() => {
-    const map = new Map<string, Note[]>()
-    for (const note of notes ?? []) {
-      if (note.isDone || !note.customerId) continue
-      const list = map.get(note.customerId)
-      if (list) list.push(note)
-      else map.set(note.customerId, [note])
-    }
-    return map
-  }, [notes])
-
-  const remindersByCustomer = useMemo(() => {
-    const map = new Map<string, Reminder[]>()
-    for (const reminder of reminders ?? []) {
-      if (reminder.isDone) continue
-      const list = map.get(reminder.customerId)
-      if (list) list.push(reminder)
-      else map.set(reminder.customerId, [reminder])
-    }
-    return map
-  }, [reminders])
-
+  // Server-side pagination + search; each list item carries the car/note/reminder
+  // aggregates the cards display, so no extra collection fetches are needed.
   return (
-    <CrudSection<Customer>
+    <CrudSection<CustomerListItem>
       resourceName="Customer"
       description="Everyone with a record in the workshop. Open a customer to manage their cars and jobs."
-      load={getCustomers}
+      loadPaged={({ page, pageSize, search }) => getCustomersPaged(page, pageSize, search)}
+      pageSize={20}
+      cardsPageSize={10}
       getId={(c) => c.id}
       rowLabel={(c) => `${c.firstName} ${c.lastName}`}
       defaultView="cards"
-      renderCard={(c) => (
-        <CustomerCard
-          customer={c}
-          cars={carsByCustomer.get(c.id) ?? []}
-          notes={notesByCustomer.get(c.id) ?? []}
-          reminders={remindersByCustomer.get(c.id) ?? []}
-        />
-      )}
+      renderCard={(c) => <CustomerCard customer={c} />}
       columns={[
         {
           header: 'Name',
