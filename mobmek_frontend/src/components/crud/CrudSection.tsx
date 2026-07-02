@@ -23,6 +23,8 @@ interface CrudSectionProps<T> {
   description?: string
   /** 'page' renders a large header; 'section' renders a compact one for embedding. */
   variant?: 'page' | 'section'
+  /** When set, the heading toggles the section body (starts expanded). */
+  collapsible?: boolean
 
   load: () => Promise<T[]>
   /** Bump to force a reload from a parent (e.g. when scope changes). */
@@ -65,6 +67,7 @@ export function CrudSection<T>({
   title,
   description,
   variant = 'page',
+  collapsible = false,
   load,
   reloadKey,
   getId,
@@ -87,6 +90,7 @@ export function CrudSection<T>({
   const [editing, setEditing] = useState<Editing<T>>(null)
   const [deleting, setDeleting] = useState<T | null>(null)
   const [view, setView] = useState<'list' | 'cards'>(defaultView ?? 'list')
+  const [collapsed, setCollapsed] = useState(false)
 
   const heading = title ?? `${resourceName}s`
   const showCards = renderCard != null && view === 'cards'
@@ -123,17 +127,37 @@ export function CrudSection<T>({
 
   return (
     <section>
-      <div className="mb-4 flex items-end justify-between gap-4">
+      <div className={`flex items-end justify-between gap-4 ${collapsed ? '' : 'mb-4'}`}>
         <div>
-          <h2
-            className={
-              variant === 'page'
-                ? 'text-2xl font-semibold text-slate-900'
-                : 'text-lg font-semibold text-slate-900'
-            }
-          >
-            {heading}
-          </h2>
+          {collapsible ? (
+            <button
+              type="button"
+              onClick={() => setCollapsed((c) => !c)}
+              aria-expanded={!collapsed}
+              className="flex items-center gap-2"
+            >
+              <h2
+                className={
+                  variant === 'page'
+                    ? 'text-2xl font-semibold text-slate-900'
+                    : 'text-lg font-semibold text-slate-900'
+                }
+              >
+                {heading}
+              </h2>
+              <span aria-hidden className="text-sm text-slate-400">{collapsed ? '▸' : '▾'}</span>
+            </button>
+          ) : (
+            <h2
+              className={
+                variant === 'page'
+                  ? 'text-2xl font-semibold text-slate-900'
+                  : 'text-lg font-semibold text-slate-900'
+              }
+            >
+              {heading}
+            </h2>
+          )}
           {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
         </div>
         <div className="flex items-center gap-2">
@@ -157,13 +181,13 @@ export function CrudSection<T>({
         </div>
       </div>
 
-      {loading && <StateMessage title={`Loading ${heading.toLowerCase()}…`} />}
-      {error && <StateMessage title={`Could not load ${heading.toLowerCase()}`} description={error.message} />}
-      {data && data.length === 0 && (
+      {!collapsed && loading && <StateMessage title={`Loading ${heading.toLowerCase()}…`} />}
+      {!collapsed && error && <StateMessage title={`Could not load ${heading.toLowerCase()}`} description={error.message} />}
+      {!collapsed && data && data.length === 0 && (
         <StateMessage title={emptyText ?? `No ${heading.toLowerCase()} yet`} description={`Use “Add ${resourceName}” to create one.`} />
       )}
 
-      {data && data.length > 0 && showCards && (
+      {!collapsed && data && data.length > 0 && showCards && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {data.map((row) => (
             <div key={getId(row)}>{renderCard(row)}</div>
@@ -171,7 +195,7 @@ export function CrudSection<T>({
         </div>
       )}
 
-      {data && data.length > 0 && !showCards && (
+      {!collapsed && data && data.length > 0 && !showCards && (
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">

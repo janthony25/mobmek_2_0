@@ -19,7 +19,7 @@ public class ReminderServiceTests
         var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Toyota"));
         var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Hilux"));
         var (car, _) = await new CarService(db).CreateAsync(
-            new CreateCarRequest(customer.Id, make.Id, model!.Id, 2020, "ABC123", null, null, null, null));
+            new CreateCarRequest(customer.Id, make.Id, model!.Id, 2020, "ABC123", null, null, null));
         return (customer.Id, car!.Id);
     }
 

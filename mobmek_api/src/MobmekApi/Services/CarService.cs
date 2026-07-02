@@ -12,7 +12,7 @@ public class CarService(AppDbContext db) : ICarService
     private static readonly Expression<Func<Car, CarDto>> ToDto =
         c => new CarDto(
             c.Id, c.CustomerId, c.CarMakeId, c.CarMake!.Name, c.CarModelId, c.CarModel!.Name,
-            c.Year, c.Rego, c.Vin, c.Color, c.EngineType, c.Odometer, c.CreatedAtUtc, c.UpdatedAtUtc);
+            c.Year, c.Rego, c.Vin, c.Color, c.EngineType, c.CreatedAtUtc, c.UpdatedAtUtc);
 
     public async Task<IReadOnlyList<CarDto>> GetAllAsync(Guid? customerId = null, CancellationToken cancellationToken = default)
     {
@@ -62,7 +62,6 @@ public class CarService(AppDbContext db) : ICarService
             Vin = request.Vin,
             Color = request.Color,
             EngineType = request.EngineType,
-            Odometer = request.Odometer,
         };
 
         db.Cars.Add(car);
@@ -92,7 +91,6 @@ public class CarService(AppDbContext db) : ICarService
         car.Vin = request.Vin;
         car.Color = request.Color;
         car.EngineType = request.EngineType;
-        car.Odometer = request.Odometer;
 
         await db.SaveChangesAsync(cancellationToken);
 

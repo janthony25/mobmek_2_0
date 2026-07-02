@@ -19,10 +19,21 @@ public interface IInvoiceService
     /// <summary>
     /// Generates a quotation from the job's items, labour and service lines. Priced exactly like
     /// an invoice (same line snapshotting and GST treatment) but carries DocumentType
-    /// "Quotation", numbers independently (QUO-0001, ...), and can never be marked paid.
-    /// Returns <c>null</c> when the job does not exist.
+    /// "Quotation", numbers independently (QUO-0001, ...), is valid for exactly 30 days after
+    /// issue (DueDate is set to issue date + 30 days; the request's due date is ignored), and
+    /// can never be marked paid. Returns <c>null</c> when the job does not exist.
     /// </summary>
     Task<InvoiceDto?> GenerateQuotationAsync(Guid jobId, CreateInvoiceRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Accepts a quotation: marks it "Accepted" and generates a new invoice (next INV number)
+    /// copying the quotation's snapshotted lines, totals and GST rate — the customer pays
+    /// exactly what they accepted, even if the job's lines changed after the quotation was
+    /// issued. Returns the new invoice, or <c>null</c> when there is no "Active" quotation
+    /// with that id on <paramref name="jobId"/> (not found, not a quotation, or already
+    /// accepted/rejected).
+    /// </summary>
+    Task<InvoiceDto?> AcceptQuotationAsync(Guid jobId, Guid id, AcceptQuotationRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Marks an invoice as rejected (kept for the record, never deleted) and removes any

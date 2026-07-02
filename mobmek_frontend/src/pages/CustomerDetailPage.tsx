@@ -307,9 +307,7 @@ interface VehicleItemProps {
 
 function VehicleItem({ car, reminders, onOpen, onEdit, onDelete }: VehicleItemProps) {
   const urgency = dueUrgency(reminders.map((r) => r.dueDate))
-  const subtitle = [car.color, car.rego, car.odometer != null ? `${car.odometer.toLocaleString()} km` : null]
-    .filter(Boolean)
-    .join(' · ')
+  const subtitle = [car.color, car.rego].filter(Boolean).join(' · ')
 
   return (
     <div

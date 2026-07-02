@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { generateQuotation, getInvoices, rejectInvoice } from '@/api/invoices'
+import { acceptQuotation, generateQuotation, getInvoices, rejectInvoice } from '@/api/invoices'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { DropdownMenu } from '@/components/ui/DropdownMenu'
@@ -10,9 +10,16 @@ import { useToast } from '@/components/ui/toast'
 import { useAsync } from '@/hooks/useAsync'
 import { currency, date, percent } from '@/lib/format'
 import { quotationStatusLabel, quotationStatusTone } from '@/lib/badges'
-import type { CreateInvoiceRequest, Invoice } from '@/types'
+import { Field, controlClass } from '@/components/forms/controls'
+import type { AcceptQuotationRequest, CreateInvoiceRequest, Invoice } from '@/types'
 
-export function QuotationsSection({ jobId }: { jobId: string }) {
+interface QuotationsSectionProps {
+  jobId: string
+  /** Called after a quotation is accepted, so the parent can refresh the invoices list. */
+  onAccepted?: () => void
+}
+
+export function QuotationsSection({ jobId, onAccepted }: QuotationsSectionProps) {
   const toast = useToast()
   // Quotations are invoices with documentType "Quotation" on the same endpoint.
   const { data, loading, error, reload } = useAsync(
@@ -20,7 +27,9 @@ export function QuotationsSection({ jobId }: { jobId: string }) {
     [jobId],
   )
   const [generating, setGenerating] = useState(false)
+  const [accepting, setAccepting] = useState<Invoice | null>(null)
   const [rejecting, setRejecting] = useState<Invoice | null>(null)
+  const [collapsed, setCollapsed] = useState(false)
 
   const handleReject = async () => {
     if (!rejecting) return
@@ -32,24 +41,30 @@ export function QuotationsSection({ jobId }: { jobId: string }) {
 
   return (
     <section className="rounded-xl border border-slate-200 border-l-4 border-l-slate-900 bg-white p-5 shadow-md">
-      <div className="mb-4 flex items-end justify-between gap-4">
-        <div className="flex items-center gap-2">
+      <div className={`flex items-end justify-between gap-4 ${collapsed ? '' : 'mb-4'}`}>
+        <button
+          type="button"
+          onClick={() => setCollapsed((c) => !c)}
+          aria-expanded={!collapsed}
+          className="flex items-center gap-2"
+        >
           <span aria-hidden className="text-2xl">📄</span>
           <h2 className="text-xl font-bold text-slate-900">Quotations</h2>
-        </div>
+          <span aria-hidden className="text-sm text-slate-400">{collapsed ? '▸' : '▾'}</span>
+        </button>
         <Button onClick={() => setGenerating(true)}>+ Generate Quotation</Button>
       </div>
 
-      {loading && <StateMessage title="Loading quotations…" />}
-      {error && <StateMessage title="Could not load quotations" description={error.message} />}
-      {data && data.length === 0 && (
+      {!collapsed && loading && <StateMessage title="Loading quotations…" />}
+      {!collapsed && error && <StateMessage title="Could not load quotations" description={error.message} />}
+      {!collapsed && data && data.length === 0 && (
         <StateMessage
           title="No quotations yet"
           description="Generate one to price the job's items, labour and services without issuing an invoice."
         />
       )}
 
-      {data && data.length > 0 && (
+      {!collapsed && data && data.length > 0 && (
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -65,7 +80,7 @@ export function QuotationsSection({ jobId }: { jobId: string }) {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {data.map((quo) => {
-                const rejected = quo.status === 'Rejected'
+                const active = quo.status === 'Active'
                 return (
                   <tr key={quo.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3 align-top font-medium text-slate-900">{quo.issueName}</td>
@@ -106,8 +121,13 @@ export function QuotationsSection({ jobId }: { jobId: string }) {
                             hint: 'Coming soon',
                           },
                           {
+                            label: 'Accept',
+                            disabled: !active,
+                            onClick: () => setAccepting(quo),
+                          },
+                          {
                             label: 'Reject',
-                            disabled: rejected,
+                            disabled: !active,
                             tone: 'danger',
                             onClick: () => setRejecting(quo),
                           },
@@ -133,6 +153,21 @@ export function QuotationsSection({ jobId }: { jobId: string }) {
         />
       </Modal>
 
+      <Modal open={accepting !== null} title="Accept Quotation" onClose={() => setAccepting(null)}>
+        {accepting && (
+          <AcceptForm
+            jobId={jobId}
+            quotation={accepting}
+            onDone={() => {
+              setAccepting(null)
+              reload()
+              onAccepted?.()
+            }}
+            onCancel={() => setAccepting(null)}
+          />
+        )}
+      </Modal>
+
       <ConfirmDialog
         open={rejecting !== null}
         title="Reject quotation"
@@ -142,6 +177,68 @@ export function QuotationsSection({ jobId }: { jobId: string }) {
         onCancel={() => setRejecting(null)}
       />
     </section>
+  )
+}
+
+function AcceptForm({
+  jobId,
+  quotation,
+  onDone,
+  onCancel,
+}: {
+  jobId: string
+  quotation: Invoice
+  onDone: () => void
+  onCancel: () => void
+}) {
+  const toast = useToast()
+  const [dueDate, setDueDate] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    const body: AcceptQuotationRequest = {
+      dueDate: dueDate || null,
+    }
+    try {
+      const invoice = await acceptQuotation(jobId, quotation.id, body)
+      toast.success(`Quotation accepted — invoice ${invoice.invoiceNumber} created`)
+      onDone()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-4">
+      <p className="text-sm text-slate-500">
+        Accepting “{quotation.issueName}” ({currency(quotation.totalAmount)}) turns it into an
+        invoice with the same lines and totals — the customer pays exactly what they accepted,
+        even if the job changed since. The quotation stays on record as accepted.
+      </p>
+      <Field label="Invoice due date">
+        <input
+          type="date"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+          className={controlClass}
+        />
+      </Field>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="secondary" onClick={onCancel} disabled={busy}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={busy}>
+          {busy ? 'Accepting…' : 'Accept & Create Invoice'}
+        </Button>
+      </div>
+    </form>
   )
 }
 
@@ -155,7 +252,6 @@ function GenerateForm({
   onCancel: () => void
 }) {
   const toast = useToast()
-  const [dueDate, setDueDate] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -163,8 +259,9 @@ function GenerateForm({
     e.preventDefault()
     setBusy(true)
     setError(null)
+    // The validity date is set by the backend: always 30 days after issue.
     const body: CreateInvoiceRequest = {
-      dueDate: dueDate || null,
+      dueDate: null,
     }
     try {
       await generateQuotation(jobId, body)
@@ -181,16 +278,9 @@ function GenerateForm({
     <form onSubmit={submit} className="space-y-4">
       <p className="text-sm text-slate-500">
         Lines and totals are built automatically from the job's items, labour and services, just
-        like an invoice — but a quotation is a price offer and can't be marked paid.
+        like an invoice — but a quotation is a price offer and can't be marked paid. It is valid
+        only for 30 days after it is issued.
       </p>
-      <Field label="Valid until">
-        <input
-          type="date"
-          value={dueDate}
-          onChange={(e) => setDueDate(e.target.value)}
-          className={inputClass}
-        />
-      </Field>
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="secondary" onClick={onCancel} disabled={busy}>
@@ -201,17 +291,5 @@ function GenerateForm({
         </Button>
       </div>
     </form>
-  )
-}
-
-const inputClass =
-  'w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500'
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
-      {children}
-    </label>
   )
 }

@@ -19,7 +19,7 @@ public class JobServiceLineServiceTests
         var customer = await new CustomerService(db).CreateAsync(new CreateCustomerRequest("O", "P", "0", null, null, null));
         var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Make"));
         var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Model"));
-        var (car, _) = await new CarService(db).CreateAsync(new CreateCarRequest(customer.Id, make.Id, model!.Id, 2020, "R", null, null, null, null));
+        var (car, _) = await new CarService(db).CreateAsync(new CreateCarRequest(customer.Id, make.Id, model!.Id, 2020, "R", null, null, null));
         var jobs = new JobService(db);
         var (job, _) = await jobs.CreateAsync(new CreateJobRequest(customer.Id, car!.Id, "Job", JobStatus.Open, 1000, null, null));
         return (jobs, job!.Id);

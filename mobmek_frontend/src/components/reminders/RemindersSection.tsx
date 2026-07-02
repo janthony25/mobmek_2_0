@@ -15,6 +15,8 @@ interface RemindersSectionProps {
   lockedCarId?: string
   description?: string
   title?: string
+  /** When set, the heading toggles the section body (starts expanded). */
+  collapsible?: boolean
 }
 
 /** yyyy-mm-dd for "today", to flag overdue reminders. */
@@ -23,7 +25,7 @@ function todayISO(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function RemindersSection({ customerId, lockedCarId, description, title = 'Reminders' }: RemindersSectionProps) {
+export function RemindersSection({ customerId, lockedCarId, description, title = 'Reminders', collapsible }: RemindersSectionProps) {
   const templates = useAsync(() => getReminderTemplates(), [])
   const cars = useAsync(() => getCars(customerId), [customerId])
 
@@ -39,6 +41,7 @@ export function RemindersSection({ customerId, lockedCarId, description, title =
       resourceName="Reminder"
       title={title}
       variant="section"
+      collapsible={collapsible}
       description={description}
       load={() => getReminders({ customerId, carId: lockedCarId })}
       getId={(r) => r.id}

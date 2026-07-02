@@ -35,7 +35,7 @@ public class CarServiceTests
         var service = new CarService(db);
 
         var (car, error) = await service.CreateAsync(
-            new CreateCarRequest(customerId, makeId, modelId, 2020, "ABC123", "VIN123", "Red", "Petrol", 50000));
+            new CreateCarRequest(customerId, makeId, modelId, 2020, "ABC123", "VIN123", "Red", "Petrol"));
 
         Assert.Equal(CarWriteError.None, error);
         Assert.NotNull(car);
@@ -53,7 +53,7 @@ public class CarServiceTests
         var service = new CarService(db);
 
         var (car, error) = await service.CreateAsync(
-            new CreateCarRequest(Guid.NewGuid(), makeId, modelId, 2020, "ABC123", null, null, null, null));
+            new CreateCarRequest(Guid.NewGuid(), makeId, modelId, 2020, "ABC123", null, null, null));
 
         Assert.Null(car);
         Assert.Equal(CarWriteError.CustomerNotFound, error);
@@ -69,7 +69,7 @@ public class CarServiceTests
         var service = new CarService(db);
 
         var (car, error) = await service.CreateAsync(
-            new CreateCarRequest(customerId, makeId, otherModelId, 2020, "ABC123", null, null, null, null));
+            new CreateCarRequest(customerId, makeId, otherModelId, 2020, "ABC123", null, null, null));
 
         Assert.Null(car);
         Assert.Equal(CarWriteError.ModelNotInMake, error);
@@ -84,7 +84,7 @@ public class CarServiceTests
         var service = new CarService(db);
 
         var (car, error) = await service.CreateAsync(
-            new CreateCarRequest(customerId, Guid.NewGuid(), modelId, 2020, "ABC123", null, null, null, null));
+            new CreateCarRequest(customerId, Guid.NewGuid(), modelId, 2020, "ABC123", null, null, null));
 
         Assert.Null(car);
         Assert.Equal(CarWriteError.MakeNotFound, error);
@@ -98,9 +98,9 @@ public class CarServiceTests
         var customerA = await SeedCustomerAsync(db);
         var customerB = await SeedCustomerAsync(db);
         var (makeId, modelId) = await SeedMakeModelAsync(db);
-        await service.CreateAsync(new CreateCarRequest(customerA, makeId, modelId, 2021, "A1", null, null, null, null));
-        await service.CreateAsync(new CreateCarRequest(customerA, makeId, modelId, 2018, "A2", null, null, null, null));
-        await service.CreateAsync(new CreateCarRequest(customerB, makeId, modelId, 2022, "B1", null, null, null, null));
+        await service.CreateAsync(new CreateCarRequest(customerA, makeId, modelId, 2021, "A1", null, null, null));
+        await service.CreateAsync(new CreateCarRequest(customerA, makeId, modelId, 2018, "A2", null, null, null));
+        await service.CreateAsync(new CreateCarRequest(customerB, makeId, modelId, 2022, "B1", null, null, null));
 
         var carsForA = await service.GetAllAsync(customerA);
 
@@ -125,17 +125,17 @@ public class CarServiceTests
         var (makeId, modelId) = await SeedMakeModelAsync(db);
         var service = new CarService(db);
         var (created, _) = await service.CreateAsync(
-            new CreateCarRequest(customerId, makeId, modelId, 2010, "OLD1", "v", "Blue", "Diesel", 100));
+            new CreateCarRequest(customerId, makeId, modelId, 2010, "OLD1", "v", "Blue", "Diesel"));
 
         var (updated, error) = await service.UpdateAsync(created!.Id,
-            new UpdateCarRequest(makeId, modelId, 2011, "NEW1", null, "Green", null, 200));
+            new UpdateCarRequest(makeId, modelId, 2011, "NEW1", null, "Green", "EV"));
 
         Assert.Equal(CarWriteError.None, error);
         Assert.NotNull(updated);
         Assert.Equal(2011, updated!.Year);
         Assert.Equal("Green", updated.Color);
         Assert.Null(updated.Vin);
-        Assert.Equal(200, updated.Odometer);
+        Assert.Equal("EV", updated.EngineType);
         Assert.NotNull(updated.UpdatedAtUtc);
     }
 
@@ -147,7 +147,7 @@ public class CarServiceTests
         var service = new CarService(db);
 
         var (car, error) = await service.UpdateAsync(Guid.NewGuid(),
-            new UpdateCarRequest(makeId, modelId, 2020, "R", null, null, null, null));
+            new UpdateCarRequest(makeId, modelId, 2020, "R", null, null, null));
 
         Assert.Null(car);
         Assert.Equal(CarWriteError.NotFound, error);
@@ -161,7 +161,7 @@ public class CarServiceTests
         var (makeId, modelId) = await SeedMakeModelAsync(db);
         var service = new CarService(db);
         var (created, _) = await service.CreateAsync(
-            new CreateCarRequest(customerId, makeId, modelId, 2020, "TMP1", null, null, null, null));
+            new CreateCarRequest(customerId, makeId, modelId, 2020, "TMP1", null, null, null));
 
         Assert.True(await service.DeleteAsync(created!.Id));
         Assert.Equal(0, await db.Cars.CountAsync());

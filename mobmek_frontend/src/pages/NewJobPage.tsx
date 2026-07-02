@@ -42,8 +42,11 @@ const STATUS_OPTIONS = Object.entries(JOB_STATUS_LABELS).map(([value, label]) =>
 export function NewJobPage() {
   const toast = useToast()
   const navigate = useNavigate()
-  // Optionally pre-selected when arriving from a customer's car page.
+  // Pre-selected when arriving from a customer's car page; those picks are final,
+  // so the customer/car controls render locked instead of editable.
   const preset = (useLocation().state ?? {}) as { customerId?: string; carId?: string }
+  const customerLocked = Boolean(preset.customerId)
+  const carLocked = Boolean(preset.carId)
 
   const [customers, setCustomers] = useState<Customer[]>([])
   const [cars, setCars] = useState<Car[]>([])
@@ -212,6 +215,7 @@ export function NewJobPage() {
                 setCustomerId(id)
                 setCarId('')
               }}
+              disabled={customerLocked}
               placeholder="Type to search customers…"
               emptyText="No matching customers"
             />
@@ -220,7 +224,7 @@ export function NewJobPage() {
             <select
               value={carId}
               onChange={(e) => setCarId(e.target.value)}
-              disabled={!customerId}
+              disabled={carLocked || !customerId}
               className={controlClass}
             >
               <option value="">{customerId ? 'Select…' : 'Pick a customer first'}</option>

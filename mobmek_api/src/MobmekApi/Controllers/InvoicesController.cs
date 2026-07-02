@@ -43,7 +43,7 @@ public class InvoicesController(IInvoiceService invoiceService) : ControllerBase
         return CreatedAtAction(nameof(GetById), new { jobId, id = created.Id }, created);
     }
 
-    /// <summary>Generates a quotation from the job's items, labour and service lines. Priced like an invoice but never payable.</summary>
+    /// <summary>Generates a quotation from the job's items, labour and service lines. Priced like an invoice but never payable; valid for 30 days after issue.</summary>
     [HttpPost("quotation")]
     [ProducesResponseType(typeof(InvoiceDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -53,6 +53,23 @@ public class InvoicesController(IInvoiceService invoiceService) : ControllerBase
         if (created is null)
         {
             return Problem(detail: $"Job '{jobId}' does not exist.", statusCode: StatusCodes.Status404NotFound);
+        }
+
+        return CreatedAtAction(nameof(GetById), new { jobId, id = created.Id }, created);
+    }
+
+    /// <summary>Accepts a quotation: marks it "Accepted" and generates a new invoice copying the quotation's snapshotted lines and totals.</summary>
+    [HttpPost("{id:guid}/accept")]
+    [ProducesResponseType(typeof(InvoiceDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<InvoiceDto>> Accept(Guid jobId, Guid id, AcceptQuotationRequest request, CancellationToken cancellationToken)
+    {
+        var created = await invoiceService.AcceptQuotationAsync(jobId, id, request, cancellationToken);
+        if (created is null)
+        {
+            return Problem(
+                detail: $"No active quotation '{id}' exists on job '{jobId}' (it may already be accepted or rejected).",
+                statusCode: StatusCodes.Status404NotFound);
         }
 
         return CreatedAtAction(nameof(GetById), new { jobId, id = created.Id }, created);

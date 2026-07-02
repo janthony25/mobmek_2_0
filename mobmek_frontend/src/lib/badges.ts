@@ -21,9 +21,13 @@ export const invoiceStatusLabel = (invoice: Pick<Invoice, 'status' | 'isPaid'>):
 export const invoiceStatusTone = (invoice: Pick<Invoice, 'status' | 'isPaid'>): Tone =>
   invoice.status.toLowerCase() === 'rejected' ? 'red' : invoice.isPaid ? 'green' : 'amber'
 
-/** A quotation is never paid, so its label/tone come from `status` alone. */
-export const quotationStatusLabel = (quotation: Pick<Invoice, 'status'>): string =>
-  quotation.status.toLowerCase() === 'rejected' ? 'Rejected' : 'Active'
+/** A quotation is never paid, so its label/tone come from `status` alone (Active/Accepted/Rejected). */
+export const quotationStatusLabel = (quotation: Pick<Invoice, 'status'>): string => {
+  const status = quotation.status.toLowerCase()
+  return status === 'rejected' ? 'Rejected' : status === 'accepted' ? 'Accepted' : 'Active'
+}
 
-export const quotationStatusTone = (quotation: Pick<Invoice, 'status'>): Tone =>
-  quotation.status.toLowerCase() === 'rejected' ? 'red' : 'blue'
+export const quotationStatusTone = (quotation: Pick<Invoice, 'status'>): Tone => {
+  const status = quotation.status.toLowerCase()
+  return status === 'rejected' ? 'red' : status === 'accepted' ? 'green' : 'blue'
+}

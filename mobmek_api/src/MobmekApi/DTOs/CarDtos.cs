@@ -15,7 +15,6 @@ public record CarDto(
     string? Vin,
     string? Color,
     string? EngineType,
-    int? Odometer,
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc);
 
@@ -31,8 +30,7 @@ public record CreateCarRequest(
     [Required, MaxLength(20)] string Rego,
     [MaxLength(17)] string? Vin,
     [MaxLength(50)] string? Color,
-    [MaxLength(50)] string? EngineType,
-    [Range(0, int.MaxValue)] int? Odometer);
+    [MaxLength(50)] string? EngineType);
 
 /// <summary>Payload for updating an existing car. The owning customer cannot be changed here.</summary>
 public record UpdateCarRequest(
@@ -42,5 +40,4 @@ public record UpdateCarRequest(
     [Required, MaxLength(20)] string Rego,
     [MaxLength(17)] string? Vin,
     [MaxLength(50)] string? Color,
-    [MaxLength(50)] string? EngineType,
-    [Range(0, int.MaxValue)] int? Odometer);
+    [MaxLength(50)] string? EngineType);

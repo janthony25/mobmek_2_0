@@ -70,7 +70,11 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
             Notes = job.InvoiceNotes,
             DocumentType = documentType,
             Status = "Active",
-            DueDate = request.DueDate,
+            // Policy: a quotation is valid for exactly 30 days after issue; an invoice's
+            // due date is caller-supplied.
+            DueDate = documentType == "Quotation"
+                ? DateOnly.FromDateTime(DateTime.UtcNow).AddDays(30)
+                : request.DueDate,
             LabourPrice = labourTotal,
             SubTotal = subTotal,
             GstRate = gstRate,
@@ -114,6 +118,61 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
             });
         }
 
+        db.Invoices.Add(invoice);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return ToDto(invoice);
+    }
+
+    public async Task<InvoiceDto?> AcceptQuotationAsync(Guid jobId, Guid id, AcceptQuotationRequest request, CancellationToken cancellationToken = default)
+    {
+        var quotation = await db.Invoices
+            .Include(i => i.Items)
+            .FirstOrDefaultAsync(i => i.Id == id && i.JobId == jobId, cancellationToken);
+
+        // Only an active quotation can be accepted — never a plain invoice, and an
+        // already-accepted or rejected quotation stays as it is.
+        if (quotation is null || quotation.DocumentType != "Quotation" || quotation.Status != "Active")
+        {
+            return null;
+        }
+
+        var nextSequenceNumber = (await db.Invoices
+            .Where(i => i.DocumentType == "Invoice")
+            .MaxAsync(i => (int?)i.SequenceNumber, cancellationToken) ?? 0) + 1;
+
+        // The invoice copies the quotation's snapshot, not the job's current lines: the
+        // customer pays exactly what they accepted.
+        var invoice = new Invoice
+        {
+            JobId = quotation.JobId,
+            SequenceNumber = nextSequenceNumber,
+            IssueName = quotation.IssueName,
+            Notes = quotation.Notes,
+            DocumentType = "Invoice",
+            Status = "Active",
+            DueDate = request.DueDate,
+            LabourPrice = quotation.LabourPrice,
+            SubTotal = quotation.SubTotal,
+            GstRate = quotation.GstRate,
+            TaxAmount = quotation.TaxAmount,
+            Discount = quotation.Discount,
+            ShippingFee = quotation.ShippingFee,
+            TotalAmount = quotation.TotalAmount,
+        };
+
+        foreach (var item in quotation.Items.OrderBy(i => i.CreatedAtUtc))
+        {
+            invoice.Items.Add(new InvoiceItem
+            {
+                ItemName = item.ItemName,
+                Quantity = item.Quantity,
+                ItemPrice = item.ItemPrice,
+                ItemTotal = item.ItemTotal,
+            });
+        }
+
+        quotation.Status = "Accepted";
         db.Invoices.Add(invoice);
         await db.SaveChangesAsync(cancellationToken);
 

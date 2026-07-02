@@ -20,7 +20,7 @@ public class InvoiceServiceTests
         var customer = await new CustomerService(db).CreateAsync(new CreateCustomerRequest("O", "P", "0", null, null, null));
         var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Make"));
         var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Model"));
-        var (car, _) = await new CarService(db).CreateAsync(new CreateCarRequest(customer.Id, make.Id, model!.Id, 2020, "R", null, null, null, null));
+        var (car, _) = await new CarService(db).CreateAsync(new CreateCarRequest(customer.Id, make.Id, model!.Id, 2020, "R", null, null, null));
         var jobs = new JobService(db);
         var (job, _) = await jobs.CreateAsync(new CreateJobRequest(customer.Id, car!.Id, "Brakes", JobStatus.Open, 1000, null, "Thanks!"));
 
@@ -129,14 +129,12 @@ public class InvoiceServiceTests
         await using var db = CreateContext();
         var (invoices, _, jobId) = await SeedFullJobAsync(db);
 
-        var dueDate = new DateOnly(2026, 7, 31);
-        var quotation = await invoices.GenerateQuotationAsync(jobId, new CreateInvoiceRequest(dueDate));
+        var quotation = await invoices.GenerateQuotationAsync(jobId, new CreateInvoiceRequest(null));
 
         Assert.NotNull(quotation);
         Assert.Equal("Quotation", quotation!.DocumentType);
         Assert.Equal("Active", quotation.Status);
         Assert.Equal("QUO-0001", quotation.InvoiceNumber);
-        Assert.Equal(dueDate, quotation.DueDate);
         Assert.Equal(460m, quotation.SubTotal);        // same snapshot as an invoice: 110 + 200 + 150
         Assert.Equal(69m, quotation.TaxAmount);        // 460 * 0.15
         Assert.Equal(529m, quotation.TotalAmount);     // GST added on top
@@ -165,6 +163,17 @@ public class InvoiceServiceTests
     }
 
     [Fact]
+    public async Task GenerateQuotationAsync_IsValidFor30DaysAfterIssue_IgnoringRequestedDueDate()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+
+        var quotation = await invoices.GenerateQuotationAsync(jobId, new CreateInvoiceRequest(new DateOnly(2030, 1, 1)));
+
+        Assert.Equal(DateOnly.FromDateTime(DateTime.UtcNow).AddDays(30), quotation!.DueDate);
+    }
+
+    [Fact]
     public async Task GenerateQuotationAsync_ReturnsNull_WhenJobMissing()
     {
         await using var db = CreateContext();
@@ -185,6 +194,92 @@ public class InvoiceServiceTests
         Assert.Null(paid);
         var refetched = await invoices.GetByIdAsync(jobId, quotation.Id);
         Assert.False(refetched!.IsPaid);               // a quotation is never payable
+    }
+
+    [Fact]
+    public async Task AcceptQuotationAsync_MarksQuotationAccepted_AndCopiesSnapshotIntoNewInvoice()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var quotation = await invoices.GenerateQuotationAsync(jobId, new CreateInvoiceRequest(null));
+
+        // The job changes after the quotation is issued; the accepted invoice must ignore this.
+        await new LabourService(db, new JobService(db)).CreateAsync(jobId, new CreateLabourRequest(null, null, FixedAmount: 999m));
+        await new GstSettingService(db).UpdateAsync(0.20m);
+
+        var dueDate = new DateOnly(2026, 8, 15);
+        var invoice = await invoices.AcceptQuotationAsync(jobId, quotation!.Id, new AcceptQuotationRequest(dueDate));
+
+        Assert.NotNull(invoice);
+        Assert.Equal("Invoice", invoice!.DocumentType);
+        Assert.Equal("Active", invoice.Status);
+        Assert.Equal("INV-0001", invoice.InvoiceNumber);
+        Assert.Equal(dueDate, invoice.DueDate);
+        Assert.False(invoice.IsPaid);
+        // Copied from the quotation's snapshot, not rebuilt from the (changed) job or GST rate.
+        Assert.Equal(460m, invoice.SubTotal);
+        Assert.Equal(0.15m, invoice.GstRate);
+        Assert.Equal(69m, invoice.TaxAmount);
+        Assert.Equal(529m, invoice.TotalAmount);
+        Assert.Equal(200m, invoice.LabourPrice);
+        Assert.Equal(3, invoice.Items.Count);
+        Assert.Contains(invoice.Items, i => i.ItemName == "Pads" && i.ItemTotal == 110m);
+        Assert.Contains(invoice.Items, i => i.ItemName == "Labour" && i.ItemTotal == 200m);
+        Assert.Contains(invoice.Items, i => i.ItemName == "Oil change" && i.ItemTotal == 150m);
+
+        var refetchedQuotation = await invoices.GetByIdAsync(jobId, quotation.Id);
+        Assert.Equal("Accepted", refetchedQuotation!.Status);
+    }
+
+    [Fact]
+    public async Task AcceptQuotationAsync_ProducedInvoiceIsPayable()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var quotation = await invoices.GenerateQuotationAsync(jobId, new CreateInvoiceRequest(null));
+
+        var invoice = await invoices.AcceptQuotationAsync(jobId, quotation!.Id, new AcceptQuotationRequest(null));
+        var paid = await invoices.MarkPaidAsync(jobId, invoice!.Id, new MarkInvoicePaidRequest("Cash", null, null, null, null));
+
+        Assert.True(paid!.IsPaid);
+        Assert.Equal(529m, paid.AmountPaid);
+    }
+
+    [Fact]
+    public async Task AcceptQuotationAsync_ReturnsNull_WhenNotAnActiveQuotation()
+    {
+        await using var db = CreateContext();
+        var (invoices, jobs, jobId) = await SeedFullJobAsync(db);
+        var seededJob = await db.Jobs.AsNoTracking().FirstAsync();
+        var (otherJob, _) = await jobs.CreateAsync(new CreateJobRequest(
+            seededJob.CustomerId, seededJob.CarId, "Other", JobStatus.Open, 0, null, null));
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+        var quotation = await invoices.GenerateQuotationAsync(jobId, new CreateInvoiceRequest(null));
+
+        // Missing, wrong job, or a plain invoice.
+        Assert.Null(await invoices.AcceptQuotationAsync(jobId, Guid.NewGuid(), new AcceptQuotationRequest(null)));
+        Assert.Null(await invoices.AcceptQuotationAsync(otherJob!.Id, quotation!.Id, new AcceptQuotationRequest(null)));
+        Assert.Null(await invoices.AcceptQuotationAsync(jobId, invoice!.Id, new AcceptQuotationRequest(null)));
+
+        // A rejected quotation cannot be accepted.
+        await invoices.RejectAsync(jobId, quotation.Id);
+        Assert.Null(await invoices.AcceptQuotationAsync(jobId, quotation.Id, new AcceptQuotationRequest(null)));
+    }
+
+    [Fact]
+    public async Task AcceptQuotationAsync_ReturnsNull_WhenQuotationAlreadyAccepted()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var quotation = await invoices.GenerateQuotationAsync(jobId, new CreateInvoiceRequest(null));
+
+        var first = await invoices.AcceptQuotationAsync(jobId, quotation!.Id, new AcceptQuotationRequest(null));
+        var second = await invoices.AcceptQuotationAsync(jobId, quotation.Id, new AcceptQuotationRequest(null));
+
+        Assert.NotNull(first);
+        Assert.Null(second);                           // accepting twice must not create a second invoice
+        var all = await invoices.GetAllAsync(jobId);
+        Assert.Single(all, i => i.DocumentType == "Invoice");
     }
 
     [Fact]

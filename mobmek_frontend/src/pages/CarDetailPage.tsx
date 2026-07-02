@@ -39,9 +39,7 @@ export function CarDetailPage() {
     .filter((j) => j.carId === carId)
     .sort((a, b) => b.createdAtUtc.localeCompare(a.createdAtUtc))
 
-  const subtitle = [car.color, car.rego, car.odometer != null ? `${car.odometer.toLocaleString()} km` : null]
-    .filter(Boolean)
-    .join(' · ')
+  const subtitle = [car.color, car.rego].filter(Boolean).join(' · ')
 
   const handleUpdateCar = async (values: Record<string, unknown>) => {
     await updateCar(carId, values as unknown as UpdateCarRequest)
@@ -98,7 +96,6 @@ export function CarDetailPage() {
               <Detail label="Rego" value={car.rego} />
               <Detail label="Color" value={orDash(car.color)} />
               <Detail label="Engine" value={orDash(car.engineType)} />
-              <Detail label="Odometer" value={car.odometer != null ? `${car.odometer.toLocaleString()} km` : '—'} />
               <Detail label="VIN" value={orDash(car.vin)} mono />
             </dl>
           </Card>

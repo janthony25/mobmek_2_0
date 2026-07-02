@@ -27,8 +27,6 @@ public class Car : BaseEntity
 
     public string? EngineType { get; set; }
 
-    public int? Odometer { get; set; }
-
     /// <summary>Owning customer (foreign key).</summary>
     public Guid CustomerId { get; set; }
 

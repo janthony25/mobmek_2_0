@@ -169,6 +169,12 @@ export function InvoicePrintPage() {
           </section>
         )}
 
+        {isQuotation && (
+          <section className="mt-8 rounded-md bg-slate-50 p-4 text-sm text-slate-600">
+            This quotation is valid only for 30 days after the issue date.
+          </section>
+        )}
+
         {business.bankDetails && (
           <section className="mt-8">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Payment details</p>

@@ -49,6 +49,12 @@ public record InvoiceDto(
 public record CreateInvoiceRequest(DateOnly? DueDate);
 
 /// <summary>
+/// Payload for accepting a quotation. The new invoice copies the quotation's lines and totals;
+/// only its due date is supplied here.
+/// </summary>
+public record AcceptQuotationRequest(DateOnly? DueDate);
+
+/// <summary>
 /// Payload for marking an invoice paid. <see cref="ModeOfPayment"/> and <see cref="PaymentTerm"/>
 /// are captured here (not at generation) since they're only known once the customer actually pays.
 /// The cash and card amounts are recorded as-supplied for payment-method analytics;

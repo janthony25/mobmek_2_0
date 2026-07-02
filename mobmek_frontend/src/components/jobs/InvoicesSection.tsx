@@ -15,16 +15,23 @@ import type { CreateInvoiceRequest, Invoice, MarkInvoicePaidRequest } from '@/ty
 const MODES_OF_PAYMENT = ['Card', 'Cash', 'Cash & Card'] as const
 type ModeOfPayment = (typeof MODES_OF_PAYMENT)[number]
 
-export function InvoicesSection({ jobId }: { jobId: string }) {
+interface InvoicesSectionProps {
+  jobId: string
+  /** Bump to force a reload, e.g. after accepting a quotation creates an invoice. */
+  reloadKey?: number
+}
+
+export function InvoicesSection({ jobId, reloadKey = 0 }: InvoicesSectionProps) {
   const toast = useToast()
   // Quotations share the invoices endpoint but live in their own QuotationsSection.
   const { data, loading, error, reload } = useAsync(
     () => getInvoices(jobId).then((list) => list.filter((inv) => inv.documentType !== 'Quotation')),
-    [jobId],
+    [jobId, reloadKey],
   )
   const [generating, setGenerating] = useState(false)
   const [rejecting, setRejecting] = useState<Invoice | null>(null)
   const [paying, setPaying] = useState<Invoice | null>(null)
+  const [collapsed, setCollapsed] = useState(false)
 
   const handleReject = async () => {
     if (!rejecting) return
@@ -36,24 +43,30 @@ export function InvoicesSection({ jobId }: { jobId: string }) {
 
   return (
     <section className="rounded-xl border border-slate-200 border-l-4 border-l-slate-900 bg-white p-5 shadow-md">
-      <div className="mb-4 flex items-end justify-between gap-4">
-        <div className="flex items-center gap-2">
+      <div className={`flex items-end justify-between gap-4 ${collapsed ? '' : 'mb-4'}`}>
+        <button
+          type="button"
+          onClick={() => setCollapsed((c) => !c)}
+          aria-expanded={!collapsed}
+          className="flex items-center gap-2"
+        >
           <span aria-hidden className="text-2xl">🧾</span>
           <h2 className="text-xl font-bold text-slate-900">Invoices</h2>
-        </div>
+          <span aria-hidden className="text-sm text-slate-400">{collapsed ? '▸' : '▾'}</span>
+        </button>
         <Button onClick={() => setGenerating(true)}>+ Generate Invoice</Button>
       </div>
 
-      {loading && <StateMessage title="Loading invoices…" />}
-      {error && <StateMessage title="Could not load invoices" description={error.message} />}
-      {data && data.length === 0 && (
+      {!collapsed && loading && <StateMessage title="Loading invoices…" />}
+      {!collapsed && error && <StateMessage title="Could not load invoices" description={error.message} />}
+      {!collapsed && data && data.length === 0 && (
         <StateMessage
           title="No invoices yet"
           description="Generate one to snapshot the job's items, labour and services."
         />
       )}
 
-      {data && data.length > 0 && (
+      {!collapsed && data && data.length > 0 && (
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">

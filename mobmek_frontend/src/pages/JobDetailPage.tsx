@@ -52,6 +52,8 @@ export function JobDetailPage() {
   const [mode, setMode] = useState<'view' | 'edit'>('view')
   const [busy, setBusy] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  // Accepting a quotation creates an invoice; bump this to refresh the invoices list.
+  const [invoicesReloadKey, setInvoicesReloadKey] = useState(0)
 
   // Draft state, seeded from the loaded job when "Edit" is pressed.
   const [carId, setCarId] = useState('')
@@ -254,9 +256,9 @@ export function JobDetailPage() {
 
   return (
     <div className="space-y-6 pb-24">
-      <InvoicesSection jobId={id} />
+      <InvoicesSection jobId={id} reloadKey={invoicesReloadKey} />
 
-      <QuotationsSection jobId={id} />
+      <QuotationsSection jobId={id} onAccepted={() => setInvoicesReloadKey((k) => k + 1)} />
 
       <div className="rounded-xl border border-slate-200 border-l-4 border-l-amber-500 bg-amber-50/40 p-5 shadow-md">
         <RemindersSection
@@ -264,6 +266,7 @@ export function JobDetailPage() {
           lockedCarId={job.carId}
           title="⏰ Reminders"
           description="Reminders for this car, e.g. next WOF or service."
+          collapsible
         />
       </div>
 

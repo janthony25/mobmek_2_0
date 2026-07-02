@@ -24,7 +24,6 @@ export function CarForm({ initial, onSubmit, onCancel }: CarFormProps) {
   const [vin, setVin] = useState(initial?.vin ?? '')
   const [color, setColor] = useState(initial?.color ?? '')
   const [engineType, setEngineType] = useState(initial?.engineType ?? '')
-  const [odometer, setOdometer] = useState(initial?.odometer != null ? String(initial.odometer) : '')
 
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -64,7 +63,6 @@ export function CarForm({ initial, onSubmit, onCancel }: CarFormProps) {
         vin: vin.trim() || null,
         color: color.trim() || null,
         engineType: engineType.trim() || null,
-        odometer: odometer.trim() === '' ? null : Number(odometer),
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -114,9 +112,6 @@ export function CarForm({ initial, onSubmit, onCancel }: CarFormProps) {
         </Field>
         <Field label="Engine type">
           <input type="text" value={engineType ?? ''} onChange={(e) => setEngineType(e.target.value)} className={controlClass} />
-        </Field>
-        <Field label="Odometer">
-          <input type="number" value={odometer} min={0} onChange={(e) => setOdometer(e.target.value)} className={controlClass} />
         </Field>
       </div>
 

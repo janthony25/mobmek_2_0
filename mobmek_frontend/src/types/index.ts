@@ -40,7 +40,6 @@ export interface Car {
   vin: string | null
   color: string | null
   engineType: string | null
-  odometer: number | null
   createdAtUtc: string
   updatedAtUtc: string | null
 }
@@ -54,7 +53,6 @@ export interface CreateCarRequest {
   vin: string | null
   color: string | null
   engineType: string | null
-  odometer: number | null
 }
 
 export type UpdateCarRequest = Omit<CreateCarRequest, 'customerId'>
@@ -270,6 +268,10 @@ export interface Invoice {
 }
 
 export interface CreateInvoiceRequest {
+  dueDate: string | null
+}
+
+export interface AcceptQuotationRequest {
   dueDate: string | null
 }
 
