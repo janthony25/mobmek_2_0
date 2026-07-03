@@ -17,6 +17,7 @@ const NAV_GROUPS: NavGroup[] = [
     heading: 'Workshop',
     items: [
       { to: '/customers', label: 'Customers', icon: '👥' },
+      { to: '/appointments', label: 'Appointments', icon: '📅' },
       { to: '/jobs', label: 'Job Center', icon: '🔧' },
     ],
   },

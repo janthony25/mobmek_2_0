@@ -159,6 +159,72 @@ export interface CreateJobRequest {
 
 export type UpdateJobRequest = Omit<CreateJobRequest, 'customerId'>
 
+// --- Appointments --------------------------------------------------------------
+
+export const AppointmentStatus = {
+  Scheduled: 0,
+  Confirmed: 1,
+  Arrived: 2,
+  Completed: 3,
+  NoShow: 4,
+  Cancelled: 5,
+} as const
+
+export type AppointmentStatus = (typeof AppointmentStatus)[keyof typeof AppointmentStatus]
+
+export const APPOINTMENT_STATUS_LABELS: Record<AppointmentStatus, string> = {
+  [AppointmentStatus.Scheduled]: 'Scheduled',
+  [AppointmentStatus.Confirmed]: 'Confirmed',
+  [AppointmentStatus.Arrived]: 'Arrived',
+  [AppointmentStatus.Completed]: 'Completed',
+  [AppointmentStatus.NoShow]: 'No-show',
+  [AppointmentStatus.Cancelled]: 'Cancelled',
+}
+
+/**
+ * A booked visit. Either fully linked to customer/car (and optionally a job), or a
+ * "new caller" carrying only free-text contact fields until converted at check-in.
+ */
+export interface Appointment {
+  id: string
+  title: string
+  startUtc: string
+  endUtc: string
+  status: AppointmentStatus
+  notes: string | null
+  contactName: string | null
+  contactPhone: string | null
+  vehicleDescription: string | null
+  customerId: string | null
+  customerName: string | null
+  carId: string | null
+  carDescription: string | null
+  jobId: string | null
+  jobTitle: string | null
+  mechanicId: string | null
+  mechanicName: string | null
+  googleEventId: string | null
+  createdAtUtc: string
+  updatedAtUtc: string | null
+}
+
+export interface CreateAppointmentRequest {
+  title: string
+  startUtc: string
+  endUtc: string
+  status: AppointmentStatus
+  notes: string | null
+  contactName: string | null
+  contactPhone: string | null
+  vehicleDescription: string | null
+  customerId: string | null
+  carId: string | null
+  jobId: string | null
+  mechanicId: string | null
+}
+
+export type UpdateAppointmentRequest = CreateAppointmentRequest
+
 // --- Job items ---------------------------------------------------------------
 
 export const MarkupSolution = {

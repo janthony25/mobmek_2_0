@@ -5,6 +5,7 @@ import { CustomersPage } from '@/pages/CustomersPage'
 import { CustomerDetailPage } from '@/pages/CustomerDetailPage'
 import { CarDetailPage } from '@/pages/CarDetailPage'
 import { JobCenterPage } from '@/pages/JobCenterPage'
+import { AppointmentsPage } from '@/pages/AppointmentsPage'
 import { NewJobPage } from '@/pages/NewJobPage'
 import { JobDetailPage } from '@/pages/JobDetailPage'
 import { CarMakesPage } from '@/pages/CarMakesPage'
@@ -37,6 +38,7 @@ function App() {
         <Route path="customers" element={<CustomersPage />} />
         <Route path="customers/:id" element={<CustomerDetailPage />} />
         <Route path="customers/:customerId/cars/:carId" element={<CarDetailPage />} />
+        <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="jobs" element={<JobCenterPage />} />
         <Route path="jobs/new" element={<NewJobPage />} />
         <Route path="jobs/:id" element={<JobDetailPage />} />

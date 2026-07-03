@@ -19,6 +19,7 @@ builder.Services.AddScoped<IEmploymentTypeService, EmploymentTypeService>();
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IJobServiceCatalogService, JobServiceCatalogService>();
 builder.Services.AddScoped<IJobService, JobService>();
+builder.Services.AddScoped<IAppointmentService, AppointmentService>();
 builder.Services.AddScoped<IJobItemService, JobItemService>();
 builder.Services.AddScoped<ILabourService, LabourService>();
 builder.Services.AddScoped<IJobServiceLineService, JobServiceLineService>();

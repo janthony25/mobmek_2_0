@@ -5,6 +5,7 @@ import { getCars } from '@/api/cars'
 import { getEmployees } from '@/api/employees'
 import { getJobServices } from '@/api/jobServices'
 import { addJobMechanic, createJob } from '@/api/jobs'
+import { toAppointmentRequest, updateAppointment } from '@/api/appointments'
 import { createJobItem } from '@/api/jobItems'
 import { createLabour } from '@/api/labour'
 import { createJobServiceLine } from '@/api/jobServiceLines'
@@ -27,8 +28,10 @@ import {
   type PartDraft,
 } from '@/lib/jobLineDrafts'
 import {
+  AppointmentStatus,
   JOB_STATUS_LABELS,
   JobStatus,
+  type Appointment,
   type Car,
   type CreateJobRequest,
   type Customer,
@@ -42,11 +45,17 @@ const STATUS_OPTIONS = Object.entries(JOB_STATUS_LABELS).map(([value, label]) =>
 export function NewJobPage() {
   const toast = useToast()
   const navigate = useNavigate()
-  // Pre-selected when arriving from a customer's car page; those picks are final,
-  // so the customer/car controls render locked instead of editable.
-  const preset = (useLocation().state ?? {}) as { customerId?: string; carId?: string }
+  // Pre-selected when arriving from a customer's car page (those picks are final,
+  // so the customer/car controls render locked) or from an appointment's check-in
+  // flow, which also prefills title/notes/mechanic and links the job back on save.
+  const preset = (useLocation().state ?? {}) as {
+    customerId?: string
+    carId?: string
+    appointment?: Appointment
+  }
   const customerLocked = Boolean(preset.customerId)
   const carLocked = Boolean(preset.carId)
+  const appointment = preset.appointment
 
   const [customers, setCustomers] = useState<Customer[]>([])
   const [cars, setCars] = useState<Car[]>([])
@@ -56,14 +65,16 @@ export function NewJobPage() {
   // Job fields
   const [customerId, setCustomerId] = useState(preset.customerId ?? '')
   const [carId, setCarId] = useState(preset.carId ?? '')
-  const [title, setTitle] = useState('')
+  const [title, setTitle] = useState(appointment?.title ?? '')
   const [status, setStatus] = useState(String(JobStatus.Open))
   const [odometer, setOdometer] = useState('0')
-  const [jobNotes, setJobNotes] = useState('')
+  const [jobNotes, setJobNotes] = useState(appointment?.notes ?? '')
   const [invoiceNotes, setInvoiceNotes] = useState('')
 
   // Children
-  const [mechanicIds, setMechanicIds] = useState<string[]>([])
+  const [mechanicIds, setMechanicIds] = useState<string[]>(
+    appointment?.mechanicId ? [appointment.mechanicId] : [],
+  )
   const [mechanicPick, setMechanicPick] = useState('')
   const [serviceIds, setServiceIds] = useState<Set<string>>(new Set())
   const [parts, setParts] = useState<PartDraft[]>([])
@@ -181,6 +192,16 @@ export function NewJobPage() {
           fixedAmount: num(l.fixedAmount),
         }),
       )
+
+    // Arrived from an appointment's check-in: link the new job back and mark it Arrived.
+    if (appointment) {
+      await attempt('Appointment link', () =>
+        updateAppointment(
+          appointment.id,
+          toAppointmentRequest(appointment, { jobId, status: AppointmentStatus.Arrived }),
+        ),
+      )
+    }
 
     setBusy(false)
     if (failures.length > 0) {

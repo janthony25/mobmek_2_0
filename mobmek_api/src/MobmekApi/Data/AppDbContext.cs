@@ -67,6 +67,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<CashFlowAuditLog> CashFlowAuditLogs => Set<CashFlowAuditLog>();
 
+    public DbSet<Appointment> Appointments => Set<Appointment>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -203,6 +205,45 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
             entity.HasIndex(j => j.CustomerId);
             entity.HasIndex(j => j.CarId);
+        });
+
+        modelBuilder.Entity<Appointment>(entity =>
+        {
+            entity.HasKey(a => a.Id);
+            entity.Property(a => a.Title).IsRequired().HasMaxLength(200);
+            entity.Property(a => a.Status).HasConversion<string>().HasMaxLength(30);
+            entity.Property(a => a.Notes).HasMaxLength(4000);
+            entity.Property(a => a.ContactName).HasMaxLength(200);
+            entity.Property(a => a.ContactPhone).HasMaxLength(30);
+            entity.Property(a => a.VehicleDescription).HasMaxLength(500);
+            entity.Property(a => a.GoogleEventId).HasMaxLength(200);
+
+            // All links are optional; SetNull so deleting a customer/car/job/employee
+            // keeps the appointment history (its soft contact snapshot still tells the story).
+            entity.HasOne(a => a.Customer)
+                .WithMany()
+                .HasForeignKey(a => a.CustomerId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(a => a.Car)
+                .WithMany()
+                .HasForeignKey(a => a.CarId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(a => a.Job)
+                .WithMany()
+                .HasForeignKey(a => a.JobId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(a => a.Mechanic)
+                .WithMany()
+                .HasForeignKey(a => a.MechanicId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Calendar queries are always by time range.
+            entity.HasIndex(a => a.StartUtc);
+            entity.HasIndex(a => a.CustomerId);
+            entity.HasIndex(a => a.JobId);
         });
 
         modelBuilder.Entity<JobMechanic>(entity =>
