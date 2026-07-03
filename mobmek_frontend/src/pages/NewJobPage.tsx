@@ -9,6 +9,7 @@ import { toAppointmentRequest, updateAppointment } from '@/api/appointments'
 import { createJobItem } from '@/api/jobItems'
 import { createLabour } from '@/api/labour'
 import { createJobServiceLine } from '@/api/jobServiceLines'
+import { getGstSetting } from '@/api/gst'
 import { Button } from '@/components/ui/Button'
 import { Field, controlClass } from '@/components/forms/controls'
 import { Combobox } from '@/components/forms/Combobox'
@@ -16,7 +17,7 @@ import { PartsEditor } from '@/components/jobs/PartsEditor'
 import { LabourEditor } from '@/components/jobs/LabourEditor'
 import { RemindersSection } from '@/components/reminders/RemindersSection'
 import { useToast } from '@/components/ui/toast'
-import { currency } from '@/lib/format'
+import { currency, percent } from '@/lib/format'
 import {
   computeLabour,
   computePart,
@@ -61,6 +62,7 @@ export function NewJobPage() {
   const [cars, setCars] = useState<Car[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [services, setServices] = useState<JobService[]>([])
+  const [gstRate, setGstRate] = useState<number | null>(null)
 
   // Job fields
   const [customerId, setCustomerId] = useState(preset.customerId ?? '')
@@ -89,6 +91,9 @@ export function NewJobPage() {
     getJobServices()
       .then((s) => setServices(s.filter((x) => x.isActive)))
       .catch(() => setServices([]))
+    getGstSetting()
+      .then((g) => setGstRate(g.rate))
+      .catch(() => setGstRate(null))
   }, [])
 
   useEffect(() => {
@@ -130,6 +135,10 @@ export function NewJobPage() {
   const save = async () => {
     if (!customerId || !carId || !title.trim()) {
       setError('Customer, car and title are required.')
+      return
+    }
+    if (mechanicIds.length === 0) {
+      setError('At least one mechanic is required.')
       return
     }
     setError(null)
@@ -274,7 +283,7 @@ export function NewJobPage() {
             </Field>
           </div>
 
-          <Field label="Mechanics">
+          <Field label="Mechanics" required>
             <div className="space-y-2">
               {mechanicIds.length > 0 && (
                 <ul className="flex flex-wrap gap-2">
@@ -398,6 +407,14 @@ export function NewJobPage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
           <span className="text-sm text-slate-500">
             Estimated total: <strong className="text-slate-900">{currency(estimatedTotal)}</strong>
+            {gstRate != null && (
+              <>
+                {' · '}GST ({percent(gstRate)}):{' '}
+                <strong className="text-slate-900">{currency(round2(estimatedTotal * gstRate))}</strong>
+                {' · '}Incl. GST:{' '}
+                <strong className="text-slate-900">{currency(round2(estimatedTotal * (1 + gstRate)))}</strong>
+              </>
+            )}
           </span>
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => navigate('/jobs')} disabled={busy}>

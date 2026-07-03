@@ -440,21 +440,41 @@ export function JobDetailPage() {
           <p className="text-sm text-slate-500">No active catalog services. Add some under Catalog → Services.</p>
         ) : (
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {serviceCatalog.map((s) => (
-              <label
-                key={s.id}
-                className={`flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm ${mode === 'edit' ? 'hover:bg-slate-50' : ''}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={displayedServiceIds.has(s.id)}
-                  disabled={mode !== 'edit'}
-                  onChange={() => toggleService(s.id)}
-                />
-                <span className="flex-1 text-slate-700">{s.name}</span>
-                <span className="text-slate-500">{currency(s.price)}</span>
-              </label>
-            ))}
+            {serviceCatalog.map((s) => {
+              const selected = displayedServiceIds.has(s.id)
+              return (
+                <label
+                  key={s.id}
+                  className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
+                    mode === 'edit'
+                      ? 'border-slate-200 hover:bg-slate-50'
+                      : selected
+                        ? 'border-blue-300 bg-blue-50'
+                        : 'border-slate-200'
+                  }`}
+                >
+                  {mode === 'edit' ? (
+                    <input type="checkbox" checked={selected} onChange={() => toggleService(s.id)} />
+                  ) : selected ? (
+                    // Disabled checkboxes render too faint to read; use an explicit tick instead.
+                    <span
+                      aria-hidden
+                      className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-blue-600 text-[10px] font-bold text-white"
+                    >
+                      ✓
+                    </span>
+                  ) : (
+                    <span aria-hidden className="h-4 w-4 shrink-0 rounded border border-slate-300" />
+                  )}
+                  <span className={`flex-1 ${selected && mode !== 'edit' ? 'font-medium text-slate-900' : 'text-slate-700'}`}>
+                    {s.name}
+                  </span>
+                  <span className={selected && mode !== 'edit' ? 'text-slate-700' : 'text-slate-500'}>
+                    {currency(s.price)}
+                  </span>
+                </label>
+              )
+            })}
           </div>
         )}
       </section>
