@@ -11,6 +11,7 @@ public record NoteDto(
     string? Color,
     bool IsPinned,
     bool IsDone,
+    DateTime? DoneAtUtc,
     Guid? CustomerId,
     string? CustomerName,
     DateTime CreatedAtUtc,

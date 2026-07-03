@@ -1,8 +1,10 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { NotesPanel } from '@/components/notes/NotesPanel'
 
 export function AppLayout() {
+  // The full Notes & Reminders page replaces the board panel, so hide it there.
+  const onBoardPage = useLocation().pathname === '/notes-reminders'
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900">
       <Sidebar />
@@ -11,7 +13,7 @@ export function AppLayout() {
           <Outlet />
         </div>
       </main>
-      <NotesPanel />
+      {!onBoardPage && <NotesPanel />}
     </div>
   )
 }

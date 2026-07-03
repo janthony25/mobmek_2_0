@@ -500,6 +500,8 @@ export interface Note {
   color: string | null
   isPinned: boolean
   isDone: boolean
+  /** When the note was last marked done (ISO timestamp); null while open. */
+  doneAtUtc: string | null
   customerId: string | null
   customerName: string | null
   createdAtUtc: string

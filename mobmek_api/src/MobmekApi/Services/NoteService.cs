@@ -18,6 +18,7 @@ public class NoteService(AppDbContext db) : INoteService
             n.Color,
             n.IsPinned,
             n.IsDone,
+            n.DoneAtUtc,
             n.CustomerId,
             n.Customer == null ? null : n.Customer.FirstName + " " + n.Customer.LastName,
             n.CreatedAtUtc,
@@ -59,6 +60,7 @@ public class NoteService(AppDbContext db) : INoteService
             Color = request.Color,
             IsPinned = request.IsPinned,
             IsDone = request.IsDone,
+            DoneAtUtc = request.IsDone ? DateTime.UtcNow : null,
             CustomerId = request.CustomerId,
         };
 
@@ -80,6 +82,18 @@ public class NoteService(AppDbContext db) : INoteService
             && !await db.Customers.AnyAsync(c => c.Id == customerId, cancellationToken))
         {
             return (null, NoteWriteError.CustomerNotFound);
+        }
+
+        // Stamp when the note transitions to done (kept on later edits while still
+        // done, so "done for 24h" is measured from the first completion), and clear
+        // it when the note is reopened.
+        if (request.IsDone && !note.IsDone)
+        {
+            note.DoneAtUtc = DateTime.UtcNow;
+        }
+        else if (!request.IsDone)
+        {
+            note.DoneAtUtc = null;
         }
 
         note.Title = request.Title;

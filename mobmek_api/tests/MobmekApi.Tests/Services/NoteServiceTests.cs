@@ -109,6 +109,61 @@ public class NoteServiceTests
         Assert.NotNull(updated.UpdatedAtUtc);
     }
 
+    private static UpdateNoteRequest UpdateWithDone(string title, bool isDone) =>
+        new(title, null, null, null, false, isDone, null);
+
+    [Fact]
+    public async Task CreateAsync_StampsDoneAt_WhenCreatedDone()
+    {
+        await using var db = CreateContext();
+        var service = new NoteService(db);
+
+        var (note, _) = await service.CreateAsync(
+            new CreateNoteRequest("Already handled", null, null, null, false, true, null));
+
+        Assert.NotNull(note!.DoneAtUtc);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_StampsDoneAt_WhenMarkedDone()
+    {
+        await using var db = CreateContext();
+        var service = new NoteService(db);
+        var (created, _) = await service.CreateAsync(NewNote("Task"));
+        Assert.Null(created!.DoneAtUtc);
+
+        var (updated, error) = await service.UpdateAsync(created.Id, UpdateWithDone("Task", isDone: true));
+
+        Assert.Equal(NoteWriteError.None, error);
+        Assert.NotNull(updated!.DoneAtUtc);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_KeepsOriginalDoneAt_WhenEditedWhileStillDone()
+    {
+        await using var db = CreateContext();
+        var service = new NoteService(db);
+        var (created, _) = await service.CreateAsync(NewNote("Task"));
+        var (done, _) = await service.UpdateAsync(created!.Id, UpdateWithDone("Task", isDone: true));
+
+        var (edited, _) = await service.UpdateAsync(created.Id, UpdateWithDone("Task (edited)", isDone: true));
+
+        Assert.Equal(done!.DoneAtUtc, edited!.DoneAtUtc);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ClearsDoneAt_WhenReopened()
+    {
+        await using var db = CreateContext();
+        var service = new NoteService(db);
+        var (created, _) = await service.CreateAsync(NewNote("Task"));
+        await service.UpdateAsync(created!.Id, UpdateWithDone("Task", isDone: true));
+
+        var (reopened, _) = await service.UpdateAsync(created.Id, UpdateWithDone("Task", isDone: false));
+
+        Assert.Null(reopened!.DoneAtUtc);
+    }
+
     [Fact]
     public async Task UpdateAsync_ReturnsNotFound_WhenMissing()
     {

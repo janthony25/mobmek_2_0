@@ -1,5 +1,19 @@
 // Shared "how soon is this due" logic for reminder/note badges.
 
+/** Local yyyy-mm-dd for `days` days from now (avoids toISOString's UTC off-by-one). */
+export function isoInDays(days: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${month}-${day}`
+}
+
+/** Local yyyy-mm-dd for today. */
+export function todayISO(): string {
+  return isoInDays(0)
+}
+
 /** overdue -> red, within SOON_DAYS -> yellow, else (or no date) -> green. */
 export type Urgency = 'green' | 'yellow' | 'red'
 

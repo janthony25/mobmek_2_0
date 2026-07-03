@@ -22,6 +22,10 @@ public class Note : BaseEntity
 
     public bool IsDone { get; set; }
 
+    /// <summary>When the note was last marked done; cleared when reopened. Lets the
+    /// board hide notes that have been done for a while without deleting them.</summary>
+    public DateTime? DoneAtUtc { get; set; }
+
     /// <summary>Optional customer this note relates to (foreign key).</summary>
     public Guid? CustomerId { get; set; }
 

@@ -1,40 +1,35 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { getCustomers } from '@/api/customers'
 import { createNote, deleteNote, getNotes, updateNote } from '@/api/notes'
 import { getReminders, updateReminder } from '@/api/reminders'
+import { NoteCard } from '@/components/notes/NoteCard'
+import { toNoteRequest } from '@/components/notes/noteRequest'
+import { NoteForm } from '@/components/notes/NoteForm'
+import { NoteViewModal } from '@/components/notes/NoteViewModal'
 import { ReminderCard } from '@/components/reminders/ReminderCard'
 import { ReminderDetailsModal } from '@/components/reminders/ReminderDetailsModal'
-import { Modal } from '@/components/ui/Modal'
+import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Modal } from '@/components/ui/Modal'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { StateMessage } from '@/components/ui/StateMessage'
 import { useToast } from '@/components/ui/toast'
 import { useAsync } from '@/hooks/useAsync'
 import { notifyBoardChanged, onBoardChanged } from '@/lib/board'
 import { isoInDays, todayISO } from '@/lib/dueDate'
-import { NoteCard } from './NoteCard'
-import { toNoteRequest } from './noteRequest'
-import { NoteForm } from './NoteForm'
-import { NoteViewModal } from './NoteViewModal'
 import type { Note, NoteRequest, Reminder } from '@/types'
 
-const DAY_MS = 24 * 60 * 60 * 1000
-
-/** Done notes linger on the board for 24h, then only show on the full page. */
-function visibleOnBoard(note: Note): boolean {
-  if (!note.isDone || !note.doneAtUtc) return true
-  return Date.now() - new Date(note.doneAtUtc).getTime() < DAY_MS
-}
+const cardGrid = 'grid gap-3 sm:grid-cols-2 xl:grid-cols-3'
 
 /**
- * Fixed right-hand board, mounted once by AppLayout so it stays visible on every
- * page. Not collapsible. Shows sticky notes plus an at-a-glance list of the next
- * reminders coming due across all customers; the « button opens the full
- * Notes & Reminders page (which also shows notes done more than 24h ago).
+ * The full board: every sticky note (including ones done more than 24h ago,
+ * which the side panel hides) and every reminder, done or not. Reached via the
+ * « button on the side panel.
  */
-export function NotesPanel() {
+export function NotesRemindersPage() {
   const toast = useToast()
   const notes = useAsync(getNotes, [])
-  const reminders = useAsync(() => getReminders({ includeDone: false }), [])
+  const reminders = useAsync(() => getReminders({ includeDone: true }), [])
   const customers = useAsync(getCustomers, [])
 
   const [editing, setEditing] = useState<Note | 'new' | null>(null)
@@ -42,8 +37,7 @@ export function NotesPanel() {
   const [deleting, setDeleting] = useState<Note | null>(null)
   const [viewingReminder, setViewingReminder] = useState<Reminder | null>(null)
 
-  // Reload whenever this panel, a detail page or the full board page mutates
-  // notes/reminders — everyone announces via the same board event.
+  // Stay in sync with the side panel and detail pages via the board event.
   const reloadNotes = notes.reload
   const reloadReminders = reminders.reload
   useEffect(
@@ -111,64 +105,52 @@ export function NotesPanel() {
 
   const today = todayISO()
   const soon = isoInDays(7)
-  const boardNotes = (notes.data ?? []).filter(visibleOnBoard)
-  const upcoming = reminders.data ?? []
+  const openReminders = (reminders.data ?? []).filter((r) => !r.isDone)
+  const doneReminders = (reminders.data ?? []).filter((r) => r.isDone)
 
   return (
-    <aside className="flex h-full w-80 shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-slate-100">
-      {/* Notes */}
-      <div className="flex items-center justify-between px-4 pb-2 pt-4">
-        <div className="flex items-center gap-2">
-          <Link
-            to="/notes-reminders"
-            title="Open the full Notes & Reminders page"
-            className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-white"
-          >
-            «
-          </Link>
-          <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-500">
-            📌 Notes
-          </h2>
+    <div>
+      <PageHeader
+        title="Notes & Reminders"
+        description="Every sticky note and reminder in one place — including notes done more than 24 hours ago, which the side board hides."
+      />
+
+      <section className="mb-10">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-slate-900">📌 Notes</h2>
+          <Button onClick={() => setEditing('new')}>+ Add note</Button>
         </div>
-        <button
-          type="button"
-          onClick={() => setEditing('new')}
-          className="rounded-md bg-slate-900 px-2 py-1 text-xs font-medium text-white hover:bg-slate-700"
-        >
-          + Add
-        </button>
-      </div>
-
-      <div className="space-y-2 px-4 pb-4">
-        {notes.loading && <p className="text-xs text-slate-400">Loading…</p>}
-        {notes.error && <p className="text-xs text-red-500">{notes.error.message}</p>}
-        {notes.data && boardNotes.length === 0 && (
-          <p className="text-xs text-slate-400">No notes yet. Add one to pin it here.</p>
+        {notes.loading && <StateMessage title="Loading notes…" />}
+        {notes.error && <StateMessage title="Could not load notes" description={notes.error.message} />}
+        {notes.data && notes.data.length === 0 && (
+          <StateMessage title="No notes yet" description="Add one and it shows up here and on the side board." />
         )}
-        {boardNotes.map((note) => (
-          <NoteCard
-            key={note.id}
-            note={note}
-            today={today}
-            soon={soon}
-            onOpen={() => setViewing(note)}
-            onPatch={(patch) => patchNote(note, patch)}
-            onDelete={() => setDeleting(note)}
-          />
-        ))}
-      </div>
+        <div className={cardGrid}>
+          {notes.data?.map((note) => (
+            <NoteCard
+              key={note.id}
+              note={note}
+              today={today}
+              soon={soon}
+              onOpen={() => setViewing(note)}
+              onPatch={(patch) => patchNote(note, patch)}
+              onDelete={() => setDeleting(note)}
+            />
+          ))}
+        </div>
+      </section>
 
-      {/* Upcoming reminders */}
-      <div className="mt-auto border-t border-slate-200 px-4 pb-4 pt-4">
-        <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-500">
-          ⏰ Reminders
-        </h2>
-        {reminders.loading && <p className="text-xs text-slate-400">Loading…</p>}
-        {reminders.data && upcoming.length === 0 && (
-          <p className="text-xs text-slate-400">Nothing outstanding. Add reminders from a customer or car.</p>
+      <section>
+        <h2 className="mb-3 text-lg font-semibold text-slate-900">⏰ Reminders</h2>
+        {reminders.loading && <StateMessage title="Loading reminders…" />}
+        {reminders.error && (
+          <StateMessage title="Could not load reminders" description={reminders.error.message} />
         )}
-        <div className="space-y-2">
-          {upcoming.map((r) => (
+        {reminders.data && reminders.data.length === 0 && (
+          <StateMessage title="No reminders yet" description="Add reminders from a customer or car page." />
+        )}
+        <div className={cardGrid}>
+          {openReminders.map((r) => (
             <ReminderCard
               key={r.id}
               reminder={r}
@@ -178,7 +160,23 @@ export function NotesPanel() {
             />
           ))}
         </div>
-      </div>
+        {doneReminders.length > 0 && (
+          <>
+            <h3 className="mb-2 mt-6 text-sm font-semibold uppercase tracking-wider text-slate-500">Done</h3>
+            <div className={cardGrid}>
+              {doneReminders.map((r) => (
+                <ReminderCard
+                  key={r.id}
+                  reminder={r}
+                  today={today}
+                  onOpen={() => setViewingReminder(r)}
+                  onComplete={() => completeReminder(r)}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </section>
 
       <NoteViewModal
         note={viewing}
@@ -223,6 +221,6 @@ export function NotesPanel() {
         onClose={() => setViewingReminder(null)}
         onSaved={notifyBoardChanged}
       />
-    </aside>
+    </div>
   )
 }
