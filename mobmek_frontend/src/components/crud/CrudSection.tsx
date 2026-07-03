@@ -26,7 +26,7 @@ interface CrudSectionProps<T> {
   description?: string
   /** 'page' renders a large header; 'section' renders a compact one for embedding. */
   variant?: 'page' | 'section'
-  /** When set, the heading toggles the section body (starts expanded). */
+  /** When set, the heading toggles the section body (starts collapsed while empty, expanded once there's data). */
   collapsible?: boolean
 
   /** Loads the full list; paginate client-side via `pageSize`. Use `loadPaged` instead for server-side pagination. */
@@ -102,7 +102,8 @@ export function CrudSection<T>({
   const [editing, setEditing] = useState<Editing<T>>(null)
   const [deleting, setDeleting] = useState<T | null>(null)
   const [view, setView] = useState<'list' | 'cards'>(defaultView ?? 'list')
-  const [collapsed, setCollapsed] = useState(false)
+  // Collapsed until data proves there's something to show, unless the user has toggled it.
+  const [collapsedOverride, setCollapsedOverride] = useState<boolean | null>(null)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -135,6 +136,7 @@ export function CrudSection<T>({
   )
 
   const total = result?.total ?? 0
+  const collapsed = collapsible && (collapsedOverride ?? (result == null || total === 0))
   const totalPages = effectivePageSize ? pageCount(total, effectivePageSize) : 1
   // Clamp rather than reset so deleting the last row of the last page stays in range.
   const safePage = Math.min(page, totalPages)
@@ -191,7 +193,7 @@ export function CrudSection<T>({
           {collapsible ? (
             <button
               type="button"
-              onClick={() => setCollapsed((c) => !c)}
+              onClick={() => setCollapsedOverride(!collapsed)}
               aria-expanded={!collapsed}
               className="flex items-center gap-2"
             >

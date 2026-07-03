@@ -29,7 +29,9 @@ export function QuotationsSection({ jobId, onAccepted }: QuotationsSectionProps)
   const [generating, setGenerating] = useState(false)
   const [accepting, setAccepting] = useState<Invoice | null>(null)
   const [rejecting, setRejecting] = useState<Invoice | null>(null)
-  const [collapsed, setCollapsed] = useState(false)
+  // Collapsed until data proves there's something to show, unless the user has toggled it.
+  const [collapsedOverride, setCollapsedOverride] = useState<boolean | null>(null)
+  const collapsed = collapsedOverride ?? (data == null || data.length === 0)
 
   const handleReject = async () => {
     if (!rejecting) return
@@ -44,7 +46,7 @@ export function QuotationsSection({ jobId, onAccepted }: QuotationsSectionProps)
       <div className={`flex items-end justify-between gap-4 ${collapsed ? '' : 'mb-4'}`}>
         <button
           type="button"
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={() => setCollapsedOverride(!collapsed)}
           aria-expanded={!collapsed}
           className="flex items-center gap-2"
         >

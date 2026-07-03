@@ -15,7 +15,7 @@ interface RemindersSectionProps {
   lockedCarId?: string
   description?: string
   title?: string
-  /** When set, the heading toggles the section body (starts expanded). */
+  /** When set, the heading toggles the section body (starts collapsed while empty, expanded once there's data). */
   collapsible?: boolean
 }
 
