@@ -40,8 +40,7 @@ public class CustomerService(AppDbContext db) : ICustomerService
         var totalCount = await query.CountAsync(cancellationToken);
 
         var items = await query
-            .OrderBy(c => c.LastName)
-            .ThenBy(c => c.FirstName)
+            .OrderByDescending(c => c.CreatedAtUtc)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(c => new CustomerListItemDto(

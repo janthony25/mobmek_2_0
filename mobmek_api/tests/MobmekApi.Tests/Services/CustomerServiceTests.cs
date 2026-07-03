@@ -126,23 +126,29 @@ public class CustomerServiceTests
     }
 
     [Fact]
-    public async Task GetPagedAsync_SlicesByPage_AndReportsTotalCount()
+    public async Task GetPagedAsync_OrdersNewestFirst_AndSlices()
     {
         await using var db = CreateContext();
         var service = new CustomerService(db);
-        foreach (var last in new[] { "Adams", "Baker", "Clark", "Davis", "Evans" })
+        var lastNames = new[] { "Adams", "Baker", "Clark", "Davis", "Evans" };
+        for (var i = 0; i < lastNames.Length; i++)
         {
-            await service.CreateAsync(new CreateCustomerRequest("Ann", last, "0", null, null, null));
+            var created = await service.CreateAsync(
+                new CreateCustomerRequest("Ann", lastNames[i], "0", null, null, null));
+            var entity = await db.Customers.FirstAsync(c => c.Id == created.Id);
+            entity.CreatedAtUtc = new DateTime(2026, 1, 1 + i, 0, 0, 0, DateTimeKind.Utc);
         }
+        await db.SaveChangesAsync();
 
         var page2 = await service.GetPagedAsync(page: 2, pageSize: 2, search: null);
 
+        // Newest first: Evans, Davis | Clark, Baker | Adams.
         Assert.Equal(5, page2.TotalCount);
         Assert.Equal(2, page2.Page);
         Assert.Equal(2, page2.PageSize);
         Assert.Collection(page2.Items,
             c => Assert.Equal("Clark", c.LastName),
-            c => Assert.Equal("Davis", c.LastName));
+            c => Assert.Equal("Baker", c.LastName));
     }
 
     [Fact]
