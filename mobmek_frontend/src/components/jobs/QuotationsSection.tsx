@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { DropdownMenu } from '@/components/ui/DropdownMenu'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Spinner } from '@/components/ui/Spinner'
 import { StateMessage } from '@/components/ui/StateMessage'
 import { useToast } from '@/components/ui/toast'
 import { useAsync } from '@/hooks/useAsync'
@@ -32,6 +33,9 @@ export function QuotationsSection({ jobId, onAccepted }: QuotationsSectionProps)
   // Collapsed until data proves there's something to show, unless the user has toggled it.
   const [collapsedOverride, setCollapsedOverride] = useState<boolean | null>(null)
   const collapsed = collapsedOverride ?? (data == null || data.length === 0)
+  // Only the very first fetch (no data yet) blocks the section body; a refetch after
+  // that (search/reload) keeps the existing rows visible with a small inline spinner.
+  const refreshing = loading && data != null
 
   const handleReject = async () => {
     if (!rejecting) return
@@ -53,11 +57,12 @@ export function QuotationsSection({ jobId, onAccepted }: QuotationsSectionProps)
           <span aria-hidden className="text-2xl">📄</span>
           <h2 className="text-xl font-bold text-slate-900">Quotations</h2>
           <span aria-hidden className="text-sm text-slate-400">{collapsed ? '▸' : '▾'}</span>
+          {!collapsed && refreshing && <Spinner className="h-4 w-4 text-slate-400" />}
         </button>
         <Button onClick={() => setGenerating(true)}>+ Generate Quotation</Button>
       </div>
 
-      {!collapsed && loading && <StateMessage title="Loading quotations…" />}
+      {!collapsed && loading && data == null && <StateMessage title="Loading quotations…" loading />}
       {!collapsed && error && <StateMessage title="Could not load quotations" description={error.message} />}
       {!collapsed && data && data.length === 0 && (
         <StateMessage

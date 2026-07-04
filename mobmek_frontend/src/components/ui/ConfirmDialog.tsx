@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Modal } from './Modal'
 import { Button } from './Button'
+import { Spinner } from './Spinner'
 
 interface ConfirmDialogProps {
   open: boolean
@@ -43,7 +44,13 @@ export function ConfirmDialog({
           Cancel
         </Button>
         <Button variant="danger" onClick={handleConfirm} disabled={busy}>
-          {busy ? 'Working…' : confirmLabel}
+          {busy ? (
+            <>
+              <Spinner className="h-3.5 w-3.5 text-white" /> Working…
+            </>
+          ) : (
+            confirmLabel
+          )}
         </Button>
       </div>
     </Modal>

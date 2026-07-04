@@ -37,7 +37,7 @@ export function BusinessDetailsSettingsPage() {
     setLogoUrl(data.logoUrl ?? '')
   }, [data])
 
-  if (loading) return <StateMessage title="Loading business details…" />
+  if (loading && !data) return <StateMessage title="Loading business details…" loading />
   if (error) return <StateMessage title="Could not load business details" description={error.message} />
 
   const save = async () => {

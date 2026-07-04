@@ -120,7 +120,7 @@ export function NotesRemindersPage() {
           <h2 className="text-lg font-semibold text-slate-900">📌 Notes</h2>
           <Button onClick={() => setEditing('new')}>+ Add note</Button>
         </div>
-        {notes.loading && <StateMessage title="Loading notes…" />}
+        {notes.loading && !notes.data && <StateMessage title="Loading notes…" loading />}
         {notes.error && <StateMessage title="Could not load notes" description={notes.error.message} />}
         {notes.data && notes.data.length === 0 && (
           <StateMessage title="No notes yet" description="Add one and it shows up here and on the side board." />
@@ -142,7 +142,7 @@ export function NotesRemindersPage() {
 
       <section>
         <h2 className="mb-3 text-lg font-semibold text-slate-900">⏰ Reminders</h2>
-        {reminders.loading && <StateMessage title="Loading reminders…" />}
+        {reminders.loading && !reminders.data && <StateMessage title="Loading reminders…" loading />}
         {reminders.error && (
           <StateMessage title="Could not load reminders" description={reminders.error.message} />
         )}

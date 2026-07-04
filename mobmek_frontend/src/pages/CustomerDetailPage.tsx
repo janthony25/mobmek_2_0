@@ -12,6 +12,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { DropdownMenu } from '@/components/ui/DropdownMenu'
 import { Modal } from '@/components/ui/Modal'
 import { PaginatedList } from '@/components/ui/PaginatedList'
+import { Spinner } from '@/components/ui/Spinner'
 import { StateMessage } from '@/components/ui/StateMessage'
 import { useToast } from '@/components/ui/toast'
 import {
@@ -159,7 +160,7 @@ export function CustomerDetailPage() {
   const [acceptingQuotation, setAcceptingQuotation] = useState<Invoice | null>(null)
   const [rejectingQuotation, setRejectingQuotation] = useState<Invoice | null>(null)
 
-  if (customerState.loading) return <StateMessage title="Loading customer…" />
+  if (customerState.loading && !customerState.data) return <StateMessage title="Loading customer…" loading />
   if (customerState.error) return <StateMessage title="Could not load customer" description={customerState.error.message} />
   const customer = customerState.data
   if (!customer) return <StateMessage title="Customer not found" />
@@ -294,7 +295,11 @@ export function CustomerDetailPage() {
               </Button>
             }
           >
-            {carsState.loading && <p className="text-sm text-slate-500">Loading vehicles…</p>}
+            {carsState.loading && (
+              <p className="flex items-center gap-2 text-sm text-slate-500">
+                <Spinner className="h-3.5 w-3.5" /> Loading vehicles…
+              </p>
+            )}
             {carsState.error && <p className="text-sm text-red-600">{carsState.error.message}</p>}
             {!carsState.loading && cars.length === 0 && (
               <p className="text-sm text-slate-500">No vehicles yet. Use “Add” to record one.</p>
@@ -321,7 +326,11 @@ export function CustomerDetailPage() {
         {/* Right column: appointment history + invoices */}
         <div className="space-y-6 lg:col-span-2">
           <Card title="Appointment History">
-            {jobsState.loading && <p className="text-sm text-slate-500">Loading appointments…</p>}
+            {jobsState.loading && (
+              <p className="flex items-center gap-2 text-sm text-slate-500">
+                <Spinner className="h-3.5 w-3.5" /> Loading appointments…
+              </p>
+            )}
             {jobsState.error && <p className="text-sm text-red-600">{jobsState.error.message}</p>}
             {!jobsState.loading && jobs.length === 0 && (
               <p className="text-sm text-slate-500">No jobs yet. Create one from the Job Center.</p>
@@ -363,7 +372,11 @@ export function CustomerDetailPage() {
               )
             }
           >
-            {invoicesState.loading && <p className="text-sm text-slate-500">Loading invoices…</p>}
+            {invoicesState.loading && (
+              <p className="flex items-center gap-2 text-sm text-slate-500">
+                <Spinner className="h-3.5 w-3.5" /> Loading invoices…
+              </p>
+            )}
             {invoicesState.error && <p className="text-sm text-red-600">{invoicesState.error.message}</p>}
             {!invoicesState.loading && invoices.length === 0 && (
               <p className="text-sm text-slate-500">No invoices yet.</p>
@@ -415,7 +428,11 @@ export function CustomerDetailPage() {
               )
             }
           >
-            {invoicesState.loading && <p className="text-sm text-slate-500">Loading quotes…</p>}
+            {invoicesState.loading && (
+              <p className="flex items-center gap-2 text-sm text-slate-500">
+                <Spinner className="h-3.5 w-3.5" /> Loading quotes…
+              </p>
+            )}
             {invoicesState.error && <p className="text-sm text-red-600">{invoicesState.error.message}</p>}
             {!invoicesState.loading && quotations.length === 0 && (
               <p className="text-sm text-slate-500">No quotes yet.</p>

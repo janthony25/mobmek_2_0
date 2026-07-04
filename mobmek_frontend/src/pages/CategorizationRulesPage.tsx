@@ -32,7 +32,8 @@ export function CategorizationRulesPage() {
   const [reloadKey, setReloadKey] = useState(0)
   const [applying, setApplying] = useState<{ rule: CategorizationRule; preview: ApplyRuleResult } | null>(null)
 
-  if (categories.loading || payees.loading) return <StateMessage title="Loading…" />
+  if ((categories.loading && !categories.data) || (payees.loading && !payees.data))
+    return <StateMessage title="Loading…" loading />
   if (categories.error) return <StateMessage title="Could not load categories" description={categories.error.message} />
 
   const startApply = async (rule: CategorizationRule) => {

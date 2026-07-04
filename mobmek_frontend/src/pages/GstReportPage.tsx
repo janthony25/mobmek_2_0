@@ -70,11 +70,11 @@ export function GstReportPage() {
         </Field>
       </div>
 
-      {loading && <StateMessage title="Loading GST report…" />}
+      {loading && !data && <StateMessage title="Loading GST report…" loading />}
       {error && <StateMessage title="Could not load GST report" description={error.message} />}
 
       {data && (
-        <div className="space-y-6">
+        <div className={`space-y-6 ${loading ? 'opacity-60' : ''}`}>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <ScopeCard title="Included" description="GST across every account, cash and non-cash." totals={data.included} />
             <ScopeCard

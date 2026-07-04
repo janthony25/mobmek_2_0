@@ -254,7 +254,7 @@ export function JobDetailPage() {
     setMode('view')
   }
 
-  if (loading) return <StateMessage title="Loading job…" />
+  if (loading && !job) return <StateMessage title="Loading job…" loading />
   if (error) return <StateMessage title="Could not load job" description={error.message} />
   if (!job) return <StateMessage title="Job not found" />
 

@@ -13,7 +13,8 @@ export function EmployeesPage() {
   const titles = useAsync(getEmployeeTitles, [])
   const types = useAsync(getEmploymentTypes, [])
 
-  if (titles.loading || types.loading) return <StateMessage title="Loading…" />
+  if ((titles.loading && !titles.data) || (types.loading && !types.data))
+    return <StateMessage title="Loading…" loading />
   if (titles.error || types.error) {
     return <StateMessage title="Could not load reference data" description={(titles.error ?? types.error)?.message} />
   }

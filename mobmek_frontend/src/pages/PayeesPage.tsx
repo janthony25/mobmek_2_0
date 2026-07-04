@@ -18,7 +18,7 @@ const toRequest = (v: Record<string, unknown>): PayeeRequest => ({
 export function PayeesPage() {
   const categories = useAsync(() => getTransactionCategories(), [])
 
-  if (categories.loading) return <StateMessage title="Loading…" />
+  if (categories.loading && !categories.data) return <StateMessage title="Loading…" loading />
   if (categories.error) return <StateMessage title="Could not load categories" description={categories.error.message} />
 
   const fields: FieldSchema[] = [

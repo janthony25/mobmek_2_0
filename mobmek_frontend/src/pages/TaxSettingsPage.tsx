@@ -17,7 +17,7 @@ export function TaxSettingsPage() {
     if (data) setPercentInput((data.rate * 100).toString())
   }, [data])
 
-  if (loading) return <StateMessage title="Loading tax settings…" />
+  if (loading && !data) return <StateMessage title="Loading tax settings…" loading />
   if (error) return <StateMessage title="Could not load tax settings" description={error.message} />
 
   const save = async () => {

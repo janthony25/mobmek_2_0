@@ -463,7 +463,7 @@ export function CashFlowPage() {
         />
       )}
 
-      {ledger.loading && <StateMessage title="Loading transactions…" />}
+      {ledger.loading && !ledger.data && <StateMessage title="Loading transactions…" loading />}
       {ledger.error && <StateMessage title="Could not load transactions" description={ledger.error.message} />}
       {ledger.data && ledger.data.items.length === 0 && (
         <StateMessage

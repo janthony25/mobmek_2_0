@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
+import { Spinner } from '@/components/ui/Spinner'
 import { StateMessage } from '@/components/ui/StateMessage'
 import { useToast } from '@/components/ui/toast'
 import { AppointmentForm } from '@/components/forms/AppointmentForm'
@@ -279,8 +280,9 @@ export function AppointmentsPage() {
           aria-label="Jump to date"
         />
 
-        <span className="text-sm font-semibold text-slate-700">
+        <span className="flex items-center gap-2 text-sm font-semibold text-slate-700">
           {searching ? `Search: “${search}”` : rangeLabel}
+          {loading && appointments && <Spinner className="h-3.5 w-3.5 text-slate-400" />}
         </span>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -331,7 +333,7 @@ export function AppointmentsPage() {
       {error ? (
         <StateMessage title="Couldn't load appointments" description={error.message} />
       ) : loading && !appointments ? (
-        <StateMessage title="Loading…" />
+        <StateMessage title="Loading…" loading />
       ) : searching ? (
         <SearchResults appointments={appointments ?? []} term={search} onAppointmentClick={setSelected} />
       ) : view === 'month' ? (

@@ -147,7 +147,7 @@ export function RecurringPlannedPage() {
           These schedule occurrences have reached their date but aren't in the ledger yet. Posting one records the
           actual cash movement; schedules set to auto-post skip this queue.
         </p>
-        {due.loading && <StateMessage title="Loading due occurrences…" />}
+        {due.loading && !due.data && <StateMessage title="Loading due occurrences…" loading />}
         {due.error && <StateMessage title="Could not load due occurrences" description={due.error.message} />}
         {due.data && due.data.length === 0 && (
           <StateMessage title="Nothing due" description="Occurrences appear here once their date arrives." />

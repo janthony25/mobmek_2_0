@@ -5,6 +5,7 @@ import { DropdownMenu } from '@/components/ui/DropdownMenu'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Pagination } from '@/components/ui/Pagination'
+import { Spinner } from '@/components/ui/Spinner'
 import { StateMessage } from '@/components/ui/StateMessage'
 import { useToast } from '@/components/ui/toast'
 import { CalendarIcon } from '@/components/ui/icons'
@@ -117,6 +118,9 @@ export function CrudSection<T>({
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  // Row id currently running its extraAction — disables that row's action so a slow
+  // request can't be double-fired, and shows a spinner instead of silently doing nothing.
+  const [pendingActionId, setPendingActionId] = useState<string | null>(null)
 
   const heading = title ?? `${resourceName}s`
   const showCards = renderCard != null && view === 'cards'
@@ -149,6 +153,9 @@ export function CrudSection<T>({
 
   const total = result?.total ?? 0
   const collapsed = collapsible && (collapsedOverride ?? (result == null || total === 0))
+  // Only the very first fetch (no data yet) blocks the section body; a refetch after
+  // that (search/page/reload) keeps existing rows visible with a small inline spinner.
+  const refreshing = loading && result != null
   const totalPages = effectivePageSize ? pageCount(total, effectivePageSize) : 1
   // Clamp rather than reset so deleting the last row of the last page stays in range.
   const safePage = Math.min(page, totalPages)
@@ -192,10 +199,16 @@ export function CrudSection<T>({
 
   const handleExtraAction = async (row: T) => {
     if (!extraAction) return
-    await extraAction.onClick(row)
-    toast.success(`${resourceName} updated`)
-    reload()
-    onChanged?.()
+    const id = getId(row)
+    setPendingActionId(id)
+    try {
+      await extraAction.onClick(row)
+      toast.success(`${resourceName} updated`)
+      reload()
+      onChanged?.()
+    } finally {
+      setPendingActionId(null)
+    }
   }
 
   return (
@@ -219,16 +232,18 @@ export function CrudSection<T>({
                 {heading}
               </h2>
               <span aria-hidden className="text-sm text-slate-400">{collapsed ? '▸' : '▾'}</span>
+              {!collapsed && refreshing && <Spinner className="h-4 w-4 text-slate-400" />}
             </button>
           ) : (
             <h2
-              className={
+              className={`flex items-center gap-2 ${
                 variant === 'page'
                   ? 'text-2xl font-semibold text-slate-900'
                   : 'text-lg font-semibold text-slate-900'
-              }
+              }`}
             >
               {heading}
+              {!collapsed && refreshing && <Spinner className="h-4 w-4 text-slate-400" />}
             </h2>
           )}
           {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
@@ -236,13 +251,18 @@ export function CrudSection<T>({
         <div className="flex items-center gap-2">
           {serverMode && (
             <div className="flex items-center gap-1.5">
-              <input
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={`Search ${heading.toLowerCase()}…`}
-                className="w-48 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none"
-              />
+              <div className="relative">
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={`Search ${heading.toLowerCase()}…`}
+                  className="w-48 rounded-md border border-slate-300 bg-white py-1.5 pl-3 pr-7 text-sm text-slate-700 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none"
+                />
+                {loading && (
+                  <Spinner className="absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                )}
+              </div>
               {dateSearchButton && <DateSearchButton onPick={setSearch} />}
               {search !== '' && (
                 <button
@@ -280,7 +300,9 @@ export function CrudSection<T>({
         </div>
       </div>
 
-      {!collapsed && loading && <StateMessage title={`Loading ${heading.toLowerCase()}…`} />}
+      {!collapsed && loading && result == null && (
+        <StateMessage title={`Loading ${heading.toLowerCase()}…`} loading />
+      )}
       {!collapsed && error && <StateMessage title={`Could not load ${heading.toLowerCase()}`} description={error.message} />}
       {!collapsed && rows && total === 0 && (
         <StateMessage
@@ -326,7 +348,14 @@ export function CrudSection<T>({
                           items={[
                             ...(onUpdate ? [{ label: 'Edit', onClick: () => setEditing({ mode: 'edit', row }) }] : []),
                             ...(extraAction && !extraAction.hidden?.(row)
-                              ? [{ label: extraAction.label(row), onClick: () => handleExtraAction(row) }]
+                              ? [
+                                  {
+                                    label:
+                                      pendingActionId === getId(row) ? 'Working…' : extraAction.label(row),
+                                    disabled: pendingActionId === getId(row),
+                                    onClick: () => handleExtraAction(row),
+                                  },
+                                ]
                               : []),
                             ...(onDelete
                               ? [{ label: 'Delete', tone: 'danger' as const, onClick: () => setDeleting(row) }]
@@ -341,8 +370,20 @@ export function CrudSection<T>({
                             </Button>
                           )}
                           {extraAction && !extraAction.hidden?.(row) && (
-                            <Button variant="ghost" size="sm" onClick={() => handleExtraAction(row)}>
-                              {extraAction.label(row)}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={pendingActionId === getId(row)}
+                              onClick={() => handleExtraAction(row)}
+                            >
+                              {pendingActionId === getId(row) ? (
+                                <>
+                                  <Spinner className="h-3.5 w-3.5 text-slate-400" />
+                                  Working…
+                                </>
+                              ) : (
+                                extraAction.label(row)
+                              )}
                             </Button>
                           )}
                           {onDelete && (
@@ -361,7 +402,7 @@ export function CrudSection<T>({
         </div>
       )}
 
-      {!collapsed && !loading && total > 0 && effectivePageSize != null && (
+      {!collapsed && rows && total > 0 && effectivePageSize != null && (
         <Pagination page={displayPage} pageSize={effectivePageSize} total={total} onPageChange={setPage} />
       )}
 

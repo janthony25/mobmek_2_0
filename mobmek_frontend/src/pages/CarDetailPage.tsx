@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Modal } from '@/components/ui/Modal'
 import { PaginatedList } from '@/components/ui/PaginatedList'
+import { Spinner } from '@/components/ui/Spinner'
 import { StateMessage } from '@/components/ui/StateMessage'
 import { useToast } from '@/components/ui/toast'
 import { CarIcon, PencilIcon, PlusIcon, TrashIcon } from '@/components/ui/icons'
@@ -30,10 +31,10 @@ export function CarDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
-  if (carsState.loading) return <StateMessage title="Loading car…" />
-  if (carsState.error) return <StateMessage title="Could not load car" description={carsState.error.message} />
-
   const car = carsState.data?.find((c) => c.id === carId)
+
+  if (carsState.loading && !car) return <StateMessage title="Loading car…" loading />
+  if (carsState.error) return <StateMessage title="Could not load car" description={carsState.error.message} />
   if (!car) return <StateMessage title="Car not found" />
 
   const carJobs = [...(jobsState.data ?? [])]
@@ -112,7 +113,11 @@ export function CarDetailPage() {
       </div>
 
       <Card title="Jobs">
-        {jobsState.loading && <p className="text-sm text-slate-500">Loading jobs…</p>}
+        {jobsState.loading && (
+          <p className="flex items-center gap-2 text-sm text-slate-500">
+            <Spinner className="h-3.5 w-3.5" /> Loading jobs…
+          </p>
+        )}
         {jobsState.error && <p className="text-sm text-red-600">{jobsState.error.message}</p>}
         {!jobsState.loading && carJobs.length === 0 && (
           <p className="text-sm text-slate-500">No jobs for this car yet. Use “New job” to create one.</p>

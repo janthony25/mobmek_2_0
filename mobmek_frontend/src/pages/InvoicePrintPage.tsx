@@ -30,7 +30,7 @@ export function InvoicePrintPage() {
   }, [autoprint, ready])
 
   if (anyError) return <StateMessage title="Could not load invoice" description={anyError.message} />
-  if (!ready) return <StateMessage title="Loading invoice…" />
+  if (!ready) return <StateMessage title="Loading invoice…" loading />
 
   const business = businessQuery.data!
   const job = jobQuery.data!

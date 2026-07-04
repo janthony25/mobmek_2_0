@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
+import { Spinner } from '@/components/ui/Spinner'
 import type { FieldSchema } from './types'
 
 type FormState = Record<string, string | boolean>
@@ -112,7 +113,13 @@ export function ResourceForm({
           Cancel
         </Button>
         <Button type="submit" disabled={busy}>
-          {busy ? 'Saving…' : submitLabel}
+          {busy ? (
+            <>
+              <Spinner className="h-3.5 w-3.5 text-white" /> Saving…
+            </>
+          ) : (
+            submitLabel
+          )}
         </Button>
       </div>
     </form>

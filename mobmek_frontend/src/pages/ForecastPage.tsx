@@ -127,7 +127,7 @@ export function ForecastPage() {
       )}
 
       <Card>
-        {forecast.loading && <StateMessage title="Loading forecast…" />}
+        {forecast.loading && chartData.length === 0 && <StateMessage title="Loading forecast…" loading />}
         {forecast.error && <StateMessage title="Could not load forecast" description={forecast.error.message} />}
         {chartData.length > 0 && (
           <div className="h-96 w-full">
