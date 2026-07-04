@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
-import { getBusinessDetails, updateBusinessDetails } from '@/api/businessDetails'
+import {
+  businessLogoUrl,
+  deleteBusinessLogo,
+  getBusinessDetails,
+  updateBusinessDetails,
+  uploadBusinessLogo,
+} from '@/api/businessDetails'
 import { Button } from '@/components/ui/Button'
 import { StateMessage } from '@/components/ui/StateMessage'
 import { useToast } from '@/components/ui/toast'
@@ -21,8 +27,8 @@ export function BusinessDetailsSettingsPage() {
   const [gstNumber, setGstNumber] = useState('')
   const [website, setWebsite] = useState('')
   const [bankDetails, setBankDetails] = useState('')
-  const [logoUrl, setLogoUrl] = useState('')
   const [busy, setBusy] = useState(false)
+  const [logoBusy, setLogoBusy] = useState(false)
 
   useEffect(() => {
     if (!data) return
@@ -34,7 +40,6 @@ export function BusinessDetailsSettingsPage() {
     setGstNumber(data.gstNumber ?? '')
     setWebsite(data.website ?? '')
     setBankDetails(data.bankDetails ?? '')
-    setLogoUrl(data.logoUrl ?? '')
   }, [data])
 
   if (loading && !data) return <StateMessage title="Loading business details…" loading />
@@ -56,7 +61,6 @@ export function BusinessDetailsSettingsPage() {
         gstNumber: gstNumber.trim() || null,
         website: website.trim() || null,
         bankDetails: bankDetails.trim() || null,
-        logoUrl: logoUrl.trim() || null,
       })
       toast.success('Business details updated')
       reload()
@@ -64,6 +68,33 @@ export function BusinessDetailsSettingsPage() {
       toast.error(err instanceof Error ? err.message : String(err))
     } finally {
       setBusy(false)
+    }
+  }
+
+  const uploadLogo = async (file: File | undefined) => {
+    if (!file) return
+    setLogoBusy(true)
+    try {
+      await uploadBusinessLogo(file)
+      toast.success('Logo uploaded')
+      reload()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setLogoBusy(false)
+    }
+  }
+
+  const removeLogo = async () => {
+    setLogoBusy(true)
+    try {
+      await deleteBusinessLogo()
+      toast.success('Logo removed')
+      reload()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setLogoBusy(false)
     }
   }
 
@@ -122,10 +153,41 @@ export function BusinessDetailsSettingsPage() {
             className={inputClass}
           />
         </label>
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">Logo image URL</span>
-          <input type="text" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} className={inputClass} />
-        </label>
+        <div>
+          <span className="mb-1 block text-sm font-medium text-slate-700">Logo</span>
+          <div className="flex items-center gap-4">
+            {data?.logoUrl && (
+              <img
+                src={businessLogoUrl(data.logoUrl)}
+                alt="Business logo"
+                className="h-16 w-16 rounded-md border border-slate-200 object-contain"
+              />
+            )}
+            <label className="cursor-pointer text-sm font-medium text-slate-600 hover:text-slate-900">
+              {logoBusy ? 'Working…' : data?.logoUrl ? 'Replace logo' : '+ Upload logo'}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={logoBusy}
+                onChange={(e) => {
+                  void uploadLogo(e.target.files?.[0])
+                  e.target.value = ''
+                }}
+              />
+            </label>
+            {data?.logoUrl && (
+              <button
+                type="button"
+                onClick={removeLogo}
+                disabled={logoBusy}
+                className="text-sm font-medium text-red-600 hover:text-red-800"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
 
         <div className="flex items-center gap-4 border-t border-slate-100 pt-4">
           <Button onClick={save} disabled={busy}>

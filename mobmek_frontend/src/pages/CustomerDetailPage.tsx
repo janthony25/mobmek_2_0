@@ -340,7 +340,7 @@ export function CustomerDetailPage() {
                 items={jobs}
                 pageSize={5}
                 getKey={(job) => job.id}
-                renderItem={(job) => <AppointmentRow job={job} />}
+                renderItem={(job) => <AppointmentRow job={job} backState={backState} />}
               />
             )}
           </Card>
@@ -615,7 +615,7 @@ function VehicleItem({ car, reminders, invoiceCount, quoteCount, onOpen, onEdit,
   )
 }
 
-function AppointmentRow({ job }: { job: Job }) {
+function AppointmentRow({ job, backState }: { job: Job; backState: { from: string; fromLabel: string } }) {
   const mechanic = job.mechanics[0]?.fullName
   const details = [job.carDescription, mechanic].filter(Boolean).join(' · ')
 
@@ -626,7 +626,7 @@ function AppointmentRow({ job }: { job: Job }) {
         <p className="text-xs text-slate-500">{time(job.createdAtUtc)}</p>
       </div>
       <div className="min-w-0 flex-1">
-        <Link to={`/jobs/${job.id}`} className="block truncate font-medium text-slate-900 hover:underline">
+        <Link to={`/jobs/${job.id}`} state={backState} className="block truncate font-medium text-slate-900 hover:underline">
           {job.title}
         </Link>
         <p className="truncate text-sm text-slate-500">{orDash(details)}</p>

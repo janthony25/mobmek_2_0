@@ -20,6 +20,11 @@ public class BusinessDetails : BaseEntity
     /// <summary>Free-text bank/payment details (account name, bank, account number) shown on invoices for bank-transfer payers.</summary>
     public string? BankDetails { get; set; }
 
-    /// <summary>URL to a hosted logo image, rendered on the invoice letterhead.</summary>
-    public string? LogoUrl { get; set; }
+    /// <summary>Provider-agnostic storage handle for the uploaded logo image (see <see cref="Services.IFileStorage"/>).</summary>
+    public string? LogoStorageKey { get; set; }
+
+    /// <summary>Original file name of the uploaded logo, used when serving it back.</summary>
+    public string? LogoFileName { get; set; }
+
+    public string? LogoContentType { get; set; }
 }

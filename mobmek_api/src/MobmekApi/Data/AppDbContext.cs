@@ -369,7 +369,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(b => b.GstNumber).HasMaxLength(50);
             entity.Property(b => b.Website).HasMaxLength(255);
             entity.Property(b => b.BankDetails).HasMaxLength(1000);
-            entity.Property(b => b.LogoUrl).HasMaxLength(500);
+            entity.Property(b => b.LogoStorageKey).HasMaxLength(300);
+            entity.Property(b => b.LogoFileName).HasMaxLength(255);
+            entity.Property(b => b.LogoContentType).HasMaxLength(100);
         });
 
         modelBuilder.Entity<ReminderTemplate>(entity =>

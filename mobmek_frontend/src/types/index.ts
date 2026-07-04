@@ -446,7 +446,6 @@ export interface UpdateBusinessDetailsRequest {
   gstNumber: string | null
   website: string | null
   bankDetails: string | null
-  logoUrl: string | null
 }
 
 // --- Products ----------------------------------------------------------------

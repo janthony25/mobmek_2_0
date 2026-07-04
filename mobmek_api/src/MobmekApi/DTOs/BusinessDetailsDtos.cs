@@ -13,11 +13,12 @@ public record BusinessDetailsDto(
     string? GstNumber,
     string? Website,
     string? BankDetails,
+    /// <summary>URL to fetch the uploaded logo from (<c>GET /api/business-details/logo</c>), or null when none is set.</summary>
     string? LogoUrl,
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc);
 
-/// <summary>Payload for updating the workshop's letterhead details.</summary>
+/// <summary>Payload for updating the workshop's letterhead details. The logo is set separately via the upload endpoint.</summary>
 public record UpdateBusinessDetailsRequest(
     [Required, MaxLength(200)] string Name,
     [MaxLength(500)] string? Address,
@@ -26,5 +27,4 @@ public record UpdateBusinessDetailsRequest(
     [MaxLength(50)] string? Telephone,
     [MaxLength(50)] string? GstNumber,
     [MaxLength(255)] string? Website,
-    [MaxLength(1000)] string? BankDetails,
-    [MaxLength(500)] string? LogoUrl);
+    [MaxLength(1000)] string? BankDetails);

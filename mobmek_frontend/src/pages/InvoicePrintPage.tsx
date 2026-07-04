@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { getBusinessDetails } from '@/api/businessDetails'
+import { businessLogoUrl, getBusinessDetails } from '@/api/businessDetails'
 import { getInvoice } from '@/api/invoices'
 import { getJob } from '@/api/jobs'
 import { Button } from '@/components/ui/Button'
@@ -53,7 +53,7 @@ export function InvoicePrintPage() {
         <header className="flex items-start justify-between gap-6 border-b border-slate-200 pb-6">
           <div>
             {business.logoUrl && (
-              <img src={business.logoUrl} alt={business.name} className="mb-2 h-10 object-contain" />
+              <img src={businessLogoUrl(business.logoUrl)} alt={business.name} className="mb-2 h-10 object-contain" />
             )}
             <h1 className="text-xl font-bold text-slate-900">{business.name}</h1>
             {business.address && <p className="mt-1 whitespace-pre-line text-sm text-slate-500">{business.address}</p>}
