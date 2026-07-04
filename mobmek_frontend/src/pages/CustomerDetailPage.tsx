@@ -3,12 +3,13 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { deleteCustomer, getCustomer, updateCustomer } from '@/api/customers'
 import { createCar, deleteCar, getCars, updateCar } from '@/api/cars'
 import { getJobs } from '@/api/jobs'
-import { getInvoices } from '@/api/invoices'
+import { getInvoices, rejectInvoice } from '@/api/invoices'
 import { getReminders } from '@/api/reminders'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { DropdownMenu } from '@/components/ui/DropdownMenu'
 import { Modal } from '@/components/ui/Modal'
 import { PaginatedList } from '@/components/ui/PaginatedList'
 import { StateMessage } from '@/components/ui/StateMessage'
@@ -27,8 +28,16 @@ import {
 import { CarForm } from '@/components/forms/CarForm'
 import { controlClass } from '@/components/forms/controls'
 import { ResourceForm } from '@/components/crud/ResourceForm'
+import { AcceptQuotationForm } from '@/components/invoices/AcceptQuotationForm'
+import { MarkPaidForm } from '@/components/invoices/MarkPaidForm'
 import { useAsync } from '@/hooks/useAsync'
-import { JOB_STATUS_TONE, invoiceStatusLabel, invoiceStatusTone } from '@/lib/badges'
+import {
+  JOB_STATUS_TONE,
+  invoiceStatusLabel,
+  invoiceStatusTone,
+  quotationStatusLabel,
+  quotationStatusTone,
+} from '@/lib/badges'
 import { dueUrgency, URGENCY_BADGE } from '@/lib/dueDate'
 import { currency, date, orDash, time } from '@/lib/format'
 import { JOB_STATUS_LABELS } from '@/types'
@@ -112,17 +121,51 @@ export function CustomerDetailPage() {
     return map
   }, [remindersState.data])
 
+  // Invoice/quote counts grouped by car (via each document's job), for the per-vehicle detail lines.
+  const invoiceCountByCar = useMemo(() => {
+    const carIdByJob = new Map((jobsState.data ?? []).map((job) => [job.id, job.carId]))
+    const map = new Map<string, number>()
+    for (const doc of invoicesState.data ?? []) {
+      if (doc.documentType === 'Quotation') continue
+      const carId = carIdByJob.get(doc.jobId)
+      if (!carId) continue
+      map.set(carId, (map.get(carId) ?? 0) + 1)
+    }
+    return map
+  }, [invoicesState.data, jobsState.data])
+
+  const quoteCountByCar = useMemo(() => {
+    const carIdByJob = new Map((jobsState.data ?? []).map((job) => [job.id, job.carId]))
+    const map = new Map<string, number>()
+    for (const doc of invoicesState.data ?? []) {
+      if (doc.documentType !== 'Quotation') continue
+      const carId = carIdByJob.get(doc.jobId)
+      if (!carId) continue
+      map.set(carId, (map.get(carId) ?? 0) + 1)
+    }
+    return map
+  }, [invoicesState.data, jobsState.data])
+
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [carModal, setCarModal] = useState<{ open: boolean; car: Car | null }>({ open: false, car: null })
   const [deleteCarTarget, setDeleteCarTarget] = useState<Car | null>(null)
   const [invoiceDateMode, setInvoiceDateMode] = useState<InvoiceDateMode>('day')
   const [invoiceDateValue, setInvoiceDateValue] = useState('')
+  const [quotationDateMode, setQuotationDateMode] = useState<InvoiceDateMode>('day')
+  const [quotationDateValue, setQuotationDateValue] = useState('')
+  const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null)
+  const [rejectingInvoice, setRejectingInvoice] = useState<Invoice | null>(null)
+  const [acceptingQuotation, setAcceptingQuotation] = useState<Invoice | null>(null)
+  const [rejectingQuotation, setRejectingQuotation] = useState<Invoice | null>(null)
 
   if (customerState.loading) return <StateMessage title="Loading customer…" />
   if (customerState.error) return <StateMessage title="Could not load customer" description={customerState.error.message} />
   const customer = customerState.data
   if (!customer) return <StateMessage title="Customer not found" />
+
+  // So the job page's back-link can return here instead of defaulting to Job Center.
+  const backState = { from: `/customers/${id}`, fromLabel: `${customer.firstName} ${customer.lastName}` }
 
   const handleUpdateCustomer = async (values: Record<string, unknown>) => {
     await updateCustomer(id, values as unknown as CustomerRequest)
@@ -158,11 +201,32 @@ export function CustomerDetailPage() {
     remindersState.reload()
   }
 
+  const handleRejectInvoice = async () => {
+    if (!rejectingInvoice) return
+    await rejectInvoice(rejectingInvoice.jobId, rejectingInvoice.id)
+    toast.success('Invoice rejected')
+    setRejectingInvoice(null)
+    invoicesState.reload()
+  }
+
+  const handleRejectQuotation = async () => {
+    if (!rejectingQuotation) return
+    await rejectInvoice(rejectingQuotation.jobId, rejectingQuotation.id)
+    toast.success('Quotation rejected')
+    setRejectingQuotation(null)
+    invoicesState.reload()
+  }
+
   const cars = carsState.data ?? []
   const jobs = [...(jobsState.data ?? [])].sort((a, b) => b.createdAtUtc.localeCompare(a.createdAtUtc))
-  const invoices = [...(invoicesState.data ?? [])].sort((a, b) => b.createdAtUtc.localeCompare(a.createdAtUtc))
+  const allDocuments = [...(invoicesState.data ?? [])].sort((a, b) => b.createdAtUtc.localeCompare(a.createdAtUtc))
+  const invoices = allDocuments.filter((d) => d.documentType !== 'Quotation')
+  const quotations = allDocuments.filter((d) => d.documentType === 'Quotation')
   const filteredInvoices = invoices.filter((invoice) =>
     matchesInvoiceDate(invoice, invoiceDateMode, invoiceDateValue),
+  )
+  const filteredQuotations = quotations.filter((quotation) =>
+    matchesInvoiceDate(quotation, quotationDateMode, quotationDateValue),
   )
 
   return (
@@ -242,6 +306,8 @@ export function CustomerDetailPage() {
                     key={car.id}
                     car={car}
                     reminders={remindersByCar.get(car.id) ?? []}
+                    invoiceCount={invoiceCountByCar.get(car.id) ?? 0}
+                    quoteCount={quoteCountByCar.get(car.id) ?? 0}
                     onOpen={() => navigate(`/customers/${id}/cars/${car.id}`)}
                     onEdit={() => setCarModal({ open: true, car })}
                     onDelete={() => setDeleteCarTarget(car)}
@@ -271,18 +337,29 @@ export function CustomerDetailPage() {
           </Card>
 
           <Card
-            title="Invoices"
+            title={`Invoices (${invoices.length})`}
             action={
               invoices.length > 0 && (
-                <InvoiceDateFilter
-                  mode={invoiceDateMode}
-                  value={invoiceDateValue}
-                  onModeChange={(mode) => {
-                    setInvoiceDateMode(mode)
-                    setInvoiceDateValue('')
-                  }}
-                  onValueChange={setInvoiceDateValue}
-                />
+                <div className="flex items-center gap-2">
+                  {invoiceDateValue && (
+                    <button
+                      type="button"
+                      onClick={() => setInvoiceDateValue('')}
+                      className="text-xs text-slate-500 hover:underline"
+                    >
+                      Clear filter
+                    </button>
+                  )}
+                  <InvoiceDateFilter
+                    mode={invoiceDateMode}
+                    value={invoiceDateValue}
+                    onModeChange={(mode) => {
+                      setInvoiceDateMode(mode)
+                      setInvoiceDateValue('')
+                    }}
+                    onValueChange={setInvoiceDateValue}
+                  />
+                </div>
               )
             }
           >
@@ -297,9 +374,68 @@ export function CustomerDetailPage() {
             {filteredInvoices.length > 0 && (
               <PaginatedList
                 items={filteredInvoices}
-                pageSize={10}
+                pageSize={5}
                 getKey={(invoice) => invoice.id}
-                renderItem={(invoice) => <InvoiceRow invoice={invoice} />}
+                renderItem={(invoice) => (
+                  <InvoiceRow
+                    invoice={invoice}
+                    onViewJob={() => navigate(`/jobs/${invoice.jobId}`, { state: backState })}
+                    onPay={() => setPayingInvoice(invoice)}
+                    onReject={() => setRejectingInvoice(invoice)}
+                  />
+                )}
+              />
+            )}
+          </Card>
+
+          <Card
+            title={`Quotes (${quotations.length})`}
+            action={
+              quotations.length > 0 && (
+                <div className="flex items-center gap-2">
+                  {quotationDateValue && (
+                    <button
+                      type="button"
+                      onClick={() => setQuotationDateValue('')}
+                      className="text-xs text-slate-500 hover:underline"
+                    >
+                      Clear filter
+                    </button>
+                  )}
+                  <InvoiceDateFilter
+                    mode={quotationDateMode}
+                    value={quotationDateValue}
+                    onModeChange={(mode) => {
+                      setQuotationDateMode(mode)
+                      setQuotationDateValue('')
+                    }}
+                    onValueChange={setQuotationDateValue}
+                  />
+                </div>
+              )
+            }
+          >
+            {invoicesState.loading && <p className="text-sm text-slate-500">Loading quotes…</p>}
+            {invoicesState.error && <p className="text-sm text-red-600">{invoicesState.error.message}</p>}
+            {!invoicesState.loading && quotations.length === 0 && (
+              <p className="text-sm text-slate-500">No quotes yet.</p>
+            )}
+            {!invoicesState.loading && quotations.length > 0 && filteredQuotations.length === 0 && (
+              <p className="text-sm text-slate-500">No quotes match that {quotationDateMode}.</p>
+            )}
+            {filteredQuotations.length > 0 && (
+              <PaginatedList
+                items={filteredQuotations}
+                pageSize={5}
+                getKey={(quotation) => quotation.id}
+                renderItem={(quotation) => (
+                  <QuotationRow
+                    quotation={quotation}
+                    onViewJob={() => navigate(`/jobs/${quotation.jobId}`, { state: backState })}
+                    onAccept={() => setAcceptingQuotation(quotation)}
+                    onReject={() => setRejectingQuotation(quotation)}
+                  />
+                )}
               />
             )}
           </Card>
@@ -346,6 +482,58 @@ export function CustomerDetailPage() {
         onConfirm={handleDeleteCar}
         onCancel={() => setDeleteCarTarget(null)}
       />
+
+      <Modal open={payingInvoice !== null} title="Mark Invoice Paid" onClose={() => setPayingInvoice(null)}>
+        {payingInvoice && (
+          <MarkPaidForm
+            invoice={payingInvoice}
+            onDone={() => {
+              setPayingInvoice(null)
+              invoicesState.reload()
+            }}
+            onCancel={() => setPayingInvoice(null)}
+          />
+        )}
+      </Modal>
+
+      <Modal open={acceptingQuotation !== null} title="Accept Quotation" onClose={() => setAcceptingQuotation(null)}>
+        {acceptingQuotation && (
+          <AcceptQuotationForm
+            quotation={acceptingQuotation}
+            onDone={() => {
+              setAcceptingQuotation(null)
+              invoicesState.reload()
+            }}
+            onCancel={() => setAcceptingQuotation(null)}
+          />
+        )}
+      </Modal>
+
+      <ConfirmDialog
+        open={rejectingInvoice !== null}
+        title="Reject invoice"
+        message={
+          rejectingInvoice
+            ? `Reject "${rejectingInvoice.issueName}"? It stays on record but is marked rejected.`
+            : ''
+        }
+        confirmLabel="Reject"
+        onConfirm={handleRejectInvoice}
+        onCancel={() => setRejectingInvoice(null)}
+      />
+
+      <ConfirmDialog
+        open={rejectingQuotation !== null}
+        title="Reject quotation"
+        message={
+          rejectingQuotation
+            ? `Reject "${rejectingQuotation.issueName}"? It stays on record but is marked rejected.`
+            : ''
+        }
+        confirmLabel="Reject"
+        onConfirm={handleRejectQuotation}
+        onCancel={() => setRejectingQuotation(null)}
+      />
     </div>
   )
 }
@@ -353,12 +541,14 @@ export function CustomerDetailPage() {
 interface VehicleItemProps {
   car: Car
   reminders: Reminder[]
+  invoiceCount: number
+  quoteCount: number
   onOpen: () => void
   onEdit: () => void
   onDelete: () => void
 }
 
-function VehicleItem({ car, reminders, onOpen, onEdit, onDelete }: VehicleItemProps) {
+function VehicleItem({ car, reminders, invoiceCount, quoteCount, onOpen, onEdit, onDelete }: VehicleItemProps) {
   const urgency = dueUrgency(reminders.map((r) => r.dueDate))
   const subtitle = [car.color, car.rego].filter(Boolean).join(' · ')
 
@@ -376,6 +566,9 @@ function VehicleItem({ car, reminders, onOpen, onEdit, onDelete }: VehicleItemPr
         </p>
         <p className="truncate text-sm text-slate-500">{subtitle}</p>
         <p className="mt-1 font-mono text-xs text-slate-400">VIN: {orDash(car.vin)}</p>
+        <p className="mt-1 text-xs text-slate-500">
+          Invoices: {invoiceCount} · Quotes: {quoteCount}
+        </p>
       </div>
       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
         {reminders.length > 0 && (
@@ -497,7 +690,17 @@ function InvoiceDateFilter({ mode, value, onModeChange, onValueChange }: Invoice
   )
 }
 
-function InvoiceRow({ invoice }: { invoice: Invoice }) {
+interface InvoiceRowProps {
+  invoice: Invoice
+  onViewJob: () => void
+  onPay: () => void
+  onReject: () => void
+}
+
+function InvoiceRow({ invoice, onViewJob, onPay, onReject }: InvoiceRowProps) {
+  const active = invoice.status === 'Active'
+  const pdfUrl = `/jobs/${invoice.jobId}/invoices/${invoice.id}/pdf`
+
   return (
     <div className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
       <div className="min-w-0">
@@ -509,6 +712,55 @@ function InvoiceRow({ invoice }: { invoice: Invoice }) {
       <div className="flex items-center gap-3">
         <span className="font-semibold text-slate-900">{currency(invoice.totalAmount)}</span>
         <Badge tone={invoiceStatusTone(invoice)}>{invoiceStatusLabel(invoice)}</Badge>
+        <DropdownMenu
+          label="Actions"
+          items={[
+            { label: 'View Job', onClick: onViewJob },
+            { label: 'View Invoice (PDF)', onClick: () => window.open(pdfUrl, '_blank') },
+            { label: 'Download Invoice (PDF)', onClick: () => window.open(`${pdfUrl}?autoprint=1`, '_blank') },
+            { label: 'Mark as Paid', disabled: !active || invoice.isPaid, onClick: onPay },
+            { label: 'Send Email', disabled: true, hint: 'Coming soon' },
+            { label: 'Reject', disabled: !active, tone: 'danger', onClick: onReject },
+          ]}
+        />
+      </div>
+    </div>
+  )
+}
+
+interface QuotationRowProps {
+  quotation: Invoice
+  onViewJob: () => void
+  onAccept: () => void
+  onReject: () => void
+}
+
+function QuotationRow({ quotation, onViewJob, onAccept, onReject }: QuotationRowProps) {
+  const active = quotation.status === 'Active'
+  const pdfUrl = `/jobs/${quotation.jobId}/invoices/${quotation.id}/pdf`
+
+  return (
+    <div className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+      <div className="min-w-0">
+        <p className="font-medium text-slate-900">{quotation.issueName}</p>
+        <p className="text-sm text-slate-500">
+          Issued {date(quotation.createdAtUtc)} · Valid until {date(quotation.dueDate)}
+        </p>
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="font-semibold text-slate-900">{currency(quotation.totalAmount)}</span>
+        <Badge tone={quotationStatusTone(quotation)}>{quotationStatusLabel(quotation)}</Badge>
+        <DropdownMenu
+          label="Actions"
+          items={[
+            { label: 'View Job', onClick: onViewJob },
+            { label: 'View Quotation (PDF)', onClick: () => window.open(pdfUrl, '_blank') },
+            { label: 'Download Quotation (PDF)', onClick: () => window.open(`${pdfUrl}?autoprint=1`, '_blank') },
+            { label: 'Accept', disabled: !active, onClick: onAccept },
+            { label: 'Send Email', disabled: true, hint: 'Coming soon' },
+            { label: 'Reject', disabled: !active, tone: 'danger', onClick: onReject },
+          ]}
+        />
       </div>
     </div>
   )

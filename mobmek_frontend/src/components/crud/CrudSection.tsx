@@ -244,6 +244,15 @@ export function CrudSection<T>({
                 className="w-48 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none"
               />
               {dateSearchButton && <DateSearchButton onPick={setSearch} />}
+              {search !== '' && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="text-xs text-slate-500 hover:underline"
+                >
+                  Show all
+                </button>
+              )}
             </div>
           )}
           {renderCard != null && (

@@ -61,6 +61,11 @@ in-house primitives below.
 - Row-list dividers (detail-page sections like Invoices/Appointments/Jobs rendered via
   `PaginatedList` or a `CrudSection` table) use `divide-slate-300` — `divide-slate-100` was
   tried first and was too faint to read as a separator between rows.
+- **Back links on detail pages always go first**, at the very top left of the page's returned
+  JSX, before the title/header and before any other section (invoices, reminders, etc.) — never
+  buried further down the page. See `CustomerDetailPage.tsx`, `CarDetailPage.tsx` for the
+  pattern; `JobDetailPage.tsx` used to render its back link after the Invoices/Quotations/
+  Reminders sections and was moved to match.
 
 ### Dependency policy — ask before adding
 **Do not add a new dependency (runtime or dev) without first checking with the user.** Before

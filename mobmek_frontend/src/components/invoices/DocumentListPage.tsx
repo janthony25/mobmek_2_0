@@ -28,6 +28,8 @@ export function DocumentListPage({ documentType }: DocumentListPageProps) {
   const isQuotation = documentType === 'Quotation'
   const statusLabel = isQuotation ? quotationStatusLabel : invoiceStatusLabel
   const statusTone = isQuotation ? quotationStatusTone : invoiceStatusTone
+  // So the job page's back-link can return here instead of defaulting to Job Center.
+  const backState = { from: isQuotation ? '/quotations' : '/invoices', fromLabel: isQuotation ? 'Quotations' : 'Invoices' }
 
   const [reloadKey, setReloadKey] = useState(0)
   const [rejecting, setRejecting] = useState<InvoiceListItem | null>(null)
@@ -63,7 +65,7 @@ export function DocumentListPage({ documentType }: DocumentListPageProps) {
           {
             header: 'Number',
             cell: (i) => (
-              <Link to={`/jobs/${i.jobId}`} className="font-medium text-slate-900 hover:underline">
+              <Link to={`/jobs/${i.jobId}`} state={backState} className="font-medium text-slate-900 hover:underline">
                 {i.invoiceNumber}
               </Link>
             ),
@@ -89,7 +91,7 @@ export function DocumentListPage({ documentType }: DocumentListPageProps) {
                 <DropdownMenu
                   label="Actions"
                   items={[
-                    { label: 'View Job', onClick: () => navigate(`/jobs/${i.jobId}`) },
+                    { label: 'View Job', onClick: () => navigate(`/jobs/${i.jobId}`, { state: backState }) },
                     {
                       label: `View ${documentType} (PDF)`,
                       onClick: () => window.open(pdfUrl, '_blank'),

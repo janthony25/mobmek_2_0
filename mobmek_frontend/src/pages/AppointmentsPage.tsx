@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { getAppointments, createAppointment } from '@/api/appointments'
 import { getEmployees } from '@/api/employees'
 import { useAsync } from '@/hooks/useAsync'
@@ -14,7 +15,7 @@ import { APPOINTMENT_STATUS_TONES } from '@/components/appointments/statusTones'
 import { controlClass } from '@/components/forms/controls'
 import { date as formatDate, time, orDash } from '@/lib/format'
 import { APPOINTMENT_STATUS_LABELS, AppointmentStatus } from '@/types'
-import type { Appointment, CreateAppointmentRequest } from '@/types'
+import type { Appointment, CreateAppointmentRequest, Job } from '@/types'
 
 // Visible day window of the time grid (local time).
 const DAY_START_HOUR = 7
@@ -135,6 +136,8 @@ type CalendarView = 'day' | 'week' | 'month'
 
 export function AppointmentsPage() {
   const toast = useToast()
+  const location = useLocation()
+  const navigate = useNavigate()
 
   const [view, setView] = useState<CalendarView>('week')
   const [anchor, setAnchor] = useState(() => startOfDay(new Date()))
@@ -152,7 +155,26 @@ export function AppointmentsPage() {
   const searching = search !== ''
 
   const [creatingSlot, setCreatingSlot] = useState<{ start: Date; end: Date } | null>(null)
+  const [prefillJob, setPrefillJob] = useState<Job | null>(null)
   const [selected, setSelected] = useState<Appointment | null>(null)
+
+  const closeCreating = () => {
+    setCreatingSlot(null)
+    setPrefillJob(null)
+  }
+
+  // Arriving from a job page's "Create appointment" button: open the create modal
+  // pre-scoped to that job via the "Existing job" tab.
+  useEffect(() => {
+    const job = (location.state as { job?: Job } | null)?.job
+    if (!job) return
+    const start = new Date()
+    start.setHours(9, 0, 0, 0)
+    setCreatingSlot({ start, end: new Date(start.getTime() + 60 * 60000) })
+    setPrefillJob(job)
+    navigate(location.pathname, { replace: true, state: null })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state])
 
   // Day view shows exactly one day, week 7 days, month always 6 whole weeks.
   const range = useMemo(() => {
@@ -197,7 +219,7 @@ export function AppointmentsPage() {
   const handleCreate = async (values: CreateAppointmentRequest) => {
     await createAppointment(values)
     toast.success('Appointment booked.')
-    setCreatingSlot(null)
+    closeCreating()
     reload()
   }
 
@@ -335,15 +357,16 @@ export function AppointmentsPage() {
       <Modal
         open={creatingSlot !== null}
         title="New appointment"
-        onClose={() => setCreatingSlot(null)}
+        onClose={closeCreating}
         maxWidth="max-w-2xl"
       >
         {creatingSlot && (
           <AppointmentForm
             initial={null}
             initialSlot={creatingSlot}
+            initialJob={prefillJob ?? undefined}
             onSubmit={handleCreate}
-            onCancel={() => setCreatingSlot(null)}
+            onCancel={closeCreating}
           />
         )}
       </Modal>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { getCars } from '@/api/cars'
 import { getEmployees } from '@/api/employees'
 import { addJobMechanic, getJob, removeJobMechanic, updateJob } from '@/api/jobs'
@@ -18,6 +18,7 @@ import { PartsEditor } from '@/components/jobs/PartsEditor'
 import { LabourEditor } from '@/components/jobs/LabourEditor'
 import { RemindersSection } from '@/components/reminders/RemindersSection'
 import { Button } from '@/components/ui/Button'
+import { CalendarIcon } from '@/components/ui/icons'
 import { StateMessage } from '@/components/ui/StateMessage'
 import { useToast } from '@/components/ui/toast'
 import { useAsync } from '@/hooks/useAsync'
@@ -39,7 +40,10 @@ const STATUS_OPTIONS = Object.entries(JOB_STATUS_LABELS).map(([value, label]) =>
 
 export function JobDetailPage() {
   const { id = '' } = useParams()
+  const location = useLocation()
+  const navigate = useNavigate()
   const toast = useToast()
+  const backLink = (location.state as { from?: string; fromLabel?: string } | null) ?? {}
 
   const { data: job, loading, error, reload: reloadJob } = useAsync(() => getJob(id), [id])
   const itemsQuery = useAsync(() => getJobItems(id), [id])
@@ -256,6 +260,32 @@ export function JobDetailPage() {
 
   return (
     <div className="space-y-6 pb-24">
+      <div>
+        <Link to={backLink.from ?? '/jobs'} className="text-sm text-slate-500 hover:underline">
+          ← Back to {backLink.fromLabel ?? 'Job Center'}
+        </Link>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold text-slate-900">{job.title}</h1>
+          {mode === 'view' ? (
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" onClick={() => navigate('/appointments', { state: { job } })}>
+                <CalendarIcon className="h-4 w-4" />
+                Create appointment
+              </Button>
+              <Button onClick={startEdit} disabled={!dataReady}>
+                Edit
+              </Button>
+            </div>
+          ) : (
+            <span className="text-sm font-medium text-slate-500">Editing…</span>
+          )}
+        </div>
+        <dl className="mt-3 grid grid-cols-2 gap-x-8 gap-y-1 text-sm text-slate-600 sm:grid-cols-4">
+          <Detail label="Total price" value={currency(job.totalJobPrice)} />
+          <Detail label="Total profit" value={currency(job.totalJobProfit)} />
+        </dl>
+      </div>
+
       <InvoicesSection jobId={id} reloadKey={invoicesReloadKey} />
 
       <QuotationsSection jobId={id} onAccepted={() => setInvoicesReloadKey((k) => k + 1)} />
@@ -268,26 +298,6 @@ export function JobDetailPage() {
           description="Reminders for this car, e.g. next WOF or service."
           collapsible
         />
-      </div>
-
-      <div>
-        <Link to="/jobs" className="text-sm text-slate-500 hover:underline">
-          ← Back to Job Center
-        </Link>
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold text-slate-900">{job.title}</h1>
-          {mode === 'view' ? (
-            <Button onClick={startEdit} disabled={!dataReady}>
-              Edit
-            </Button>
-          ) : (
-            <span className="text-sm font-medium text-slate-500">Editing…</span>
-          )}
-        </div>
-        <dl className="mt-3 grid grid-cols-2 gap-x-8 gap-y-1 text-sm text-slate-600 sm:grid-cols-4">
-          <Detail label="Total price" value={currency(job.totalJobPrice)} />
-          <Detail label="Total profit" value={currency(job.totalJobProfit)} />
-        </dl>
       </div>
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">

@@ -26,6 +26,8 @@ interface AppointmentFormProps {
   initial: Appointment | null
   /** Prefill for the time fields when booking from a clicked calendar slot. */
   initialSlot?: { start: Date; end: Date }
+  /** Prefill the "Existing job" tab when booking an appointment from a job's page. */
+  initialJob?: Job
   onSubmit: (values: CreateAppointmentRequest) => Promise<void>
   onCancel: () => void
 }
@@ -50,21 +52,21 @@ const toTimeInput = (d: Date) =>
  *   card — customer/car are derived from the picked job.
  * - "New caller": free-text contact details only — converted to real records at check-in.
  */
-export function AppointmentForm({ initial, initialSlot, onSubmit, onCancel }: AppointmentFormProps) {
+export function AppointmentForm({ initial, initialSlot, initialJob, onSubmit, onCancel }: AppointmentFormProps) {
   const [mode, setMode] = useState<'existing' | 'job' | 'caller'>(
-    initial && !initial.customerId ? 'caller' : initial ? 'existing' : 'caller',
+    initial && !initial.customerId ? 'caller' : initial ? 'existing' : initialJob ? 'job' : 'caller',
   )
 
   const [cars, setCars] = useState<Car[]>([])
   const [jobs, setJobs] = useState<Job[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
 
-  const [customerId, setCustomerId] = useState(initial?.customerId ?? '')
-  const [carId, setCarId] = useState(initial?.carId ?? '')
-  const [jobId, setJobId] = useState(initial?.jobId ?? '')
+  const [customerId, setCustomerId] = useState(initial?.customerId ?? initialJob?.customerId ?? '')
+  const [carId, setCarId] = useState(initial?.carId ?? initialJob?.carId ?? '')
+  const [jobId, setJobId] = useState(initial?.jobId ?? initialJob?.id ?? '')
   const [mechanicId, setMechanicId] = useState(initial?.mechanicId ?? '')
 
-  const [selectedJob, setSelectedJob] = useState<Job | null>(null)
+  const [selectedJob, setSelectedJob] = useState<Job | null>(initialJob ?? null)
   const [jobSearchQuery, setJobSearchQuery] = useState('')
   const [jobSearchResults, setJobSearchResults] = useState<Job[]>([])
   const [jobSearchLoading, setJobSearchLoading] = useState(false)
