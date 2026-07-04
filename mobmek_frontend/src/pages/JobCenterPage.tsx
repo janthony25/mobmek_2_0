@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { createJob, deleteJob, getJobsPaged, updateJob } from '@/api/jobs'
 import { CrudSection } from '@/components/crud/CrudSection'
 import { JobForm } from '@/components/forms/JobForm'
+import { JobCard } from '@/components/jobs/JobCard'
 import { currency, orDash } from '@/lib/format'
 import { JOB_STATUS_LABELS } from '@/types'
 import type { CreateJobRequest, Job, UpdateJobRequest } from '@/types'
@@ -16,8 +17,11 @@ export function JobCenterPage() {
       onAdd={() => navigate('/jobs/new')}
       loadPaged={({ page, pageSize, search }) => getJobsPaged(page, pageSize, search)}
       pageSize={15}
+      cardsPageSize={10}
       getId={(j) => j.id}
       rowLabel={(j) => j.title}
+      defaultView="cards"
+      renderCard={(j) => <JobCard job={j} />}
       columns={[
         {
           header: 'Title',

@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/Badge'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/toast'
 import { AppointmentForm } from '@/components/forms/AppointmentForm'
-import { APPOINTMENT_STATUS_TONES } from './statusTones'
 import { CarForm } from '@/components/forms/CarForm'
 import { Field, controlClass } from '@/components/forms/controls'
 import { date, time, orDash } from '@/lib/format'
@@ -36,6 +35,7 @@ export function AppointmentDetailModal({ appointment, onClose, onChanged, onDele
   const [editing, setEditing] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [convertStep, setConvertStep] = useState<'customer' | 'car' | null>(null)
+  const [updatingStatus, setUpdatingStatus] = useState(false)
 
   const a = appointment
   const isPast = new Date(a.endUtc) < new Date()
@@ -45,6 +45,19 @@ export function AppointmentDetailModal({ appointment, onClose, onChanged, onDele
     toast.success('Appointment updated.')
     setEditing(false)
     onChanged(updated)
+  }
+
+  const handleStatusChange = async (status: AppointmentStatus) => {
+    setUpdatingStatus(true)
+    try {
+      const updated = await updateAppointment(a.id, toAppointmentRequest(a, { status }))
+      toast.success('Status updated.')
+      onChanged(updated)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setUpdatingStatus(false)
+    }
   }
 
   const handleDelete = async () => {
@@ -114,7 +127,19 @@ export function AppointmentDetailModal({ appointment, onClose, onChanged, onDele
       <Modal open title={a.title} onClose={onClose} maxWidth="max-w-2xl">
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge tone={APPOINTMENT_STATUS_TONES[a.status]}>{APPOINTMENT_STATUS_LABELS[a.status]}</Badge>
+            <select
+              value={a.status}
+              disabled={updatingStatus}
+              onChange={(e) => handleStatusChange(Number(e.target.value) as AppointmentStatus)}
+              aria-label="Status"
+              className={`${controlClass.replace('mt-1 w-full ', '')} py-1 text-sm font-medium disabled:opacity-60`}
+            >
+              {Object.entries(APPOINTMENT_STATUS_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
             <span className="text-sm text-slate-600">
               {date(a.startUtc)} · {time(a.startUtc)} – {time(a.endUtc)}
             </span>
@@ -149,7 +174,17 @@ export function AppointmentDetailModal({ appointment, onClose, onChanged, onDele
             <div>
               <dt className="text-slate-500">Vehicle</dt>
               <dd className="font-medium text-slate-900">
-                {a.carDescription ?? orDash(a.vehicleDescription)}
+                {a.carId && a.customerId ? (
+                  <button
+                    type="button"
+                    className="underline decoration-slate-300 hover:decoration-slate-500"
+                    onClick={() => navigate(`/customers/${a.customerId}/cars/${a.carId}`)}
+                  >
+                    {a.carDescription ?? orDash(a.vehicleDescription)}
+                  </button>
+                ) : (
+                  (a.carDescription ?? orDash(a.vehicleDescription))
+                )}
               </dd>
             </div>
 

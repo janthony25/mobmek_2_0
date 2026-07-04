@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/Button'
+import { DropdownMenu } from '@/components/ui/DropdownMenu'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Pagination } from '@/components/ui/Pagination'
 import { StateMessage } from '@/components/ui/StateMessage'
 import { useToast } from '@/components/ui/toast'
+import { CalendarIcon } from '@/components/ui/icons'
+import { controlClass } from '@/components/forms/controls'
 import { useAsync } from '@/hooks/useAsync'
 import { ResourceForm } from './ResourceForm'
 import type { Column, FieldSchema } from './types'
@@ -33,6 +36,8 @@ interface CrudSectionProps<T> {
   load?: () => Promise<T[]>
   /** Server-side mode: fetches one page at a time and shows a search box. Replaces `load`. */
   loadPaged?: (query: { page: number; pageSize: number; search: string }) => Promise<PagedResult<T>>
+  /** Adds a calendar-icon button beside the search box that picks an exact date into it. */
+  dateSearchButton?: boolean
   /** Rows per page. With `load`, slices client-side; with `loadPaged`, sent to the server. Omit for no pagination. */
   pageSize?: number
   /** Rows per page for the cards view (defaults to `pageSize`). */
@@ -51,9 +56,10 @@ interface CrudSectionProps<T> {
   renderCard?: (row: T) => ReactNode
   /** Initial view when `renderCard` is provided. Defaults to 'list'. */
   defaultView?: 'list' | 'cards'
-  onCreate: (values: Record<string, unknown>) => Promise<void>
-  onUpdate: (id: string, values: Record<string, unknown>) => Promise<void>
-  onDelete: (id: string) => Promise<void>
+  /** Omit all three of onCreate/onUpdate/onDelete for a read-only list — no Add button, no Edit/Delete column. */
+  onCreate?: (values: Record<string, unknown>) => Promise<void>
+  onUpdate?: (id: string, values: Record<string, unknown>) => Promise<void>
+  onDelete?: (id: string) => Promise<void>
   /** When set, the "Add" button calls this instead of opening the create modal (e.g. to navigate to a dedicated page). */
   onAdd?: () => void
   /** Fired after any successful create/update/delete (e.g. to refresh a parent). */
@@ -66,6 +72,8 @@ interface CrudSectionProps<T> {
     /** Hide the action for a given row, e.g. once it's already done. */
     hidden?: (row: T) => boolean
   }
+  /** Render Edit/extraAction/Delete as a single "Actions" dropdown instead of buttons side by side. */
+  actionsAsDropdown?: boolean
 
   emptyText?: string
 }
@@ -80,6 +88,7 @@ export function CrudSection<T>({
   collapsible = false,
   load,
   loadPaged,
+  dateSearchButton,
   pageSize,
   cardsPageSize,
   reloadKey,
@@ -96,6 +105,7 @@ export function CrudSection<T>({
   onAdd,
   onChanged,
   extraAction,
+  actionsAsDropdown,
   emptyText,
 }: CrudSectionProps<T>) {
   const toast = useToast()
@@ -112,6 +122,8 @@ export function CrudSection<T>({
   const showCards = renderCard != null && view === 'cards'
   const serverMode = loadPaged != null
   const effectivePageSize = showCards ? (cardsPageSize ?? pageSize) : pageSize
+  const canAdd = onAdd != null || onCreate != null
+  const showActionsColumn = onUpdate != null || onDelete != null || extraAction != null
 
   // Debounce the search box so we don't hit the API on every keystroke.
   useEffect(() => {
@@ -158,10 +170,10 @@ export function CrudSection<T>({
 
   const handleSubmit = async (values: Record<string, unknown>) => {
     if (editing?.mode === 'edit') {
-      await onUpdate(getId(editing.row), values)
+      await onUpdate!(getId(editing.row), values)
       toast.success(`${resourceName} updated`)
     } else {
-      await onCreate(values)
+      await onCreate!(values)
       toast.success(`${resourceName} created`)
     }
     setEditing(null)
@@ -171,7 +183,7 @@ export function CrudSection<T>({
 
   const handleDelete = async () => {
     if (!deleting) return
-    await onDelete(getId(deleting))
+    await onDelete!(getId(deleting))
     toast.success(`${resourceName} deleted`)
     setDeleting(null)
     reload()
@@ -223,13 +235,16 @@ export function CrudSection<T>({
         </div>
         <div className="flex items-center gap-2">
           {serverMode && (
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={`Search ${heading.toLowerCase()}…`}
-              className="w-48 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none"
-            />
+            <div className="flex items-center gap-1.5">
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={`Search ${heading.toLowerCase()}…`}
+                className="w-48 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none"
+              />
+              {dateSearchButton && <DateSearchButton onPick={setSearch} />}
+            </div>
           )}
           {renderCard != null && (
             <div className="inline-flex rounded-md border border-slate-300 bg-white p-0.5">
@@ -250,7 +265,9 @@ export function CrudSection<T>({
               ))}
             </div>
           )}
-          <Button onClick={onAdd ?? (() => setEditing({ mode: 'create' }))}>+ Add {resourceName}</Button>
+          {canAdd && (
+            <Button onClick={onAdd ?? (() => setEditing({ mode: 'create' }))}>+ Add {resourceName}</Button>
+          )}
         </div>
       </div>
 
@@ -259,7 +276,7 @@ export function CrudSection<T>({
       {!collapsed && rows && total === 0 && (
         <StateMessage
           title={debouncedSearch ? `No ${heading.toLowerCase()} match “${debouncedSearch}”` : emptyText ?? `No ${heading.toLowerCase()} yet`}
-          description={debouncedSearch ? 'Try a different search.' : `Use “Add ${resourceName}” to create one.`}
+          description={debouncedSearch ? 'Try a different search.' : canAdd ? `Use “Add ${resourceName}” to create one.` : undefined}
         />
       )}
 
@@ -281,7 +298,7 @@ export function CrudSection<T>({
                     {col.header}
                   </th>
                 ))}
-                <th className="px-4 py-3 text-right">Actions</th>
+                {showActionsColumn && <th className="px-4 py-3 text-right">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -292,19 +309,42 @@ export function CrudSection<T>({
                       {col.cell(row)}
                     </td>
                   ))}
-                  <td className="whitespace-nowrap px-4 py-3 text-right">
-                    <Button variant="ghost" size="sm" onClick={() => setEditing({ mode: 'edit', row })}>
-                      Edit
-                    </Button>
-                    {extraAction && !extraAction.hidden?.(row) && (
-                      <Button variant="ghost" size="sm" onClick={() => handleExtraAction(row)}>
-                        {extraAction.label(row)}
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="sm" className="text-red-600" onClick={() => setDeleting(row)}>
-                      Delete
-                    </Button>
-                  </td>
+                  {showActionsColumn && (
+                    <td className="whitespace-nowrap px-4 py-3 text-right">
+                      {actionsAsDropdown ? (
+                        <DropdownMenu
+                          label="Actions"
+                          items={[
+                            ...(onUpdate ? [{ label: 'Edit', onClick: () => setEditing({ mode: 'edit', row }) }] : []),
+                            ...(extraAction && !extraAction.hidden?.(row)
+                              ? [{ label: extraAction.label(row), onClick: () => handleExtraAction(row) }]
+                              : []),
+                            ...(onDelete
+                              ? [{ label: 'Delete', tone: 'danger' as const, onClick: () => setDeleting(row) }]
+                              : []),
+                          ]}
+                        />
+                      ) : (
+                        <>
+                          {onUpdate && (
+                            <Button variant="ghost" size="sm" onClick={() => setEditing({ mode: 'edit', row })}>
+                              Edit
+                            </Button>
+                          )}
+                          {extraAction && !extraAction.hidden?.(row) && (
+                            <Button variant="ghost" size="sm" onClick={() => handleExtraAction(row)}>
+                              {extraAction.label(row)}
+                            </Button>
+                          )}
+                          {onDelete && (
+                            <Button variant="ghost" size="sm" className="text-red-600" onClick={() => setDeleting(row)}>
+                              Delete
+                            </Button>
+                          )}
+                        </>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -347,5 +387,46 @@ export function CrudSection<T>({
         onCancel={() => setDeleting(null)}
       />
     </section>
+  )
+}
+
+/** Calendar-icon button beside a search box that picks an exact date into it, so the user doesn't have to type one. */
+function DateSearchButton({ onPick }: { onPick: (value: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDocClick = (e: MouseEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [open])
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Search by date"
+        className="rounded-md border border-slate-300 bg-white p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+      >
+        <CalendarIcon className="h-4 w-4" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-10 mt-2 rounded-md border border-slate-200 bg-white p-2 shadow-lg">
+          <input
+            type="date"
+            autoFocus
+            onChange={(e) => {
+              onPick(e.target.value)
+              setOpen(false)
+            }}
+            className={controlClass}
+          />
+        </div>
+      )}
+    </div>
   )
 }

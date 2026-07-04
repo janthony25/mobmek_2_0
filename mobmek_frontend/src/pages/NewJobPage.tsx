@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { RefObject } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getCustomers } from '@/api/customers'
 import { getCars } from '@/api/cars'
@@ -43,6 +44,8 @@ import {
 
 const STATUS_OPTIONS = Object.entries(JOB_STATUS_LABELS).map(([value, label]) => ({ value, label }))
 
+type RequiredField = 'customer' | 'car' | 'title' | 'mechanics'
+
 export function NewJobPage() {
   const toast = useToast()
   const navigate = useNavigate()
@@ -84,6 +87,12 @@ export function NewJobPage() {
 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [invalidFields, setInvalidFields] = useState<Set<RequiredField>>(new Set())
+
+  const customerFieldRef = useRef<HTMLDivElement>(null)
+  const carFieldRef = useRef<HTMLDivElement>(null)
+  const titleFieldRef = useRef<HTMLDivElement>(null)
+  const mechanicsFieldRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     getCustomers().then(setCustomers).catch(() => setCustomers([]))
@@ -132,15 +141,28 @@ export function NewJobPage() {
   const updateLabour = (key: string, patch: Partial<LabourDraft>) =>
     setLabour((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)))
 
+  const fieldRefs: Record<RequiredField, RefObject<HTMLDivElement | null>> = {
+    customer: customerFieldRef,
+    car: carFieldRef,
+    title: titleFieldRef,
+    mechanics: mechanicsFieldRef,
+  }
+  const fieldOrder: RequiredField[] = ['customer', 'car', 'title', 'mechanics']
+
   const save = async () => {
-    if (!customerId || !carId || !title.trim()) {
-      setError('Customer, car and title are required.')
+    const missing = new Set<RequiredField>()
+    if (!customerId) missing.add('customer')
+    if (!carId) missing.add('car')
+    if (!title.trim()) missing.add('title')
+    if (mechanicIds.length === 0) missing.add('mechanics')
+
+    if (missing.size > 0) {
+      setInvalidFields(missing)
+      const firstMissing = fieldOrder.find((f) => missing.has(f))!
+      fieldRefs[firstMissing].current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       return
     }
-    if (mechanicIds.length === 0) {
-      setError('At least one mechanic is required.')
-      return
-    }
+    setInvalidFields(new Set())
     setError(null)
     setBusy(true)
 
@@ -234,40 +256,71 @@ export function NewJobPage() {
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-5">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Details</h2>
-          <Field label="Customer" required>
-            <Combobox
-              options={customers.map((c) => ({
-                value: c.id,
-                label: `${c.firstName} ${c.lastName}`,
-              }))}
-              value={customerId}
-              onChange={(id) => {
-                setCustomerId(id)
-                setCarId('')
-              }}
-              disabled={customerLocked}
-              placeholder="Type to search customers…"
-              emptyText="No matching customers"
-            />
-          </Field>
-          <Field label="Car" required>
-            <select
-              value={carId}
-              onChange={(e) => setCarId(e.target.value)}
-              disabled={carLocked || !customerId}
-              className={controlClass}
-            >
-              <option value="">{customerId ? 'Select…' : 'Pick a customer first'}</option>
-              {cars.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.carMakeName} {c.carModelName} — {c.rego}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Title" required>
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={controlClass} />
-          </Field>
+          <div ref={customerFieldRef}>
+            <Field label="Customer" required>
+              <Combobox
+                options={customers.map((c) => ({
+                  value: c.id,
+                  label: `${c.firstName} ${c.lastName}`,
+                }))}
+                value={customerId}
+                onChange={(id) => {
+                  setCustomerId(id)
+                  setCarId('')
+                  setInvalidFields((prev) => {
+                    const next = new Set(prev)
+                    next.delete('customer')
+                    return next
+                  })
+                }}
+                disabled={customerLocked}
+                placeholder="Type to search customers…"
+                emptyText="No matching customers"
+                invalid={invalidFields.has('customer')}
+              />
+            </Field>
+          </div>
+          <div ref={carFieldRef}>
+            <Field label="Car" required>
+              <select
+                value={carId}
+                onChange={(e) => {
+                  setCarId(e.target.value)
+                  setInvalidFields((prev) => {
+                    const next = new Set(prev)
+                    next.delete('car')
+                    return next
+                  })
+                }}
+                disabled={carLocked || !customerId}
+                className={`${controlClass} ${invalidFields.has('car') ? 'border-red-500 bg-red-50' : ''}`}
+              >
+                <option value="">{customerId ? 'Select…' : 'Pick a customer first'}</option>
+                {cars.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.carMakeName} {c.carModelName} — {c.rego}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          <div ref={titleFieldRef}>
+            <Field label="Title" required>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => {
+                  setTitle(e.target.value)
+                  setInvalidFields((prev) => {
+                    const next = new Set(prev)
+                    next.delete('title')
+                    return next
+                  })
+                }}
+                className={`${controlClass} ${invalidFields.has('title') ? 'border-red-500 bg-red-50' : ''}`}
+              />
+            </Field>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Status">
               <select value={status} onChange={(e) => setStatus(e.target.value)} className={controlClass}>
@@ -283,53 +336,64 @@ export function NewJobPage() {
             </Field>
           </div>
 
-          <Field label="Mechanics" required>
-            <div className="space-y-2">
-              {mechanicIds.length > 0 && (
-                <ul className="flex flex-wrap gap-2">
-                  {mechanicIds.map((id) => (
-                    <li
-                      key={id}
-                      className="inline-flex items-center gap-2 rounded-full bg-slate-100 py-1 pl-3 pr-1 text-sm text-slate-700"
-                    >
-                      {nameOf(id)}
-                      <button
-                        type="button"
-                        onClick={() => setMechanicIds((prev) => prev.filter((x) => x !== id))}
-                        className="rounded-full px-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
-                        aria-label={`Remove ${nameOf(id)}`}
+          <div ref={mechanicsFieldRef}>
+            <Field label="Mechanics" required>
+              <div className="space-y-2">
+                {mechanicIds.length > 0 && (
+                  <ul className="flex flex-wrap gap-2">
+                    {mechanicIds.map((id) => (
+                      <li
+                        key={id}
+                        className="inline-flex items-center gap-2 rounded-full bg-slate-100 py-1 pl-3 pr-1 text-sm text-slate-700"
                       >
-                        ✕
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="flex items-center gap-2">
-                <select value={mechanicPick} onChange={(e) => setMechanicPick(e.target.value)} className={controlClass}>
-                  <option value="">Add a mechanic…</option>
-                  {availableMechanics.map((e) => (
-                    <option key={e.id} value={e.id}>
-                      {e.firstName} {e.lastName}
-                    </option>
-                  ))}
-                </select>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={!mechanicPick}
-                  onClick={() => {
-                    if (!mechanicPick) return
-                    setMechanicIds((prev) => [...prev, mechanicPick])
-                    setMechanicPick('')
-                  }}
-                >
-                  Add
-                </Button>
+                        {nameOf(id)}
+                        <button
+                          type="button"
+                          onClick={() => setMechanicIds((prev) => prev.filter((x) => x !== id))}
+                          className="rounded-full px-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+                          aria-label={`Remove ${nameOf(id)}`}
+                        >
+                          ✕
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="flex items-center gap-2">
+                  <select
+                    value={mechanicPick}
+                    onChange={(e) => setMechanicPick(e.target.value)}
+                    className={`${controlClass} ${invalidFields.has('mechanics') ? 'border-red-500 bg-red-50' : ''}`}
+                  >
+                    <option value="">Add a mechanic…</option>
+                    {availableMechanics.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.firstName} {e.lastName}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={!mechanicPick}
+                    onClick={() => {
+                      if (!mechanicPick) return
+                      setMechanicIds((prev) => [...prev, mechanicPick])
+                      setMechanicPick('')
+                      setInvalidFields((prev) => {
+                        const next = new Set(prev)
+                        next.delete('mechanics')
+                        return next
+                      })
+                    }}
+                  >
+                    Add
+                  </Button>
+                </div>
               </div>
-            </div>
-          </Field>
+            </Field>
+          </div>
 
           <Field label="Job notes">
             <textarea value={jobNotes} rows={3} onChange={(e) => setJobNotes(e.target.value)} className={controlClass} />

@@ -24,7 +24,7 @@ export function PaginatedList<T>({ items, pageSize, getKey, renderItem }: Pagina
     <>
       {/* Fragments (not wrapper divs) so the rows stay direct children — divide-y and
           the rows' own first:/last: padding selectors depend on that. */}
-      <div className="divide-y divide-slate-100">
+      <div className="divide-y divide-slate-300">
         {pageItems.map((item) => (
           <Fragment key={getKey(item)}>{renderItem(item)}</Fragment>
         ))}

@@ -82,6 +82,7 @@ export function RemindersSection({ customerId, lockedCarId, description, title =
       }
       onUpdate={(id, v) => updateReminder(id, v as UpdateReminderRequest).then(() => undefined)}
       onDelete={deleteReminder}
+      actionsAsDropdown
       extraAction={{
         label: () => 'Mark as done',
         hidden: (r) => r.isDone,

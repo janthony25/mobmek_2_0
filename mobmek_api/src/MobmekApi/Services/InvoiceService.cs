@@ -7,6 +7,8 @@ namespace MobmekApi.Services;
 
 public class InvoiceService(AppDbContext db, IGstSettingService gstSettingService) : IInvoiceService
 {
+    private const int MaxPageSize = 200;
+
     public async Task<IReadOnlyList<InvoiceDto>> GetAllAsync(Guid jobId, CancellationToken cancellationToken = default)
     {
         var invoices = await db.Invoices.AsNoTracking()
@@ -16,6 +18,45 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
             .ToListAsync(cancellationToken);
 
         return invoices.Select(ToDto).ToList();
+    }
+
+    public async Task<PagedResult<InvoiceListItemDto>> GetPagedAsync(string documentType, int page, int pageSize, string? search, CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
+
+        var query = db.Invoices.AsNoTracking().Where(i => i.DocumentType == documentType);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            var lowerTerm = term.ToLower();
+            // A search term that parses as a date matches the invoice's issue date
+            // (CreatedAtUtc) exactly, alongside the usual name/rego substring match.
+            // Npgsql only accepts UTC-kinded DateTimes against "timestamp with time zone" columns.
+            var searchDate = DateOnly.TryParse(term, out var parsedDate)
+                ? DateTime.SpecifyKind(parsedDate.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc)
+                : (DateTime?)null;
+
+            query = query.Where(i =>
+                (i.Job != null && i.Job.Customer != null &&
+                    (i.Job.Customer.FirstName + " " + i.Job.Customer.LastName).ToLower().Contains(lowerTerm)) ||
+                (i.Job != null && i.Job.Car != null && i.Job.Car.Rego.ToLower().Contains(lowerTerm)) ||
+                (searchDate != null && i.CreatedAtUtc.Date == searchDate));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .Include(i => i.Job).ThenInclude(j => j!.Customer)
+            .Include(i => i.Job).ThenInclude(j => j!.Car).ThenInclude(c => c!.CarMake)
+            .Include(i => i.Job).ThenInclude(j => j!.Car).ThenInclude(c => c!.CarModel)
+            .OrderByDescending(i => i.CreatedAtUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<InvoiceListItemDto>(items.Select(ToListItemDto).ToList(), totalCount, page, pageSize);
     }
 
     public async Task<InvoiceDto?> GetByIdAsync(Guid jobId, Guid id, CancellationToken cancellationToken = default)
@@ -326,6 +367,12 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
     }
 
     private static decimal Round(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
+
+    private static InvoiceListItemDto ToListItemDto(Invoice i) =>
+        new(i.Id, i.JobId, $"{(i.DocumentType == "Quotation" ? "QUO" : "INV")}-{i.SequenceNumber:D4}", i.IssueName, i.DocumentType, i.Status,
+            i.Job?.Customer is { } customer ? $"{customer.FirstName} {customer.LastName}" : null,
+            i.Job?.Car is { } car ? $"{car.CarMake?.Name} {car.CarModel?.Name} ({car.Rego})" : null,
+            i.DueDate, i.TotalAmount, i.IsPaid, i.CreatedAtUtc);
 
     private static InvoiceDto ToDto(Invoice i) =>
         new(i.Id, i.JobId, $"{(i.DocumentType == "Quotation" ? "QUO" : "INV")}-{i.SequenceNumber:D4}", i.IssueName, i.Notes, i.DocumentType, i.Status, i.DueDate, i.PaymentTerm, i.ModeOfPayment,

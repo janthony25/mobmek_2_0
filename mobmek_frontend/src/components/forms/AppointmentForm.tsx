@@ -1,12 +1,26 @@
 import { useEffect, useState } from 'react'
-import { getCustomers } from '@/api/customers'
+import { getCustomersPaged } from '@/api/customers'
 import { getCars } from '@/api/cars'
-import { getJobs } from '@/api/jobs'
+import { getJobs, getJobsPaged } from '@/api/jobs'
 import { getEmployees } from '@/api/employees'
 import { Button } from '@/components/ui/Button'
+import { AsyncCombobox } from './AsyncCombobox'
 import { Field, controlClass } from './controls'
 import { APPOINTMENT_STATUS_LABELS, AppointmentStatus, JOB_STATUS_LABELS } from '@/types'
-import type { Appointment, Car, CreateAppointmentRequest, Customer, Employee, Job } from '@/types'
+import type { Appointment, Car, CreateAppointmentRequest, Employee, Job } from '@/types'
+
+/** Number of results shown in the customer search picker. */
+const PICKER_PAGE_SIZE = 8
+
+/** Job picker: only the most recently created jobs by default (server already returns newest-first). */
+const JOB_PICKER_DEFAULT_SIZE = 6
+/** Wider cap once the user searches by rego/customer/title — no longer just "most recent". */
+const JOB_PICKER_SEARCH_SIZE = 20
+
+const searchCustomers = (query: string) =>
+  getCustomersPaged(1, PICKER_PAGE_SIZE, query).then((r) =>
+    r.items.map((c) => ({ value: c.id, label: `${c.firstName} ${c.lastName}` })),
+  )
 
 interface AppointmentFormProps {
   initial: Appointment | null
@@ -30,16 +44,17 @@ const toTimeInput = (d: Date) =>
   `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 
 /**
- * Bespoke appointment form. Two booking modes:
+ * Bespoke appointment form. Three booking modes:
  * - "Existing customer": customer → car cascade, plus an optional open-job link.
+ * - "Existing job": search jobs (by rego, customer, title, make/model) and pick a job
+ *   card — customer/car are derived from the picked job.
  * - "New caller": free-text contact details only — converted to real records at check-in.
  */
 export function AppointmentForm({ initial, initialSlot, onSubmit, onCancel }: AppointmentFormProps) {
-  const [mode, setMode] = useState<'existing' | 'caller'>(
+  const [mode, setMode] = useState<'existing' | 'job' | 'caller'>(
     initial && !initial.customerId ? 'caller' : initial ? 'existing' : 'caller',
   )
 
-  const [customers, setCustomers] = useState<Customer[]>([])
   const [cars, setCars] = useState<Car[]>([])
   const [jobs, setJobs] = useState<Job[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -48,6 +63,11 @@ export function AppointmentForm({ initial, initialSlot, onSubmit, onCancel }: Ap
   const [carId, setCarId] = useState(initial?.carId ?? '')
   const [jobId, setJobId] = useState(initial?.jobId ?? '')
   const [mechanicId, setMechanicId] = useState(initial?.mechanicId ?? '')
+
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null)
+  const [jobSearchQuery, setJobSearchQuery] = useState('')
+  const [jobSearchResults, setJobSearchResults] = useState<Job[]>([])
+  const [jobSearchLoading, setJobSearchLoading] = useState(false)
 
   const [contactName, setContactName] = useState(initial?.contactName ?? '')
   const [contactPhone, setContactPhone] = useState(initial?.contactPhone ?? '')
@@ -66,7 +86,6 @@ export function AppointmentForm({ initial, initialSlot, onSubmit, onCancel }: Ap
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    getCustomers().then(setCustomers).catch(() => setCustomers([]))
     getEmployees().then(setEmployees).catch(() => setEmployees([]))
   }, [])
 
@@ -81,8 +100,47 @@ export function AppointmentForm({ initial, initialSlot, onSubmit, onCancel }: Ap
     getJobs(customerId).then(setJobs).catch(() => setJobs([]))
   }, [customerId])
 
+  // Debounced job search for the "Existing job" picker — a bounded page from the
+  // server (already matches title/customer/make/model/rego), not the whole table.
+  useEffect(() => {
+    if (mode !== 'job' || selectedJob) return
+    let cancelled = false
+    setJobSearchLoading(true)
+    const trimmedQuery = jobSearchQuery.trim()
+    const handle = setTimeout(() => {
+      getJobsPaged(1, trimmedQuery ? JOB_PICKER_SEARCH_SIZE : JOB_PICKER_DEFAULT_SIZE, trimmedQuery)
+        .then((r) => {
+          if (!cancelled) setJobSearchResults(r.items)
+        })
+        .catch(() => {
+          if (!cancelled) setJobSearchResults([])
+        })
+        .finally(() => {
+          if (!cancelled) setJobSearchLoading(false)
+        })
+    }, 300)
+    return () => {
+      cancelled = true
+      clearTimeout(handle)
+    }
+  }, [mode, selectedJob, jobSearchQuery])
+
   const handleCustomerChange = (value: string) => {
     setCustomerId(value)
+    setCarId('')
+    setJobId('')
+  }
+
+  const handleJobPick = (job: Job) => {
+    setSelectedJob(job)
+    setCustomerId(job.customerId)
+    setCarId(job.carId)
+    setJobId(job.id)
+  }
+
+  const handleJobClear = () => {
+    setSelectedJob(null)
+    setCustomerId('')
     setCarId('')
     setJobId('')
   }
@@ -95,6 +153,10 @@ export function AppointmentForm({ initial, initialSlot, onSubmit, onCancel }: Ap
     }
     if (mode === 'existing' && !customerId) {
       setError('Pick a customer, or switch to "New caller".')
+      return
+    }
+    if (mode === 'job' && !selectedJob) {
+      setError('Pick a job, or switch to another tab.')
       return
     }
     if (mode === 'caller' && (!contactName.trim() || !contactPhone.trim())) {
@@ -120,9 +182,9 @@ export function AppointmentForm({ initial, initialSlot, onSubmit, onCancel }: Ap
         contactName: contactName.trim() || null,
         contactPhone: contactPhone.trim() || null,
         vehicleDescription: vehicleDescription.trim() || null,
-        customerId: mode === 'existing' ? customerId : null,
-        carId: mode === 'existing' && carId ? carId : null,
-        jobId: mode === 'existing' && jobId ? jobId : null,
+        customerId: mode === 'existing' || mode === 'job' ? customerId : null,
+        carId: (mode === 'existing' || mode === 'job') && carId ? carId : null,
+        jobId: (mode === 'existing' || mode === 'job') && jobId ? jobId : null,
         mechanicId: mechanicId || null,
       })
     } catch (err) {
@@ -143,6 +205,9 @@ export function AppointmentForm({ initial, initialSlot, onSubmit, onCancel }: Ap
         <button type="button" className={modeTabClass(mode === 'existing')} onClick={() => setMode('existing')}>
           Existing customer
         </button>
+        <button type="button" className={modeTabClass(mode === 'job')} onClick={() => setMode('job')}>
+          Existing job
+        </button>
         <button type="button" className={modeTabClass(mode === 'caller')} onClick={() => setMode('caller')}>
           New caller
         </button>
@@ -152,14 +217,14 @@ export function AppointmentForm({ initial, initialSlot, onSubmit, onCancel }: Ap
         {mode === 'existing' ? (
           <>
             <Field label="Customer" required>
-              <select value={customerId} onChange={(e) => handleCustomerChange(e.target.value)} className={controlClass}>
-                <option value="">Select…</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.firstName} {c.lastName}
-                  </option>
-                ))}
-              </select>
+              <AsyncCombobox
+                value={customerId}
+                onChange={handleCustomerChange}
+                search={searchCustomers}
+                initialLabel={initial?.customerName}
+                placeholder="Type to search customers…"
+                emptyText="No matching customers"
+              />
             </Field>
 
             <Field label="Car">
@@ -194,6 +259,63 @@ export function AppointmentForm({ initial, initialSlot, onSubmit, onCancel }: Ap
               </select>
             </Field>
           </>
+        ) : mode === 'job' ? (
+          <div className="sm:col-span-2 space-y-3">
+            {selectedJob ? (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                <div>
+                  <p className="font-medium text-slate-900">{selectedJob.title}</p>
+                  <p className="text-slate-500">
+                    {selectedJob.customerName} — {selectedJob.carDescription}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">{JOB_STATUS_LABELS[selectedJob.status]}</p>
+                </div>
+                <Button type="button" variant="secondary" onClick={handleJobClear}>
+                  Change
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Field label="Search jobs" required>
+                  <input
+                    type="text"
+                    value={jobSearchQuery}
+                    onChange={(e) => setJobSearchQuery(e.target.value)}
+                    placeholder="Search by rego#, customer, title, make/model…"
+                    className={controlClass}
+                  />
+                </Field>
+                {jobSearchLoading ? (
+                  <p className="text-sm text-slate-400">Searching…</p>
+                ) : jobSearchResults.length === 0 ? (
+                  <p className="text-sm text-slate-400">No jobs match.</p>
+                ) : (
+                  <>
+                    {!jobSearchQuery.trim() && (
+                      <p className="text-xs text-slate-400">
+                        Showing the {JOB_PICKER_DEFAULT_SIZE} most recent jobs — search by rego# to find others.
+                      </p>
+                    )}
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {jobSearchResults.map((j) => (
+                        <button
+                          key={j.id}
+                          type="button"
+                          onClick={() => handleJobPick(j)}
+                          className="rounded-lg border border-slate-200 bg-white p-3 text-left text-sm shadow-sm transition hover:border-slate-400 hover:shadow-md"
+                        >
+                          <p className="font-medium text-slate-900">{j.title}</p>
+                          <p className="text-slate-500">{j.customerName}</p>
+                          <p className="text-slate-500">{j.carDescription}</p>
+                          <p className="mt-1 text-xs text-slate-400">{JOB_STATUS_LABELS[j.status]}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </div>
         ) : (
           <>
             <Field label="Contact name" required>

@@ -43,6 +43,24 @@ public record InvoiceDto(
     DateTime? UpdatedAtUtc);
 
 /// <summary>
+/// One row of the global Invoices/Quotations list — an invoice plus the job/customer/vehicle
+/// context needed to browse and search across all jobs, without the line items.
+/// </summary>
+public record InvoiceListItemDto(
+    Guid Id,
+    Guid JobId,
+    string InvoiceNumber,
+    string IssueName,
+    string DocumentType,
+    string Status,
+    string? CustomerName,
+    string? CarDescription,
+    DateOnly? DueDate,
+    decimal TotalAmount,
+    bool IsPaid,
+    DateTime CreatedAtUtc);
+
+/// <summary>
 /// Payload for generating an invoice from a job. The lines and totals are built automatically
 /// from the job's items, labour and service lines — only this optional detail is supplied.
 /// </summary>

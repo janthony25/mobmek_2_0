@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { deleteCustomer, getCustomer, updateCustomer } from '@/api/customers'
 import { createCar, deleteCar, getCars, updateCar } from '@/api/cars'
@@ -15,6 +15,7 @@ import { StateMessage } from '@/components/ui/StateMessage'
 import { useToast } from '@/components/ui/toast'
 import {
   BellIcon,
+  CalendarIcon,
   CarIcon,
   MailIcon,
   MapPinIcon,
@@ -24,6 +25,7 @@ import {
   TrashIcon,
 } from '@/components/ui/icons'
 import { CarForm } from '@/components/forms/CarForm'
+import { controlClass } from '@/components/forms/controls'
 import { ResourceForm } from '@/components/crud/ResourceForm'
 import { useAsync } from '@/hooks/useAsync'
 import { JOB_STATUS_TONE, invoiceStatusLabel, invoiceStatusTone } from '@/lib/badges'
@@ -54,6 +56,31 @@ const customerFields: FieldSchema[] = [
 /** First letters of first + last name, e.g. "James Wilson" -> "JW". */
 function initials(c: Customer): string {
   return `${c.firstName.charAt(0)}${c.lastName.charAt(0)}`.toUpperCase()
+}
+
+type InvoiceDateMode = 'day' | 'week' | 'month'
+
+/** Monday-Sunday UTC range for an ISO week string like "2026-W27". */
+function isoWeekRange(weekValue: string): { start: string; end: string } {
+  const [yearStr, weekStr] = weekValue.split('-W')
+  const year = Number(yearStr)
+  const week = Number(weekStr)
+  const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7))
+  const dayOfWeek = simple.getUTCDay() || 7
+  const monday = new Date(simple)
+  monday.setUTCDate(simple.getUTCDate() - dayOfWeek + 1)
+  const sunday = new Date(monday)
+  sunday.setUTCDate(monday.getUTCDate() + 6)
+  return { start: monday.toISOString().slice(0, 10), end: sunday.toISOString().slice(0, 10) }
+}
+
+function matchesInvoiceDate(invoice: Invoice, mode: InvoiceDateMode, value: string): boolean {
+  if (!value) return true
+  const issued = invoice.createdAtUtc.slice(0, 10)
+  if (mode === 'day') return issued === value
+  if (mode === 'month') return issued.slice(0, 7) === value
+  const { start, end } = isoWeekRange(value)
+  return issued >= start && issued <= end
 }
 
 export function CustomerDetailPage() {
@@ -89,6 +116,8 @@ export function CustomerDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [carModal, setCarModal] = useState<{ open: boolean; car: Car | null }>({ open: false, car: null })
   const [deleteCarTarget, setDeleteCarTarget] = useState<Car | null>(null)
+  const [invoiceDateMode, setInvoiceDateMode] = useState<InvoiceDateMode>('day')
+  const [invoiceDateValue, setInvoiceDateValue] = useState('')
 
   if (customerState.loading) return <StateMessage title="Loading customer…" />
   if (customerState.error) return <StateMessage title="Could not load customer" description={customerState.error.message} />
@@ -132,6 +161,9 @@ export function CustomerDetailPage() {
   const cars = carsState.data ?? []
   const jobs = [...(jobsState.data ?? [])].sort((a, b) => b.createdAtUtc.localeCompare(a.createdAtUtc))
   const invoices = [...(invoicesState.data ?? [])].sort((a, b) => b.createdAtUtc.localeCompare(a.createdAtUtc))
+  const filteredInvoices = invoices.filter((invoice) =>
+    matchesInvoiceDate(invoice, invoiceDateMode, invoiceDateValue),
+  )
 
   return (
     <div className="space-y-6">
@@ -238,15 +270,33 @@ export function CustomerDetailPage() {
             )}
           </Card>
 
-          <Card title="Invoices">
+          <Card
+            title="Invoices"
+            action={
+              invoices.length > 0 && (
+                <InvoiceDateFilter
+                  mode={invoiceDateMode}
+                  value={invoiceDateValue}
+                  onModeChange={(mode) => {
+                    setInvoiceDateMode(mode)
+                    setInvoiceDateValue('')
+                  }}
+                  onValueChange={setInvoiceDateValue}
+                />
+              )
+            }
+          >
             {invoicesState.loading && <p className="text-sm text-slate-500">Loading invoices…</p>}
             {invoicesState.error && <p className="text-sm text-red-600">{invoicesState.error.message}</p>}
             {!invoicesState.loading && invoices.length === 0 && (
               <p className="text-sm text-slate-500">No invoices yet.</p>
             )}
-            {invoices.length > 0 && (
+            {!invoicesState.loading && invoices.length > 0 && filteredInvoices.length === 0 && (
+              <p className="text-sm text-slate-500">No invoices match that {invoiceDateMode}.</p>
+            )}
+            {filteredInvoices.length > 0 && (
               <PaginatedList
-                items={invoices}
+                items={filteredInvoices}
                 pageSize={10}
                 getKey={(invoice) => invoice.id}
                 renderItem={(invoice) => <InvoiceRow invoice={invoice} />}
@@ -372,6 +422,77 @@ function AppointmentRow({ job }: { job: Job }) {
         <p className="truncate text-sm text-slate-500">{orDash(details)}</p>
       </div>
       <Badge tone={JOB_STATUS_TONE[job.status]}>{JOB_STATUS_LABELS[job.status]}</Badge>
+    </div>
+  )
+}
+
+interface InvoiceDateFilterProps {
+  mode: InvoiceDateMode
+  value: string
+  onModeChange: (mode: InvoiceDateMode) => void
+  onValueChange: (value: string) => void
+}
+
+const INVOICE_DATE_MODES: InvoiceDateMode[] = ['day', 'week', 'month']
+
+/** Calendar-icon button that opens a day/week/month picker to filter the invoices list. */
+function InvoiceDateFilter({ mode, value, onModeChange, onValueChange }: InvoiceDateFilterProps) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const active = value !== ''
+
+  useEffect(() => {
+    if (!open) return
+    const onDocClick = (e: MouseEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [open])
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Filter invoices by date"
+        className={`rounded p-1.5 ${active ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
+      >
+        <CalendarIcon className="h-4 w-4" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-10 mt-2 w-56 rounded-md border border-slate-200 bg-white p-3 shadow-lg">
+          <div className="mb-2 inline-flex rounded-md border border-slate-300 bg-white p-0.5">
+            {INVOICE_DATE_MODES.map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => onModeChange(m)}
+                className={`rounded px-2 py-1 text-xs font-medium capitalize transition-colors ${
+                  mode === m ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+          <input
+            type={mode === 'day' ? 'date' : mode}
+            value={value}
+            onChange={(e) => onValueChange(e.target.value)}
+            className={controlClass}
+          />
+          {active && (
+            <button
+              type="button"
+              onClick={() => onValueChange('')}
+              className="mt-2 text-xs text-slate-500 hover:underline"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

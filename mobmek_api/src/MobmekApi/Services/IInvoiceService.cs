@@ -7,6 +7,14 @@ public interface IInvoiceService
     /// <summary>Lists the invoices generated for a job, newest first.</summary>
     Task<IReadOnlyList<InvoiceDto>> GetAllAsync(Guid jobId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Returns one page of invoices or quotations (newest first) across all jobs, filtered by
+    /// <paramref name="documentType"/> ("Invoice" or "Quotation"). <paramref name="search"/>
+    /// matches the customer name or car rego (case-insensitively), or an exact issue date when
+    /// it parses as one.
+    /// </summary>
+    Task<PagedResult<InvoiceListItemDto>> GetPagedAsync(string documentType, int page, int pageSize, string? search, CancellationToken cancellationToken = default);
+
     /// <summary>Returns one invoice, only if it belongs to <paramref name="jobId"/>.</summary>
     Task<InvoiceDto?> GetByIdAsync(Guid jobId, Guid id, CancellationToken cancellationToken = default);
 

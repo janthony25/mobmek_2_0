@@ -34,7 +34,8 @@ public class CustomerService(AppDbContext db) : ICustomerService
             query = query.Where(c =>
                 (c.FirstName + " " + c.LastName).ToLower().Contains(term) ||
                 c.PhoneNumber.ToLower().Contains(term) ||
-                (c.EmailAddress != null && c.EmailAddress.ToLower().Contains(term)));
+                (c.EmailAddress != null && c.EmailAddress.ToLower().Contains(term)) ||
+                c.Cars.Any(car => car.Rego.ToLower().Contains(term)));
         }
 
         var totalCount = await query.CountAsync(cancellationToken);

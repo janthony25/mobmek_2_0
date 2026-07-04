@@ -18,6 +18,24 @@ public class InvoicesController(IInvoiceService invoiceService) : ControllerBase
         return Ok(invoices);
     }
 
+    /// <summary>
+    /// Returns one page of invoices or quotations across all jobs (newest first), for the
+    /// global Invoices/Quotations pages. <c>documentType</c> is "Invoice" or "Quotation";
+    /// <c>search</c> matches customer name, car rego, or an exact issue date.
+    /// </summary>
+    [HttpGet("/api/invoices/paged")]
+    [ProducesResponseType(typeof(PagedResult<InvoiceListItemDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResult<InvoiceListItemDto>>> GetPaged(
+        CancellationToken cancellationToken,
+        [FromQuery] string documentType = "Invoice",
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null)
+    {
+        var result = await invoiceService.GetPagedAsync(documentType, page, pageSize, search, cancellationToken);
+        return Ok(result);
+    }
+
     /// <summary>Returns a single invoice on a job.</summary>
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(InvoiceDto), StatusCodes.Status200OK)]

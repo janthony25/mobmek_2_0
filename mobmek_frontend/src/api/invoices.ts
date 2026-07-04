@@ -1,7 +1,26 @@
 import { apiGet, apiPost } from './client'
-import type { AcceptQuotationRequest, CreateInvoiceRequest, Invoice, MarkInvoicePaidRequest } from '@/types'
+import type {
+  AcceptQuotationRequest,
+  CreateInvoiceRequest,
+  Invoice,
+  InvoiceListItem,
+  MarkInvoicePaidRequest,
+  PagedResult,
+} from '@/types'
 
 const base = (jobId: string) => `/jobs/${encodeURIComponent(jobId)}/invoices`
+
+/** One page of invoices or quotations across all jobs, for the global list pages. */
+export const getInvoicesPaged = (
+  documentType: 'Invoice' | 'Quotation',
+  page: number,
+  pageSize: number,
+  search: string,
+) => {
+  const params = new URLSearchParams({ documentType, page: String(page), pageSize: String(pageSize) })
+  if (search) params.set('search', search)
+  return apiGet<PagedResult<InvoiceListItem>>(`/invoices/paged?${params.toString()}`)
+}
 
 export const getInvoices = (jobId: string) => apiGet<Invoice[]>(base(jobId))
 export const getInvoice = (jobId: string, id: string) =>

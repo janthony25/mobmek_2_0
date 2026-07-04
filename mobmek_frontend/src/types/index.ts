@@ -124,6 +124,15 @@ export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
   [JobStatus.Invoiced]: 'Invoiced',
 }
 
+/** Tinted pill (background + text) for the status badge on the job card. */
+export const JOB_STATUS_COLORS: Record<JobStatus, string> = {
+  [JobStatus.Open]: 'bg-slate-100 text-slate-600',
+  [JobStatus.InProgress]: 'bg-amber-50 text-amber-700',
+  [JobStatus.AwaitingParts]: 'bg-orange-50 text-orange-700',
+  [JobStatus.Completed]: 'bg-green-50 text-green-600',
+  [JobStatus.Invoiced]: 'bg-blue-50 text-blue-600',
+}
+
 export interface JobMechanic {
   employeeId: string
   fullName: string
@@ -376,6 +385,23 @@ export interface MarkInvoicePaidRequest {
   cashAmount: number | null
   cardAmount: number | null
   datePaid: string | null
+}
+
+/** One row of the global Invoices/Quotations list — an invoice plus its job/customer/vehicle context. */
+export interface InvoiceListItem {
+  id: string
+  jobId: string
+  invoiceNumber: string
+  issueName: string
+  documentType: string
+  /** "Active", "Rejected", or (quotations only) "Accepted". */
+  status: string
+  customerName: string | null
+  carDescription: string | null
+  dueDate: string | null
+  totalAmount: number
+  isPaid: boolean
+  createdAtUtc: string
 }
 
 // --- GST setting -------------------------------------------------------------
@@ -1049,4 +1075,20 @@ export interface ForecastResult {
   dailyPoints: ForecastPoint[]
   monthlyPoints: ForecastMonthPoint[]
   shortageDate: string | null
+}
+
+export interface GstScopeTotals {
+  gstOnSales: number
+  gstOnPurchases: number
+  netGst: number
+}
+
+// Review-only figures: "included" covers every account, "excluded" leaves out Cash-type
+// accounts. Neither changes what's actually filed/remitted.
+export interface GstReport {
+  periodStart: string
+  periodEnd: string
+  included: GstScopeTotals
+  excluded: GstScopeTotals
+  cashGst: number
 }

@@ -181,6 +181,25 @@ public class CustomerServiceTests
     }
 
     [Fact]
+    public async Task GetPagedAsync_SearchMatchesRego_CaseInsensitively()
+    {
+        await using var db = CreateContext();
+        var service = new CustomerService(db);
+        var owner = await service.CreateAsync(new CreateCustomerRequest("Ada", "Lovelace", "0", null, null, null));
+        await service.CreateAsync(new CreateCustomerRequest("Grace", "Hopper", "1", null, null, null));
+
+        var make = new Entities.CarMake { Name = "Toyota" };
+        var model = new Entities.CarModel { Name = "Hilux", CarMake = make };
+        db.Cars.Add(new Entities.Car { CustomerId = owner.Id, CarMake = make, CarModel = model, Year = 2020, Rego = "ABC123" });
+        await db.SaveChangesAsync();
+
+        var result = await service.GetPagedAsync(1, 10, "abc123");
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal(owner.Id, item.Id);
+    }
+
+    [Fact]
     public async Task GetPagedAsync_ReturnsCardAggregates_ExcludingDoneItems()
     {
         await using var db = CreateContext();

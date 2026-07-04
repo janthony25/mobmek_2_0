@@ -77,7 +77,7 @@ export function PartsEditor({ parts, onAdd, onUpdate, onRemove }: PartsEditorPro
                     <span>Item total: <strong className="text-slate-900">{currency(c.itemTotal)}</strong></span>
                     <span>Row profit: <strong className="text-slate-900">{currency(c.rowProfit)}</strong></span>
                   </div>
-                  <Button type="button" variant="ghost" size="sm" className="text-red-600" onClick={() => onRemove(p.key)}>
+                  <Button type="button" variant="danger" size="sm" onClick={() => onRemove(p.key)}>
                     Remove
                   </Button>
                 </div>

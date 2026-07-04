@@ -19,6 +19,8 @@ const NAV_GROUPS: NavGroup[] = [
       { to: '/customers', label: 'Customers', icon: '👥' },
       { to: '/appointments', label: 'Appointments', icon: '📅' },
       { to: '/jobs', label: 'Job Center', icon: '🔧' },
+      { to: '/invoices', label: 'Invoices', icon: '🧾' },
+      { to: '/quotations', label: 'Quotations', icon: '📄' },
     ],
   },
   {
@@ -35,6 +37,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: '/cash-flow', label: 'Cash Flow', icon: '💵' },
       { to: '/recurring-planned', label: 'Recurring & Planned', icon: '🔁' },
       { to: '/forecast', label: 'Forecast', icon: '📈' },
+      { to: '/gst-report', label: 'GST Report', icon: '🧮' },
       { to: '/cash-accounts', label: 'Cash Accounts', icon: '🏦' },
       { to: '/transaction-categories', label: 'Categories', icon: '🗂️' },
       { to: '/payees', label: 'Payees', icon: '🤝' },

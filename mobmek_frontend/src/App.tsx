@@ -9,6 +9,8 @@ import { AppointmentsPage } from '@/pages/AppointmentsPage'
 import { NotesRemindersPage } from '@/pages/NotesRemindersPage'
 import { NewJobPage } from '@/pages/NewJobPage'
 import { JobDetailPage } from '@/pages/JobDetailPage'
+import { InvoicesPage } from '@/pages/InvoicesPage'
+import { QuotationsPage } from '@/pages/QuotationsPage'
 import { CarMakesPage } from '@/pages/CarMakesPage'
 import { ProductsPage } from '@/pages/ProductsPage'
 import { JobServicesPage } from '@/pages/JobServicesPage'
@@ -24,6 +26,7 @@ import { CashAccountsPage } from '@/pages/CashAccountsPage'
 import { TransactionCategoriesPage } from '@/pages/TransactionCategoriesPage'
 import { RecurringPlannedPage } from '@/pages/RecurringPlannedPage'
 import { ForecastPage } from '@/pages/ForecastPage'
+import { GstReportPage } from '@/pages/GstReportPage'
 import { PayeesPage } from '@/pages/PayeesPage'
 import { CategorizationRulesPage } from '@/pages/CategorizationRulesPage'
 
@@ -44,6 +47,8 @@ function App() {
         <Route path="jobs" element={<JobCenterPage />} />
         <Route path="jobs/new" element={<NewJobPage />} />
         <Route path="jobs/:id" element={<JobDetailPage />} />
+        <Route path="invoices" element={<InvoicesPage />} />
+        <Route path="quotations" element={<QuotationsPage />} />
         <Route path="car-makes" element={<CarMakesPage />} />
         <Route path="products" element={<ProductsPage />} />
         <Route path="services" element={<JobServicesPage />} />
@@ -57,6 +62,7 @@ function App() {
         <Route path="categorization-rules" element={<CategorizationRulesPage />} />
         <Route path="recurring-planned" element={<RecurringPlannedPage />} />
         <Route path="forecast" element={<ForecastPage />} />
+        <Route path="gst-report" element={<GstReportPage />} />
         <Route path="tax" element={<TaxSettingsPage />} />
         <Route path="business-details" element={<BusinessDetailsSettingsPage />} />
         <Route path="reminder-templates" element={<ReminderTemplatesPage />} />

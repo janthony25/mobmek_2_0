@@ -48,7 +48,7 @@ export function LabourEditor({ labour, onAdd, onUpdate, onRemove }: LabourEditor
                   <div className="text-sm text-slate-600">
                     Total: <strong className="text-slate-900">{currency(computeLabour(l))}</strong>
                   </div>
-                  <Button type="button" variant="ghost" size="sm" className="text-red-600" onClick={() => onRemove(l.key)}>
+                  <Button type="button" variant="danger" size="sm" onClick={() => onRemove(l.key)}>
                     Remove
                   </Button>
                 </div>

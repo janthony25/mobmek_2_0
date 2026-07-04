@@ -58,6 +58,9 @@ in-house primitives below.
 - Reusable styling lives in components, not abstractions: variant maps in `ui/Button.tsx`
   (`primary`/`secondary`/`danger`/`ghost`), and the shared input class `controlClass` in
   `forms/controls.tsx`. Reuse these rather than re-deriving class strings.
+- Row-list dividers (detail-page sections like Invoices/Appointments/Jobs rendered via
+  `PaginatedList` or a `CrudSection` table) use `divide-slate-300` — `divide-slate-100` was
+  tried first and was too faint to read as a separator between rows.
 
 ### Dependency policy — ask before adding
 **Do not add a new dependency (runtime or dev) without first checking with the user.** Before

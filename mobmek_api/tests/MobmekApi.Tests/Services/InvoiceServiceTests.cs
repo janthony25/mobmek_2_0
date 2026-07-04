@@ -369,6 +369,71 @@ public class InvoiceServiceTests
         Assert.NotNull(await invoices.GetByIdAsync(jobId, invoice.Id)); // still retrievable
     }
 
+    // --- Global paged Invoices/Quotations list ---
+
+    [Fact]
+    public async Task GetPagedAsync_FiltersByDocumentType_AndOrdersNewestFirst()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+        var quotation = await invoices.GenerateQuotationAsync(jobId, new CreateInvoiceRequest(null));
+        var secondInvoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+
+        var invoicePage = await invoices.GetPagedAsync("Invoice", 1, 20, null);
+        Assert.Equal(2, invoicePage.TotalCount);
+        Assert.Equal(secondInvoice!.Id, invoicePage.Items[0].Id); // newest first
+        Assert.Equal(invoice!.Id, invoicePage.Items[1].Id);
+
+        var quotationPage = await invoices.GetPagedAsync("Quotation", 1, 20, null);
+        var item = Assert.Single(quotationPage.Items);
+        Assert.Equal(quotation!.Id, item.Id);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_IncludesCustomerAndVehicleContext()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+
+        var page = await invoices.GetPagedAsync("Invoice", 1, 20, null);
+
+        var item = Assert.Single(page.Items);
+        Assert.Equal("O P", item.CustomerName);
+        Assert.Equal("Make Model (R)", item.CarDescription);
+        Assert.Equal("Brakes", item.IssueName);
+        Assert.Equal("INV-0001", item.InvoiceNumber);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SearchMatchesCustomerNameOrRego_CaseInsensitively()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+
+        Assert.Single((await invoices.GetPagedAsync("Invoice", 1, 20, "o p")).Items);
+        Assert.Single((await invoices.GetPagedAsync("Invoice", 1, 20, "r")).Items); // rego
+        Assert.Empty((await invoices.GetPagedAsync("Invoice", 1, 20, "nobody")).Items);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SearchMatchesExactIssueDate()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+        var issueDate = DateOnly.FromDateTime(invoice!.CreatedAtUtc);
+
+        var matched = await invoices.GetPagedAsync("Invoice", 1, 20, issueDate.ToString("yyyy-MM-dd"));
+        Assert.Single(matched.Items);
+
+        var missed = await invoices.GetPagedAsync("Invoice", 1, 20, issueDate.AddDays(-1).ToString("yyyy-MM-dd"));
+        Assert.Empty(missed.Items);
+    }
+
     [Fact]
     public async Task GetByIdAsync_ReturnsNull_WhenInvoiceBelongsToAnotherJob()
     {
