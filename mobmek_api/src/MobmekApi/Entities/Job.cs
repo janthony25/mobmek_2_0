@@ -26,10 +26,16 @@ public class Job : BaseEntity
 
     public string? InvoiceNotes { get; set; }
 
-    /// <summary>Total billable amount: items + labour + services.</summary>
+    /// <summary>How <see cref="DiscountValue"/> is applied. <see cref="Entities.DiscountType.None"/> means no discount.</summary>
+    public DiscountType DiscountType { get; set; } = DiscountType.None;
+
+    /// <summary>A dollar amount (when <see cref="DiscountType"/> is Fixed) or a percentage 0-100 (when Percentage).</summary>
+    public decimal DiscountValue { get; set; }
+
+    /// <summary>Total billable amount: items + labour + services, minus the discount.</summary>
     public decimal TotalJobPrice { get; set; }
 
-    /// <summary>Total profit: item profit + labour + services.</summary>
+    /// <summary>Total profit: item profit + labour + services, minus the discount.</summary>
     public decimal TotalJobProfit { get; set; }
 
     // Children (cascade-deleted with the job).

@@ -92,10 +92,14 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
         var servicesTotal = job.ServiceLines.Sum(s => s.LineTotal);
         var subTotal = Round(itemsTotal + labourTotal + servicesTotal);
 
-        // GST is added on top of the subtotal. The rate is snapshotted from the GstSetting entity.
+        // The job's discount is snapshotted as a dollar amount, same as every other money
+        // field on the invoice — later edits to the job's discount don't change it.
+        var discount = DiscountCalculator.ComputeAmount(job.DiscountType, job.DiscountValue, subTotal);
+
+        // GST is added on top of the discounted subtotal. The rate is snapshotted from the GstSetting entity.
         var gstRate = (await gstSettingService.GetCurrentAsync(cancellationToken)).Rate;
-        var taxAmount = Round(subTotal * gstRate);
-        var totalAmount = Round(subTotal + taxAmount);
+        var taxAmount = Round((subTotal - discount) * gstRate);
+        var totalAmount = Round(subTotal - discount + taxAmount);
 
         // Business-wide sequential number for the printed document ID, counted per document
         // type so invoices (INV-0001, ...) and quotations (QUO-0001, ...) number independently.
@@ -120,7 +124,7 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
             SubTotal = subTotal,
             GstRate = gstRate,
             TaxAmount = taxAmount,
-            Discount = 0m,
+            Discount = discount,
             ShippingFee = 0m,
             TotalAmount = totalAmount,
         };

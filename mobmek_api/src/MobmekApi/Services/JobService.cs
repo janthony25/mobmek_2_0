@@ -23,6 +23,8 @@ public class JobService(AppDbContext db) : IJobService
             j.Odometer,
             j.JobNotes,
             j.InvoiceNotes,
+            j.DiscountType,
+            j.DiscountValue,
             j.TotalJobPrice,
             j.TotalJobProfit,
             j.Mechanics
@@ -104,6 +106,8 @@ public class JobService(AppDbContext db) : IJobService
             Odometer = request.Odometer,
             JobNotes = request.JobNotes,
             InvoiceNotes = request.InvoiceNotes,
+            DiscountType = request.DiscountType,
+            DiscountValue = request.DiscountValue,
         };
 
         db.Jobs.Add(job);
@@ -133,8 +137,13 @@ public class JobService(AppDbContext db) : IJobService
         job.Odometer = request.Odometer;
         job.JobNotes = request.JobNotes;
         job.InvoiceNotes = request.InvoiceNotes;
+        job.DiscountType = request.DiscountType;
+        job.DiscountValue = request.DiscountValue;
 
         await db.SaveChangesAsync(cancellationToken);
+
+        // The discount can change totals even when no item/labour/service line did.
+        await RecalculateTotalsAsync(job.Id, cancellationToken);
 
         return (await GetByIdAsync(job.Id, cancellationToken), JobWriteError.None);
     }
@@ -202,10 +211,12 @@ public class JobService(AppDbContext db) : IJobService
         var itemsProfit = await db.JobItems.Where(i => i.JobId == jobId).SumAsync(i => i.UnitProfit * i.ItemQuantity, cancellationToken);
         var labourTotal = await db.Labour.Where(l => l.JobId == jobId).SumAsync(l => l.TotalAmount, cancellationToken);
         var servicesTotal = await db.JobServiceLines.Where(s => s.JobId == jobId).SumAsync(s => s.LineTotal, cancellationToken);
+        var subTotal = itemsTotal + labourTotal + servicesTotal;
+        var discountAmount = DiscountCalculator.ComputeAmount(job.DiscountType, job.DiscountValue, subTotal);
 
         // Labour and services are treated as 100% profit (no cost tracked on them).
-        job.TotalJobPrice = itemsTotal + labourTotal + servicesTotal;
-        job.TotalJobProfit = itemsProfit + labourTotal + servicesTotal;
+        job.TotalJobPrice = subTotal - discountAmount;
+        job.TotalJobProfit = itemsProfit + labourTotal + servicesTotal - discountAmount;
 
         await db.SaveChangesAsync(cancellationToken);
     }

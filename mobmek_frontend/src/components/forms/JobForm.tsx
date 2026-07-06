@@ -3,7 +3,7 @@ import { getCustomers } from '@/api/customers'
 import { getCars } from '@/api/cars'
 import { Button } from '@/components/ui/Button'
 import { Field, controlClass } from './controls'
-import { JOB_STATUS_LABELS, JobStatus } from '@/types'
+import { DiscountType, JOB_STATUS_LABELS, JobStatus } from '@/types'
 import type { Car, Customer, Job } from '@/types'
 
 interface JobFormProps {
@@ -69,6 +69,10 @@ export function JobForm({ initial, onSubmit, onCancel }: JobFormProps) {
         odometer: odometer.trim() === '' ? 0 : Number(odometer),
         jobNotes: jobNotes.trim() || null,
         invoiceNotes: invoiceNotes.trim() || null,
+        // This quick-edit form doesn't surface the discount; carry the existing value
+        // through unchanged so saving here doesn't silently clear it.
+        discountType: initial?.discountType ?? DiscountType.None,
+        discountValue: initial?.discountValue ?? 0,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))

@@ -21,6 +21,8 @@ interface AppointmentDetailModalProps {
   /** Called with the fresh appointment after any mutation, so the calendar can refresh. */
   onChanged: (updated: Appointment) => void
   onDeleted: () => void
+  /** Show the "View in calendar" button — only relevant when opened from outside the calendar itself (e.g. the Job page). */
+  showViewInCalendar?: boolean
 }
 
 /**
@@ -28,7 +30,13 @@ interface AppointmentDetailModalProps {
  * turned into real records step by step — create customer → add car → create job —
  * each step prefilled from what was taken over the phone.
  */
-export function AppointmentDetailModal({ appointment, onClose, onChanged, onDeleted }: AppointmentDetailModalProps) {
+export function AppointmentDetailModal({
+  appointment,
+  onClose,
+  onChanged,
+  onDeleted,
+  showViewInCalendar = false,
+}: AppointmentDetailModalProps) {
   const toast = useToast()
   const navigate = useNavigate()
 
@@ -254,6 +262,14 @@ export function AppointmentDetailModal({ appointment, onClose, onChanged, onDele
               Delete
             </Button>
             <div className="flex gap-2">
+              {showViewInCalendar && (
+                <Button
+                  variant="secondary"
+                  onClick={() => navigate('/appointments', { state: { jumpToDate: a.startUtc, appointmentId: a.id } })}
+                >
+                  View in calendar
+                </Button>
+              )}
               <Button variant="secondary" onClick={onClose}>
                 Close
               </Button>

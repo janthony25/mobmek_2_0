@@ -39,6 +39,7 @@ public class AppointmentService(AppDbContext db) : IAppointmentService
         DateTime? to = null,
         AppointmentStatus? status = null,
         Guid? mechanicId = null,
+        Guid? jobId = null,
         string? search = null,
         CancellationToken cancellationToken = default)
     {
@@ -64,6 +65,11 @@ public class AppointmentService(AppDbContext db) : IAppointmentService
         if (mechanicId is { } m)
         {
             query = query.Where(a => a.MechanicId == m);
+        }
+
+        if (jobId is { } j)
+        {
+            query = query.Where(a => a.JobId == j);
         }
 
         if (!string.IsNullOrWhiteSpace(search))

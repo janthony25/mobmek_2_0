@@ -7,6 +7,7 @@ import {
   uploadBusinessLogo,
 } from '@/api/businessDetails'
 import { Button } from '@/components/ui/Button'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { StateMessage } from '@/components/ui/StateMessage'
 import { useToast } from '@/components/ui/toast'
 import { useAsync } from '@/hooks/useAsync'
@@ -27,8 +28,8 @@ export function BusinessDetailsSettingsPage() {
   const [gstNumber, setGstNumber] = useState('')
   const [website, setWebsite] = useState('')
   const [bankDetails, setBankDetails] = useState('')
-  const [busy, setBusy] = useState(false)
   const [logoBusy, setLogoBusy] = useState(false)
+  const [confirming, setConfirming] = useState(false)
 
   useEffect(() => {
     if (!data) return
@@ -45,12 +46,15 @@ export function BusinessDetailsSettingsPage() {
   if (loading && !data) return <StateMessage title="Loading business details…" loading />
   if (error) return <StateMessage title="Could not load business details" description={error.message} />
 
-  const save = async () => {
+  const requestSave = () => {
     if (!name.trim()) {
       toast.error('Business name is required.')
       return
     }
-    setBusy(true)
+    setConfirming(true)
+  }
+
+  const confirmSave = async () => {
     try {
       await updateBusinessDetails({
         name: name.trim(),
@@ -67,7 +71,7 @@ export function BusinessDetailsSettingsPage() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     } finally {
-      setBusy(false)
+      setConfirming(false)
     }
   }
 
@@ -190,14 +194,21 @@ export function BusinessDetailsSettingsPage() {
         </div>
 
         <div className="flex items-center gap-4 border-t border-slate-100 pt-4">
-          <Button onClick={save} disabled={busy}>
-            Save
-          </Button>
+          <Button onClick={requestSave}>Save</Button>
           {data?.updatedAtUtc && (
             <span className="text-xs text-slate-400">Last updated {date(data.updatedAtUtc)}</span>
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirming}
+        title="Update business details"
+        message="This changes the letterhead details (name, address, contact info, GST number and bank details) shown on all invoice and quotation PDFs — including ones already issued to customers, since they're generated live rather than snapshotted. Continue?"
+        confirmLabel="Save"
+        onConfirm={confirmSave}
+        onCancel={() => setConfirming(false)}
+      />
     </section>
   )
 }

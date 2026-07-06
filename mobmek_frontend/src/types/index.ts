@@ -138,6 +138,20 @@ export interface JobMechanic {
   fullName: string
 }
 
+export const DiscountType = {
+  None: 0,
+  Fixed: 1,
+  Percentage: 2,
+} as const
+
+export type DiscountType = (typeof DiscountType)[keyof typeof DiscountType]
+
+export const DISCOUNT_TYPE_LABELS: Record<DiscountType, string> = {
+  [DiscountType.None]: 'None',
+  [DiscountType.Fixed]: '$ Fixed amount',
+  [DiscountType.Percentage]: '% Percentage',
+}
+
 export interface Job {
   id: string
   customerId: string
@@ -149,6 +163,8 @@ export interface Job {
   odometer: number
   jobNotes: string | null
   invoiceNotes: string | null
+  discountType: DiscountType
+  discountValue: number
   totalJobPrice: number
   totalJobProfit: number
   mechanics: JobMechanic[]
@@ -164,6 +180,8 @@ export interface CreateJobRequest {
   odometer: number
   jobNotes: string | null
   invoiceNotes: string | null
+  discountType: DiscountType
+  discountValue: number
 }
 
 export type UpdateJobRequest = Omit<CreateJobRequest, 'customerId'>

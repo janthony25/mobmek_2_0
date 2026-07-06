@@ -252,6 +252,27 @@ public class AppointmentServiceTests
     }
 
     [Fact]
+    public async Task GetAllAsync_FiltersByJobId()
+    {
+        await using var db = CreateContext();
+        var (customerId, carId) = await SeedCustomerWithCarAsync(db);
+        var (job, _) = await new JobService(db).CreateAsync(
+            new CreateJobRequest(customerId, carId, "Clutch", JobStatus.AwaitingParts, 0, null, null));
+        var service = new AppointmentService(db);
+
+        await service.CreateAsync(NewCallerBooking());
+        var (linked, _) = await service.CreateAsync(NewCallerBooking(Start.AddHours(2), Start.AddHours(3)) with
+        {
+            JobId = job!.Id,
+        });
+
+        var byJob = await service.GetAllAsync(jobId: job.Id);
+
+        Assert.Single(byJob);
+        Assert.Equal(linked!.Id, byJob[0].Id);
+    }
+
+    [Fact]
     public async Task GetAllAsync_SearchMatchesCarRego_CustomerName_AndContactFields()
     {
         await using var db = CreateContext();

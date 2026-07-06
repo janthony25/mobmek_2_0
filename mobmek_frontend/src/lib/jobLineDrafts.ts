@@ -1,4 +1,4 @@
-import { MarkupSolution } from '@/types'
+import { DiscountType, MarkupSolution } from '@/types'
 
 // ── numeric helpers ───────────────────────────────────────────────────────────
 
@@ -72,4 +72,12 @@ export function computePart(p: PartDraft) {
 export function computeLabour(l: LabourDraft) {
   const fixed = num(l.fixedAmount)
   return round2(fixed != null ? fixed : (num(l.hours) ?? 0) * (num(l.ratePerHour) ?? 0))
+}
+
+/** Mirrors the backend's DiscountCalculator so the operator sees a live discount amount. */
+export function computeDiscountAmount(type: DiscountType, value: string, subtotal: number): number {
+  const v = Math.max(num(value) ?? 0, 0)
+  if (type === DiscountType.Fixed) return round2(Math.min(v, subtotal))
+  if (type === DiscountType.Percentage) return round2((subtotal * Math.min(v, 100)) / 100)
+  return 0
 }

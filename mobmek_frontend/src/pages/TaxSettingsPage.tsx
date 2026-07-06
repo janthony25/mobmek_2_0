@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getGstSetting, updateGstSetting } from '@/api/gst'
 import { Button } from '@/components/ui/Button'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { StateMessage } from '@/components/ui/StateMessage'
 import { useToast } from '@/components/ui/toast'
 import { useAsync } from '@/hooks/useAsync'
@@ -11,7 +12,7 @@ export function TaxSettingsPage() {
   const { data, loading, error, reload } = useAsync(getGstSetting, [])
   // The API stores the rate as a fraction (0.15); the form edits it as a percentage (15).
   const [percentInput, setPercentInput] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [confirming, setConfirming] = useState(false)
 
   useEffect(() => {
     if (data) setPercentInput((data.rate * 100).toString())
@@ -20,13 +21,17 @@ export function TaxSettingsPage() {
   if (loading && !data) return <StateMessage title="Loading tax settings…" loading />
   if (error) return <StateMessage title="Could not load tax settings" description={error.message} />
 
-  const save = async () => {
+  const requestSave = () => {
     const pct = Number(percentInput)
     if (Number.isNaN(pct) || pct < 0 || pct > 100) {
       toast.error('Enter a GST rate between 0 and 100.')
       return
     }
-    setBusy(true)
+    setConfirming(true)
+  }
+
+  const confirmSave = async () => {
+    const pct = Number(percentInput)
     try {
       await updateGstSetting(pct / 100)
       toast.success('GST rate updated')
@@ -34,7 +39,7 @@ export function TaxSettingsPage() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     } finally {
-      setBusy(false)
+      setConfirming(false)
     }
   }
 
@@ -64,14 +69,21 @@ export function TaxSettingsPage() {
         </label>
 
         <div className="mt-4 flex items-center gap-4">
-          <Button onClick={save} disabled={busy}>
-            Save
-          </Button>
+          <Button onClick={requestSave}>Save</Button>
           {data?.updatedAtUtc && (
             <span className="text-xs text-slate-400">Last updated {date(data.updatedAtUtc)}</span>
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirming}
+        title="Update GST rate"
+        message="This changes the GST rate applied to all invoices and quotations generated from now on. Invoices already issued keep the rate they were created with and won't change. Continue?"
+        confirmLabel="Save"
+        onConfirm={confirmSave}
+        onCancel={() => setConfirming(false)}
+      />
     </section>
   )
 }

@@ -65,6 +65,25 @@ public class InvoiceServiceTests
     }
 
     [Fact]
+    public async Task GenerateAsync_AppliesJobDiscount_BeforeGst()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+
+        var job = await db.Jobs.FirstAsync(j => j.Id == jobId);
+        job.DiscountType = DiscountType.Percentage;
+        job.DiscountValue = 10m; // 10% of the $460 subtotal = $46
+        await db.SaveChangesAsync();
+
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+
+        Assert.Equal(460m, invoice!.SubTotal);
+        Assert.Equal(46m, invoice.Discount);
+        Assert.Equal(62.1m, invoice.TaxAmount);    // (460 - 46) * 0.15
+        Assert.Equal(476.1m, invoice.TotalAmount); // 460 - 46 + 62.1
+    }
+
+    [Fact]
     public async Task GenerateAsync_AssignsSequentialInvoiceNumbers()
     {
         await using var db = CreateContext();

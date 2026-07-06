@@ -12,8 +12,9 @@ public class AppointmentsController(IAppointmentService appointmentService) : Co
 {
     /// <summary>
     /// Returns appointments overlapping <c>?from=</c>/<c>?to=</c> (both optional),
-    /// optionally filtered by <c>?status=</c> and <c>?mechanicId=</c>. <c>?search=</c>
-    /// matches title, contact name/phone, vehicle description, customer name and car rego.
+    /// optionally filtered by <c>?status=</c>, <c>?mechanicId=</c> and <c>?jobId=</c>.
+    /// <c>?search=</c> matches title, contact name/phone, vehicle description, customer
+    /// name and car rego.
     /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<AppointmentDto>), StatusCodes.Status200OK)]
@@ -22,10 +23,11 @@ public class AppointmentsController(IAppointmentService appointmentService) : Co
         [FromQuery] DateTime? to,
         [FromQuery] AppointmentStatus? status,
         [FromQuery] Guid? mechanicId,
+        [FromQuery] Guid? jobId,
         [FromQuery] string? search,
         CancellationToken cancellationToken)
     {
-        var appointments = await appointmentService.GetAllAsync(from, to, status, mechanicId, search, cancellationToken);
+        var appointments = await appointmentService.GetAllAsync(from, to, status, mechanicId, jobId, search, cancellationToken);
         return Ok(appointments);
     }
 

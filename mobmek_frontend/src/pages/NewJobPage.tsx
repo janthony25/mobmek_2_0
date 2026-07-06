@@ -16,10 +16,12 @@ import { Field, controlClass } from '@/components/forms/controls'
 import { Combobox } from '@/components/forms/Combobox'
 import { PartsEditor } from '@/components/jobs/PartsEditor'
 import { LabourEditor } from '@/components/jobs/LabourEditor'
+import { DiscountEditor } from '@/components/jobs/DiscountEditor'
 import { RemindersSection } from '@/components/reminders/RemindersSection'
 import { useToast } from '@/components/ui/toast'
 import { currency, percent } from '@/lib/format'
 import {
+  computeDiscountAmount,
   computeLabour,
   computePart,
   emptyLabour,
@@ -31,6 +33,7 @@ import {
 } from '@/lib/jobLineDrafts'
 import {
   AppointmentStatus,
+  DiscountType,
   JOB_STATUS_LABELS,
   JobStatus,
   type Appointment,
@@ -84,6 +87,8 @@ export function NewJobPage() {
   const [serviceIds, setServiceIds] = useState<Set<string>>(new Set())
   const [parts, setParts] = useState<PartDraft[]>([])
   const [labour, setLabour] = useState<LabourDraft[]>([])
+  const [discountType, setDiscountType] = useState<DiscountType>(DiscountType.None)
+  const [discountValue, setDiscountValue] = useState('0')
 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -119,7 +124,7 @@ export function NewJobPage() {
     return e ? `${e.firstName} ${e.lastName}` : id
   }
 
-  const estimatedTotal = useMemo(() => {
+  const subtotalBeforeDiscount = useMemo(() => {
     const partsTotal = parts.reduce((sum, p) => sum + computePart(p).itemTotal, 0)
     const labourTotal = labour.reduce((sum, l) => sum + computeLabour(l), 0)
     const servicesTotal = services
@@ -127,6 +132,13 @@ export function NewJobPage() {
       .reduce((sum, s) => sum + s.price, 0)
     return round2(partsTotal + labourTotal + servicesTotal)
   }, [parts, labour, services, serviceIds])
+
+  const discountAmount = useMemo(
+    () => computeDiscountAmount(discountType, discountValue, subtotalBeforeDiscount),
+    [discountType, discountValue, subtotalBeforeDiscount],
+  )
+
+  const estimatedTotal = round2(subtotalBeforeDiscount - discountAmount)
 
   const toggleService = (id: string) =>
     setServiceIds((prev) => {
@@ -174,6 +186,8 @@ export function NewJobPage() {
       odometer: num(odometer) ?? 0,
       jobNotes: jobNotes.trim() || null,
       invoiceNotes: invoiceNotes.trim() || null,
+      discountType,
+      discountValue: num(discountValue) ?? 0,
     }
 
     let jobId: string
@@ -464,12 +478,33 @@ export function NewJobPage() {
         onRemove={(key) => setLabour((prev) => prev.filter((x) => x.key !== key))}
       />
 
+      <DiscountEditor
+        discountType={discountType}
+        discountValue={discountValue}
+        subtotal={subtotalBeforeDiscount}
+        onAdd={() => setDiscountType(DiscountType.Fixed)}
+        onChange={(patch) => {
+          if (patch.discountType !== undefined) setDiscountType(patch.discountType)
+          if (patch.discountValue !== undefined) setDiscountValue(patch.discountValue)
+        }}
+        onRemove={() => {
+          setDiscountType(DiscountType.None)
+          setDiscountValue('0')
+        }}
+      />
+
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
       {/* Action bar */}
       <div className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white/95 px-6 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
           <span className="text-sm text-slate-500">
+            {discountAmount > 0 && (
+              <>
+                Discount: <strong className="text-slate-900">-{currency(discountAmount)}</strong>
+                {' · '}
+              </>
+            )}
             Estimated total: <strong className="text-slate-900">{currency(estimatedTotal)}</strong>
             {gstRate != null && (
               <>

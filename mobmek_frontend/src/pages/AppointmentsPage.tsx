@@ -158,21 +158,33 @@ export function AppointmentsPage() {
   const [creatingSlot, setCreatingSlot] = useState<{ start: Date; end: Date } | null>(null)
   const [prefillJob, setPrefillJob] = useState<Job | null>(null)
   const [selected, setSelected] = useState<Appointment | null>(null)
+  // Set by "View in calendar" (from an appointment detail modal elsewhere, e.g. the Job
+  // page); resolved to the actual appointment once its day's data has loaded.
+  const [pendingSelectId, setPendingSelectId] = useState<string | null>(null)
 
   const closeCreating = () => {
     setCreatingSlot(null)
     setPrefillJob(null)
   }
 
-  // Arriving from a job page's "Create appointment" button: open the create modal
-  // pre-scoped to that job via the "Existing job" tab.
+  // Arriving from a job page's "Create appointment" button (prefills the create modal
+  // via `job`), or from "View in calendar" on an appointment detail modal (jumps the
+  // calendar to `jumpToDate` and, once loaded, auto-opens `appointmentId`).
   useEffect(() => {
-    const job = (location.state as { job?: Job } | null)?.job
-    if (!job) return
-    const start = new Date()
-    start.setHours(9, 0, 0, 0)
-    setCreatingSlot({ start, end: new Date(start.getTime() + 60 * 60000) })
-    setPrefillJob(job)
+    const state = location.state as { job?: Job; jumpToDate?: string; appointmentId?: string } | null
+    if (!state) return
+    if (state.job) {
+      const start = new Date()
+      start.setHours(9, 0, 0, 0)
+      setCreatingSlot({ start, end: new Date(start.getTime() + 60 * 60000) })
+      setPrefillJob(state.job)
+    }
+    if (state.jumpToDate) {
+      openDay(new Date(state.jumpToDate))
+    }
+    if (state.appointmentId) {
+      setPendingSelectId(state.appointmentId)
+    }
     navigate(location.pathname, { replace: true, state: null })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state])
@@ -202,6 +214,16 @@ export function AppointmentsPage() {
       }),
     [searching, search, range, statusFilter, mechanicFilter],
   )
+
+  // Once the jumped-to day's appointments have loaded, open the one we were sent for.
+  useEffect(() => {
+    if (!pendingSelectId || !appointments) return
+    const match = appointments.find((a) => a.id === pendingSelectId)
+    if (match) {
+      setSelected(match)
+      setPendingSelectId(null)
+    }
+  }, [pendingSelectId, appointments])
 
   const goToday = () => setAnchor(startOfDay(new Date()))
   const step = (dir: 1 | -1) => {

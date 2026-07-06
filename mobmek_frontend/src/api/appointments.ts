@@ -11,17 +11,19 @@ interface AppointmentQuery {
   to?: string
   status?: AppointmentStatus
   mechanicId?: string
+  jobId?: string
   /** Matches title, contact name/phone, vehicle description, customer name and car rego. */
   search?: string
 }
 
 /** Appointments overlapping [from, to), ordered by start time. */
-export const getAppointments = ({ from, to, status, mechanicId, search }: AppointmentQuery = {}) => {
+export const getAppointments = ({ from, to, status, mechanicId, jobId, search }: AppointmentQuery = {}) => {
   const params = new URLSearchParams()
   if (from) params.set('from', from)
   if (to) params.set('to', to)
   if (status !== undefined) params.set('status', String(status))
   if (mechanicId) params.set('mechanicId', mechanicId)
+  if (jobId) params.set('jobId', jobId)
   if (search) params.set('search', search)
   const qs = params.toString()
   return apiGet<Appointment[]>(`/appointments${qs ? `?${qs}` : ''}`)

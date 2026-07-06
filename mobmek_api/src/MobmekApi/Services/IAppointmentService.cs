@@ -7,7 +7,7 @@ public interface IAppointmentService
 {
     /// <summary>
     /// Returns appointments overlapping the given range (both optional), ordered by start,
-    /// optionally filtered by status and/or assigned mechanic. <paramref name="search"/>
+    /// optionally filtered by status, assigned mechanic and/or linked job. <paramref name="search"/>
     /// matches title, contact name/phone, vehicle description, customer name and car rego.
     /// </summary>
     Task<IReadOnlyList<AppointmentDto>> GetAllAsync(
@@ -15,6 +15,7 @@ public interface IAppointmentService
         DateTime? to = null,
         AppointmentStatus? status = null,
         Guid? mechanicId = null,
+        Guid? jobId = null,
         string? search = null,
         CancellationToken cancellationToken = default);
 

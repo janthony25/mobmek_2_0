@@ -188,6 +188,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(j => j.Status).HasConversion<string>().HasMaxLength(30);
             entity.Property(j => j.JobNotes).HasMaxLength(4000);
             entity.Property(j => j.InvoiceNotes).HasMaxLength(4000);
+            entity.Property(j => j.DiscountType).HasConversion<string>().HasMaxLength(20);
+            entity.Property(j => j.DiscountValue).HasColumnType("numeric(18,2)");
             entity.Property(j => j.TotalJobPrice).HasColumnType("numeric(18,2)");
             entity.Property(j => j.TotalJobProfit).HasColumnType("numeric(18,2)");
 

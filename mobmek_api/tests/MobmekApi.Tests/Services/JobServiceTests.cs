@@ -118,6 +118,62 @@ public class JobServiceTests
     }
 
     [Fact]
+    public async Task RecalculateTotalsAsync_AppliesFixedAndPercentageDiscount_ClampedToSubtotal()
+    {
+        await using var db = CreateContext();
+        var (customerId, carId) = await SeedCustomerWithCarAsync(db);
+        var service = new JobService(db);
+        var (job, _) = await service.CreateAsync(NewJob(customerId, carId));
+        db.Labour.Add(new Labour { JobId = job!.Id, TotalAmount = 100m });
+        await db.SaveChangesAsync();
+
+        // Fixed $30 off a $100 subtotal.
+        var entity = await db.Jobs.FirstAsync(j => j.Id == job.Id);
+        entity.DiscountType = DiscountType.Fixed;
+        entity.DiscountValue = 30m;
+        await db.SaveChangesAsync();
+        await service.RecalculateTotalsAsync(job.Id);
+        var afterFixed = await service.GetByIdAsync(job.Id);
+        Assert.Equal(70m, afterFixed!.TotalJobPrice);
+        Assert.Equal(70m, afterFixed.TotalJobProfit);
+
+        // A fixed discount larger than the subtotal clamps to the subtotal (floor at 0).
+        entity.DiscountValue = 500m;
+        await db.SaveChangesAsync();
+        await service.RecalculateTotalsAsync(job.Id);
+        var afterOverFixed = await service.GetByIdAsync(job.Id);
+        Assert.Equal(0m, afterOverFixed!.TotalJobPrice);
+
+        // 20% off the same $100 subtotal.
+        entity.DiscountType = DiscountType.Percentage;
+        entity.DiscountValue = 20m;
+        await db.SaveChangesAsync();
+        await service.RecalculateTotalsAsync(job.Id);
+        var afterPercent = await service.GetByIdAsync(job.Id);
+        Assert.Equal(80m, afterPercent!.TotalJobPrice);
+        Assert.Equal(80m, afterPercent.TotalJobProfit);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ChangingDiscount_RecalculatesTotals()
+    {
+        await using var db = CreateContext();
+        var (customerId, carId) = await SeedCustomerWithCarAsync(db);
+        var service = new JobService(db);
+        var (job, _) = await service.CreateAsync(NewJob(customerId, carId));
+        db.Labour.Add(new Labour { JobId = job!.Id, TotalAmount = 200m });
+        await db.SaveChangesAsync();
+        await service.RecalculateTotalsAsync(job.Id);
+
+        var (updated, error) = await service.UpdateAsync(job.Id, new UpdateJobRequest(
+            carId, job.Title, job.Status, job.Odometer, job.JobNotes, job.InvoiceNotes,
+            DiscountType.Percentage, 10m));
+
+        Assert.Equal(JobWriteError.None, error);
+        Assert.Equal(180m, updated!.TotalJobPrice);
+    }
+
+    [Fact]
     public async Task DeleteAsync_ReturnsFalse_WhenMissing()
     {
         await using var db = CreateContext();

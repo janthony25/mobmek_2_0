@@ -64,7 +64,7 @@ export function AppointmentForm({ initial, initialSlot, initialJob, onSubmit, on
   const [customerId, setCustomerId] = useState(initial?.customerId ?? initialJob?.customerId ?? '')
   const [carId, setCarId] = useState(initial?.carId ?? initialJob?.carId ?? '')
   const [jobId, setJobId] = useState(initial?.jobId ?? initialJob?.id ?? '')
-  const [mechanicId, setMechanicId] = useState(initial?.mechanicId ?? '')
+  const [mechanicId, setMechanicId] = useState(initial?.mechanicId ?? initialJob?.mechanics[0]?.employeeId ?? '')
 
   const [selectedJob, setSelectedJob] = useState<Job | null>(initialJob ?? null)
   const [jobSearchQuery, setJobSearchQuery] = useState('')
@@ -138,6 +138,9 @@ export function AppointmentForm({ initial, initialSlot, initialJob, onSubmit, on
     setCustomerId(job.customerId)
     setCarId(job.carId)
     setJobId(job.id)
+    // The job already required a mechanic to be created — carry it over rather than
+    // leaving the appointment unassigned.
+    setMechanicId(job.mechanics[0]?.employeeId ?? '')
   }
 
   const handleJobClear = () => {

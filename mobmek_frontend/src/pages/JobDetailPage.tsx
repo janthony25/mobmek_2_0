@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { getAppointments } from '@/api/appointments'
 import { getCars } from '@/api/cars'
 import { getEmployees } from '@/api/employees'
 import { addJobMechanic, getJob, removeJobMechanic, updateJob } from '@/api/jobs'
@@ -11,11 +12,13 @@ import {
   getJobServiceLines,
 } from '@/api/jobServiceLines'
 import { getJobServices } from '@/api/jobServices'
+import { AppointmentDetailModal } from '@/components/appointments/AppointmentDetailModal'
 import { Field, controlClass } from '@/components/forms/controls'
 import { InvoicesSection } from '@/components/jobs/InvoicesSection'
 import { QuotationsSection } from '@/components/jobs/QuotationsSection'
 import { PartsEditor } from '@/components/jobs/PartsEditor'
 import { LabourEditor } from '@/components/jobs/LabourEditor'
+import { DiscountEditor } from '@/components/jobs/DiscountEditor'
 import { RemindersSection } from '@/components/reminders/RemindersSection'
 import { Button } from '@/components/ui/Button'
 import { CalendarIcon } from '@/components/ui/icons'
@@ -24,6 +27,7 @@ import { useToast } from '@/components/ui/toast'
 import { useAsync } from '@/hooks/useAsync'
 import { currency, orDash } from '@/lib/format'
 import {
+  computeDiscountAmount,
   computeLabour,
   computePart,
   emptyLabour,
@@ -34,7 +38,13 @@ import {
   type LabourDraft,
   type PartDraft,
 } from '@/lib/jobLineDrafts'
-import { JOB_STATUS_LABELS, type MarkupSolution, type UpdateJobRequest } from '@/types'
+import {
+  DiscountType,
+  JOB_STATUS_LABELS,
+  type Appointment,
+  type MarkupSolution,
+  type UpdateJobRequest,
+} from '@/types'
 
 const STATUS_OPTIONS = Object.entries(JOB_STATUS_LABELS).map(([value, label]) => ({ value, label }))
 
@@ -52,6 +62,19 @@ export function JobDetailPage() {
   const servicesQuery = useAsync(() => getJobServices(), [])
   const employeesQuery = useAsync(getEmployees, [])
   const carsQuery = useAsync(() => (job ? getCars(job.customerId) : Promise.resolve([])), [job?.customerId])
+  const appointmentQuery = useAsync(() => getAppointments({ jobId: id }), [id])
+  // A job should only ever have one linked appointment, but nothing enforces that at the
+  // data level; if more than one somehow exists, show the most recently created rather
+  // than whichever happens to sort first by start time.
+  const jobAppointment = useMemo(
+    () =>
+      (appointmentQuery.data ?? []).reduce<Appointment | null>(
+        (latest, a) => (!latest || a.createdAtUtc > latest.createdAtUtc ? a : latest),
+        null,
+      ),
+    [appointmentQuery.data],
+  )
+  const [viewingAppointment, setViewingAppointment] = useState<Appointment | null>(null)
 
   const [mode, setMode] = useState<'view' | 'edit'>('view')
   const [busy, setBusy] = useState(false)
@@ -73,6 +96,8 @@ export function JobDetailPage() {
   const [removedPartIds, setRemovedPartIds] = useState<string[]>([])
   const [labour, setLabour] = useState<LabourDraft[]>([])
   const [removedLabourIds, setRemovedLabourIds] = useState<string[]>([])
+  const [discountType, setDiscountType] = useState<DiscountType>(DiscountType.None)
+  const [discountValue, setDiscountValue] = useState('0')
 
   const dataReady =
     itemsQuery.data != null && labourQuery.data != null && linesQuery.data != null && employeesQuery.data != null
@@ -96,7 +121,7 @@ export function JobDetailPage() {
   const displayedServiceIds =
     mode === 'edit' ? serviceIds : new Set((linesQuery.data ?? []).map((l) => l.jobServiceId))
 
-  const estimatedTotal = useMemo(() => {
+  const subtotalBeforeDiscount = useMemo(() => {
     const partsTotal = parts.reduce((sum, p) => sum + computePart(p).itemTotal, 0)
     const labourTotal = labour.reduce((sum, l) => sum + computeLabour(l), 0)
     const servicesTotal = (servicesQuery.data ?? [])
@@ -104,6 +129,13 @@ export function JobDetailPage() {
       .reduce((sum, s) => sum + s.price, 0)
     return round2(partsTotal + labourTotal + servicesTotal)
   }, [parts, labour, serviceIds, servicesQuery.data])
+
+  const discountAmount = useMemo(
+    () => computeDiscountAmount(discountType, discountValue, subtotalBeforeDiscount),
+    [discountType, discountValue, subtotalBeforeDiscount],
+  )
+
+  const estimatedTotal = round2(subtotalBeforeDiscount - discountAmount)
 
   const toggleService = (serviceId: string) =>
     setServiceIds((prev) => {
@@ -166,6 +198,8 @@ export function JobDetailPage() {
       })),
     )
     setRemovedLabourIds([])
+    setDiscountType(job.discountType)
+    setDiscountValue(String(job.discountValue))
     setSaveError(null)
     setMode('edit')
   }
@@ -200,6 +234,8 @@ export function JobDetailPage() {
       odometer: num(odometer) ?? 0,
       jobNotes: jobNotes.trim() || null,
       invoiceNotes: invoiceNotes.trim() || null,
+      discountType,
+      discountValue: num(discountValue) ?? 0,
     }
     await attempt('Job details', () => updateJob(id, jobBody))
 
@@ -259,6 +295,7 @@ export function JobDetailPage() {
   if (!job) return <StateMessage title="Job not found" />
 
   return (
+    <>
     <div className="space-y-6 pb-24">
       <div>
         <Link to={backLink.from ?? '/jobs'} className="text-sm text-slate-500 hover:underline">
@@ -268,10 +305,17 @@ export function JobDetailPage() {
           <h1 className="text-2xl font-semibold text-slate-900">{job.title}</h1>
           {mode === 'view' ? (
             <div className="flex items-center gap-2">
-              <Button variant="secondary" onClick={() => navigate('/appointments', { state: { job } })}>
-                <CalendarIcon className="h-4 w-4" />
-                Create appointment
-              </Button>
+              {jobAppointment ? (
+                <Button variant="secondary" onClick={() => setViewingAppointment(jobAppointment)}>
+                  <CalendarIcon className="h-4 w-4" />
+                  View appointment
+                </Button>
+              ) : (
+                <Button variant="secondary" onClick={() => navigate('/appointments', { state: { job } })}>
+                  <CalendarIcon className="h-4 w-4" />
+                  Create appointment
+                </Button>
+              )}
               <Button onClick={startEdit} disabled={!dataReady}>
                 Edit
               </Button>
@@ -506,12 +550,44 @@ export function JobDetailPage() {
         <LabourSummary labour={labourQuery.data ?? []} />
       )}
 
+      {mode === 'edit' ? (
+        <DiscountEditor
+          discountType={discountType}
+          discountValue={discountValue}
+          subtotal={subtotalBeforeDiscount}
+          onAdd={() => setDiscountType(DiscountType.Fixed)}
+          onChange={(patch) => {
+            if (patch.discountType !== undefined) setDiscountType(patch.discountType)
+            if (patch.discountValue !== undefined) setDiscountValue(patch.discountValue)
+          }}
+          onRemove={() => {
+            setDiscountType(DiscountType.None)
+            setDiscountValue('0')
+          }}
+        />
+      ) : (
+        job.discountType !== DiscountType.None && (
+          <section className="rounded-lg border border-slate-200 bg-white p-5">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Discount</h2>
+            <p className="text-sm text-slate-600">
+              {job.discountType === DiscountType.Percentage ? `${job.discountValue}%` : currency(job.discountValue)} off
+            </p>
+          </section>
+        )
+      )}
+
       {saveError && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{saveError}</p>}
 
       {mode === 'edit' && (
         <div className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white/95 px-6 py-3 backdrop-blur">
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
             <span className="text-sm text-slate-500">
+              {discountAmount > 0 && (
+                <>
+                  Discount: <strong className="text-slate-900">-{currency(discountAmount)}</strong>
+                  {' · '}
+                </>
+              )}
               Estimated total: <strong className="text-slate-900">{currency(estimatedTotal)}</strong>
             </span>
             <div className="flex gap-2">
@@ -526,6 +602,23 @@ export function JobDetailPage() {
         </div>
       )}
     </div>
+
+    {viewingAppointment && (
+      <AppointmentDetailModal
+        appointment={viewingAppointment}
+        onClose={() => setViewingAppointment(null)}
+        onChanged={(updated) => {
+          setViewingAppointment(updated)
+          appointmentQuery.reload()
+        }}
+        onDeleted={() => {
+          setViewingAppointment(null)
+          appointmentQuery.reload()
+        }}
+        showViewInCalendar
+      />
+    )}
+    </>
   )
 }
 

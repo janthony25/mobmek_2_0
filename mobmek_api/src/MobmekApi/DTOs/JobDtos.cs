@@ -18,6 +18,8 @@ public record JobDto(
     int Odometer,
     string? JobNotes,
     string? InvoiceNotes,
+    DiscountType DiscountType,
+    decimal DiscountValue,
     decimal TotalJobPrice,
     decimal TotalJobProfit,
     IReadOnlyList<JobMechanicDto> Mechanics,
@@ -32,7 +34,9 @@ public record CreateJobRequest(
     JobStatus Status,
     [Range(0, int.MaxValue)] int Odometer,
     [MaxLength(4000)] string? JobNotes,
-    [MaxLength(4000)] string? InvoiceNotes);
+    [MaxLength(4000)] string? InvoiceNotes,
+    DiscountType DiscountType = DiscountType.None,
+    [Range(0, 1000000)] decimal DiscountValue = 0m);
 
 /// <summary>Payload for updating a job. The owning customer cannot be changed.</summary>
 public record UpdateJobRequest(
@@ -41,7 +45,9 @@ public record UpdateJobRequest(
     JobStatus Status,
     [Range(0, int.MaxValue)] int Odometer,
     [MaxLength(4000)] string? JobNotes,
-    [MaxLength(4000)] string? InvoiceNotes);
+    [MaxLength(4000)] string? InvoiceNotes,
+    DiscountType DiscountType = DiscountType.None,
+    [Range(0, 1000000)] decimal DiscountValue = 0m);
 
 /// <summary>Payload for assigning a mechanic to a job.</summary>
 public record AddJobMechanicRequest([Required] Guid EmployeeId);
