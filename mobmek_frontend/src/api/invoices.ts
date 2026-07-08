@@ -5,7 +5,9 @@ import type {
   Invoice,
   InvoiceListItem,
   MarkInvoicePaidRequest,
+  OutboundEmail,
   PagedResult,
+  SendInvoiceEmailRequest,
 } from '@/types'
 
 const base = (jobId: string) => `/jobs/${encodeURIComponent(jobId)}/invoices`
@@ -35,3 +37,5 @@ export const rejectInvoice = (jobId: string, id: string) =>
   apiPost<Invoice>(`${base(jobId)}/${id}/reject`, {})
 export const markInvoicePaid = (jobId: string, id: string, body: MarkInvoicePaidRequest) =>
   apiPost<Invoice>(`${base(jobId)}/${id}/pay`, body)
+export const sendInvoiceEmail = (jobId: string, id: string, body: SendInvoiceEmailRequest) =>
+  apiPost<OutboundEmail>(`${base(jobId)}/${id}/email`, body)

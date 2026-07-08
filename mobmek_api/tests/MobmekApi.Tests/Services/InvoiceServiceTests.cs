@@ -578,4 +578,62 @@ public class InvoiceServiceTests
 
         Assert.Empty(await db.CashTransactions.Where(t => t.InvoiceId == invoice.Id).ToListAsync());
     }
+
+    [Fact]
+    public async Task GetAllAsync_And_GetByIdAsync_PopulateCustomerAndCarContext()
+    {
+        await using var db = CreateContext();
+        var customer = await new CustomerService(db).CreateAsync(
+            new CreateCustomerRequest("Jane", "Doe", "0", "jane@example.com", null, null));
+        var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Toyota"));
+        var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Hilux"));
+        var (car, _) = await new CarService(db).CreateAsync(
+            new CreateCarRequest(customer.Id, make.Id, model!.Id, 2020, "ABC123", null, null, null));
+        var jobs = new JobService(db);
+        var (job, _) = await jobs.CreateAsync(new CreateJobRequest(customer.Id, car!.Id, "Brakes", JobStatus.Open, 1000, null, null));
+        var invoices = new InvoiceService(db, new GstSettingService(db));
+        await invoices.GenerateAsync(job!.Id, new CreateInvoiceRequest(null));
+
+        var all = await invoices.GetAllAsync(job.Id);
+        var byId = await invoices.GetByIdAsync(job.Id, all[0].Id);
+
+        foreach (var invoice in new[] { all[0], byId! })
+        {
+            Assert.Equal("Jane Doe", invoice.CustomerName);
+            Assert.Equal("jane@example.com", invoice.CustomerEmail);
+            Assert.Equal("Toyota Hilux (ABC123)", invoice.CarDescription);
+            Assert.Null(invoice.LatestEmailStatus); // never emailed yet
+            Assert.Null(invoice.LatestEmailedAtUtc);
+        }
+    }
+
+    [Fact]
+    public async Task GetAllAsync_And_GetByIdAsync_ReflectNewestOutboundEmail()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+
+        // Explicit timestamps (rather than relying on wall-clock ordering between two closely
+        // spaced inserts) so "newest" is unambiguous.
+        db.OutboundEmails.Add(new OutboundEmail
+        {
+            ToAddress = "a@example.com", Subject = "First", BodyHtml = "<p/>",
+            Status = OutboundEmailStatus.Failed, InvoiceId = invoice!.Id,
+            CreatedAtUtc = DateTime.UtcNow.AddMinutes(-10),
+        });
+        db.OutboundEmails.Add(new OutboundEmail
+        {
+            ToAddress = "a@example.com", Subject = "Retry", BodyHtml = "<p/>",
+            Status = OutboundEmailStatus.Delivered, InvoiceId = invoice.Id,
+            CreatedAtUtc = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync();
+
+        var byId = await invoices.GetByIdAsync(jobId, invoice.Id);
+        var all = await invoices.GetAllAsync(jobId);
+
+        Assert.Equal(OutboundEmailStatus.Delivered, byId!.LatestEmailStatus);
+        Assert.Equal(OutboundEmailStatus.Delivered, all[0].LatestEmailStatus);
+    }
 }

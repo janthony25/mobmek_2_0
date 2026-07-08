@@ -12,6 +12,8 @@ import { useAsync } from '@/hooks/useAsync'
 import { currency, date, percent } from '@/lib/format'
 import { quotationStatusLabel, quotationStatusTone } from '@/lib/badges'
 import { AcceptQuotationForm } from '@/components/invoices/AcceptQuotationForm'
+import { EmailComposeModal } from '@/components/email/EmailComposeModal'
+import { EmailStatusBadge } from '@/components/email/EmailStatusBadge'
 import type { CreateInvoiceRequest, Invoice } from '@/types'
 
 interface QuotationsSectionProps {
@@ -30,6 +32,7 @@ export function QuotationsSection({ jobId, onAccepted }: QuotationsSectionProps)
   const [generating, setGenerating] = useState(false)
   const [accepting, setAccepting] = useState<Invoice | null>(null)
   const [rejecting, setRejecting] = useState<Invoice | null>(null)
+  const [emailing, setEmailing] = useState<Invoice | null>(null)
   // Collapsed until data proves there's something to show, unless the user has toggled it.
   const [collapsedOverride, setCollapsedOverride] = useState<boolean | null>(null)
   const collapsed = collapsedOverride ?? (data == null || data.length === 0)
@@ -82,6 +85,7 @@ export function QuotationsSection({ jobId, onAccepted }: QuotationsSectionProps)
                 <th className="px-4 py-3">Subtotal</th>
                 <th className="px-4 py-3">GST</th>
                 <th className="px-4 py-3">Total</th>
+                <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -101,6 +105,9 @@ export function QuotationsSection({ jobId, onAccepted }: QuotationsSectionProps)
                       <span className="text-xs text-slate-400">({percent(quo.gstRate)})</span>
                     </td>
                     <td className="px-4 py-3 align-top font-medium text-slate-900">{currency(quo.totalAmount)}</td>
+                    <td className="px-4 py-3 align-top">
+                      <EmailStatusBadge status={quo.latestEmailStatus} />
+                    </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right align-top">
                       <DropdownMenu
                         label="Actions"
@@ -124,8 +131,7 @@ export function QuotationsSection({ jobId, onAccepted }: QuotationsSectionProps)
                           },
                           {
                             label: 'Send Email',
-                            disabled: true,
-                            hint: 'Coming soon',
+                            onClick: () => setEmailing(quo),
                           },
                           {
                             label: 'Accept',
@@ -170,6 +176,22 @@ export function QuotationsSection({ jobId, onAccepted }: QuotationsSectionProps)
               onAccepted?.()
             }}
             onCancel={() => setAccepting(null)}
+          />
+        )}
+      </Modal>
+
+      <Modal open={emailing !== null} title="Email Quotation" onClose={() => setEmailing(null)} maxWidth="max-w-xl">
+        {emailing && (
+          <EmailComposeModal
+            jobId={jobId}
+            invoice={emailing}
+            onSent={() => {
+              reload()
+            }}
+            onClose={() => {
+              setEmailing(null)
+              reload()
+            }}
           />
         )}
       </Modal>

@@ -8,6 +8,10 @@ using Microsoft.EntityFrameworkCore;
 // MobmekApi.Services.JobService, both used by name below. ApplicationUser is qualified instead.
 using ApplicationUser = MobmekApi.Entities.ApplicationUser;
 
+// QuestPDF requires an explicit license acknowledgment before first use. Community is free
+// for organizations under $1M USD annual revenue — fine at this business's scale.
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // --- Database (PostgreSQL via EF Core) ---
@@ -98,6 +102,7 @@ builder.Services.AddScoped<IGstSettingService, GstSettingService>();
 builder.Services.AddScoped<IGstReportService, GstReportService>();
 builder.Services.AddScoped<IBusinessDetailsService, BusinessDetailsService>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
+builder.Services.AddScoped<IInvoicePdfService, InvoicePdfService>();
 builder.Services.AddScoped<IReminderTemplateService, ReminderTemplateService>();
 builder.Services.AddScoped<INoteService, NoteService>();
 builder.Services.AddScoped<IReminderService, ReminderService>();
@@ -111,7 +116,16 @@ builder.Services.AddScoped<IForecastService, ForecastService>();
 builder.Services.AddScoped<ICashFlowAuditService, CashFlowAuditService>();
 builder.Services.AddScoped<IPayeeService, PayeeService>();
 builder.Services.AddScoped<ICategorizationRuleService, CategorizationRuleService>();
+builder.Services.AddScoped<IEmailSettingsService, EmailSettingsService>();
+builder.Services.AddScoped<IEmailComposeService, EmailComposeService>();
+builder.Services.AddScoped<IOutboundEmailService, OutboundEmailService>();
+builder.Services.AddHttpClient<IEmailSender, ResendEmailSender>(client =>
+{
+    client.BaseAddress = new Uri("https://api.resend.com/");
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
 builder.Services.AddHostedService<RecurringTransactionPostingJob>();
+builder.Services.AddHostedService<OutboundStatusPollJob>();
 
 // Transaction receipts land on local disk for now; swap this registration for an
 // S3-backed IFileStorage when file storage moves to the cloud.

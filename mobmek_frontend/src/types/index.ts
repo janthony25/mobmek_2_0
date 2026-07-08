@@ -387,6 +387,12 @@ export interface Invoice {
   items: InvoiceItem[]
   createdAtUtc: string
   updatedAtUtc: string | null
+  customerName: string | null
+  customerEmail: string | null
+  carDescription: string | null
+  /** Status of the most recent email sent for this invoice, or null if never emailed. */
+  latestEmailStatus: OutboundEmailStatus | null
+  latestEmailedAtUtc: string | null
 }
 
 export interface CreateInvoiceRequest {
@@ -1124,4 +1130,69 @@ export interface CurrentUser {
 export interface LoginRequest {
   email: string
   password: string
+}
+
+// --- Email ---------------------------------------------------------------------
+
+export interface EmailSettings {
+  id: string
+  fromName: string
+  fromAddress: string
+  replyToAddress: string | null
+  bccSelf: boolean
+  /** True once an admin has set the Resend API key — the key itself is never exposed. */
+  resendConfigured: boolean
+  createdAtUtc: string
+  updatedAtUtc: string | null
+}
+
+export interface UpdateEmailSettingsRequest {
+  fromName: string
+  fromAddress: string
+  replyToAddress: string | null
+  bccSelf: boolean
+}
+
+export type OutboundEmailStatus = 'Queued' | 'Sent' | 'Delivered' | 'Bounced' | 'Complained' | 'Failed'
+export type OutboundEmailKind = 'Invoice' | 'Test'
+
+export interface OutboundEmail {
+  id: string
+  toAddress: string
+  toName: string | null
+  ccAddresses: string | null
+  subject: string
+  status: OutboundEmailStatus
+  errorMessage: string | null
+  kind: OutboundEmailKind
+  customerId: string | null
+  invoiceId: string | null
+  sentAtUtc: string | null
+  deliveredAtUtc: string | null
+  failedAtUtc: string | null
+  createdAtUtc: string
+}
+
+export interface OutboundEmailPage {
+  items: OutboundEmail[]
+  page: number
+  pageSize: number
+  totalCount: number
+}
+
+export interface OutboundEmailFilters {
+  customerId?: string
+  invoiceId?: string
+  status?: OutboundEmailStatus
+  kind?: OutboundEmailKind
+  page?: number
+  pageSize?: number
+}
+
+export interface SendInvoiceEmailRequest {
+  to: string
+  toName: string | null
+  cc: string | null
+  subject: string
+  intro: string | null
 }

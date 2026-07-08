@@ -7,7 +7,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/jobs/{jobId:guid}/invoices")]
 [Produces("application/json")]
-public class InvoicesController(IInvoiceService invoiceService) : ControllerBase
+public class InvoicesController(IInvoiceService invoiceService, IOutboundEmailService outboundEmailService) : ControllerBase
 {
     /// <summary>Returns the invoices generated for a job, newest first.</summary>
     [HttpGet]
@@ -111,5 +111,25 @@ public class InvoicesController(IInvoiceService invoiceService) : ControllerBase
     {
         var paid = await invoiceService.MarkPaidAsync(jobId, id, request, cancellationToken);
         return paid is null ? NotFound() : Ok(paid);
+    }
+
+    /// <summary>Emails the invoice to a recipient (defaults to the customer on file) and records
+    /// the send attempt for delivery-status tracking.</summary>
+    [HttpPost("{id:guid}/email")]
+    [ProducesResponseType(typeof(OutboundEmailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<OutboundEmailDto>> SendEmail(Guid jobId, Guid id, SendInvoiceEmailRequest request, CancellationToken cancellationToken)
+    {
+        var (email, error) = await outboundEmailService.SendInvoiceEmailAsync(jobId, id, request, cancellationToken);
+        return error switch
+        {
+            EmailWriteError.None => Ok(email),
+            EmailWriteError.InvoiceNotFound => NotFound(),
+            EmailWriteError.NotConfigured => Problem(
+                detail: "Email sending isn't configured yet — ask an admin to set it up under Settings → Email.",
+                statusCode: StatusCodes.Status400BadRequest),
+            _ => Problem(statusCode: StatusCodes.Status500InternalServerError),
+        };
     }
 }

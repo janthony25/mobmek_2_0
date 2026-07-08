@@ -42,6 +42,9 @@ services:
       # Auth cookies are signed/encrypted with Data Protection keys; persist them to a
       # volume so a container restart doesn't invalidate every signed-in session.
       DataProtection__KeyPath: /keys
+      # Outbound invoice email (docs/email-module-design.md) — set via .env once you have a
+      # Resend account; sends fail gracefully with a setup hint until this is set.
+      Email__Resend__ApiKey: ${RESEND_API_KEY:-}
     volumes:
       - mobmek_dataprotection_keys:/keys
     ports:

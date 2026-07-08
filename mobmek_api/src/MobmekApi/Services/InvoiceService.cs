@@ -14,10 +14,14 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
         var invoices = await db.Invoices.AsNoTracking()
             .Where(i => i.JobId == jobId)
             .Include(i => i.Items)
+            .Include(i => i.Job).ThenInclude(j => j!.Customer)
+            .Include(i => i.Job).ThenInclude(j => j!.Car).ThenInclude(c => c!.CarMake)
+            .Include(i => i.Job).ThenInclude(j => j!.Car).ThenInclude(c => c!.CarModel)
             .OrderByDescending(i => i.CreatedAtUtc)
             .ToListAsync(cancellationToken);
 
-        return invoices.Select(ToDto).ToList();
+        var latestEmailByInvoiceId = await GetLatestEmailsAsync(invoices.Select(i => i.Id), cancellationToken);
+        return invoices.Select(i => ToDto(i, latestEmailByInvoiceId.GetValueOrDefault(i.Id))).ToList();
     }
 
     public async Task<PagedResult<InvoiceListItemDto>> GetPagedAsync(string documentType, int page, int pageSize, string? search, CancellationToken cancellationToken = default)
@@ -63,9 +67,40 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
     {
         var invoice = await db.Invoices.AsNoTracking()
             .Include(i => i.Items)
+            .Include(i => i.Job).ThenInclude(j => j!.Customer)
+            .Include(i => i.Job).ThenInclude(j => j!.Car).ThenInclude(c => c!.CarMake)
+            .Include(i => i.Job).ThenInclude(j => j!.Car).ThenInclude(c => c!.CarModel)
             .FirstOrDefaultAsync(i => i.Id == id && i.JobId == jobId, cancellationToken);
 
-        return invoice is null ? null : ToDto(invoice);
+        if (invoice is null)
+        {
+            return null;
+        }
+
+        var latestEmail = await db.OutboundEmails.AsNoTracking()
+            .Where(e => e.InvoiceId == id)
+            .OrderByDescending(e => e.CreatedAtUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return ToDto(invoice, latestEmail);
+    }
+
+    /// <summary>Most recent <see cref="OutboundEmail"/> per invoice id, for the list view's email column.</summary>
+    private async Task<Dictionary<Guid, OutboundEmail>> GetLatestEmailsAsync(IEnumerable<Guid> invoiceIds, CancellationToken cancellationToken)
+    {
+        var ids = invoiceIds.ToList();
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        var latest = await db.OutboundEmails.AsNoTracking()
+            .Where(e => e.InvoiceId != null && ids.Contains(e.InvoiceId!.Value))
+            .GroupBy(e => e.InvoiceId!.Value)
+            .Select(g => g.OrderByDescending(e => e.CreatedAtUtc).First())
+            .ToListAsync(cancellationToken);
+
+        return latest.ToDictionary(e => e.InvoiceId!.Value);
     }
 
     public Task<InvoiceDto?> GenerateAsync(Guid jobId, CreateInvoiceRequest request, CancellationToken cancellationToken = default) =>
@@ -378,12 +413,16 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
             i.Job?.Car is { } car ? $"{car.CarMake?.Name} {car.CarModel?.Name} ({car.Rego})" : null,
             i.DueDate, i.TotalAmount, i.IsPaid, i.CreatedAtUtc);
 
-    private static InvoiceDto ToDto(Invoice i) =>
+    private static InvoiceDto ToDto(Invoice i, OutboundEmail? latestEmail = null) =>
         new(i.Id, i.JobId, $"{(i.DocumentType == "Quotation" ? "QUO" : "INV")}-{i.SequenceNumber:D4}", i.IssueName, i.Notes, i.DocumentType, i.Status, i.DueDate, i.PaymentTerm, i.ModeOfPayment,
             i.LabourPrice, i.SubTotal, i.GstRate, i.TaxAmount, i.Discount, i.ShippingFee, i.TotalAmount,
             i.IsPaid, i.AmountPaid, i.DatePaid, i.CashAmount, i.CardAmount,
             i.Items.OrderBy(x => x.CreatedAtUtc)
                 .Select(x => new InvoiceItemDto(x.Id, x.InvoiceId, x.ItemName, x.Quantity, x.ItemPrice, x.ItemTotal))
                 .ToList(),
-            i.CreatedAtUtc, i.UpdatedAtUtc);
+            i.CreatedAtUtc, i.UpdatedAtUtc,
+            i.Job?.Customer is { } customer ? $"{customer.FirstName} {customer.LastName}" : null,
+            i.Job?.Customer?.EmailAddress,
+            i.Job?.Car is { } car ? $"{car.CarMake?.Name} {car.CarModel?.Name} ({car.Rego})" : null,
+            latestEmail?.Status, latestEmail?.CreatedAtUtc);
 }

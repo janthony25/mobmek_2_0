@@ -66,6 +66,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/tax', label: 'Tax (GST)', icon: '💰', adminOnly: true },
       { to: '/business-details', label: 'Business Details', icon: '🏢', adminOnly: true },
+      { to: '/email-settings', label: 'Email', icon: '✉️', adminOnly: true },
       { to: '/reminder-templates', label: 'Reminder Templates', icon: '⏰' },
     ],
   },

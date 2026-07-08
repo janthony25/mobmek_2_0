@@ -74,6 +74,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
 
     public DbSet<LoginAttempt> LoginAttempts => Set<LoginAttempt>();
 
+    public DbSet<EmailSettings> EmailSettings => Set<EmailSettings>();
+
+    public DbSet<OutboundEmail> OutboundEmails => Set<OutboundEmail>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -643,6 +647,40 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
                 .WithMany()
                 .HasForeignKey(p => p.CategoryId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<EmailSettings>(entity =>
+        {
+            entity.Property(s => s.FromName).IsRequired().HasMaxLength(200);
+            entity.Property(s => s.FromAddress).IsRequired().HasMaxLength(255);
+            entity.Property(s => s.ReplyToAddress).HasMaxLength(255);
+        });
+
+        modelBuilder.Entity<OutboundEmail>(entity =>
+        {
+            entity.Property(e => e.ToAddress).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.ToName).HasMaxLength(255);
+            entity.Property(e => e.CcAddresses).HasMaxLength(1000);
+            entity.Property(e => e.Subject).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.Kind).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.ProviderMessageId).HasMaxLength(100);
+            entity.Property(e => e.ErrorMessage).HasMaxLength(2000);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.InvoiceId);
+            entity.HasIndex(e => e.CustomerId);
+
+            // Both links are optional; SetNull so deleting a customer keeps the send history
+            // (invoices are never deleted in this app, but SetNull is still the safe default).
+            entity.HasOne(e => e.Customer)
+                .WithMany()
+                .HasForeignKey(e => e.CustomerId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.Invoice)
+                .WithMany()
+                .HasForeignKey(e => e.InvoiceId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 

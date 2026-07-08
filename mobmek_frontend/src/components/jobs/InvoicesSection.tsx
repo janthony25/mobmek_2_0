@@ -12,6 +12,8 @@ import { useAsync } from '@/hooks/useAsync'
 import { currency, date, percent } from '@/lib/format'
 import { invoiceStatusLabel, invoiceStatusTone } from '@/lib/badges'
 import { MarkPaidForm } from '@/components/invoices/MarkPaidForm'
+import { EmailComposeModal } from '@/components/email/EmailComposeModal'
+import { EmailStatusBadge } from '@/components/email/EmailStatusBadge'
 import { Field, controlClass } from '@/components/forms/controls'
 import type { CreateInvoiceRequest, Invoice } from '@/types'
 
@@ -31,6 +33,7 @@ export function InvoicesSection({ jobId, reloadKey = 0 }: InvoicesSectionProps) 
   const [generating, setGenerating] = useState(false)
   const [rejecting, setRejecting] = useState<Invoice | null>(null)
   const [paying, setPaying] = useState<Invoice | null>(null)
+  const [emailing, setEmailing] = useState<Invoice | null>(null)
   // Collapsed until data proves there's something to show, unless the user has toggled it.
   const [collapsedOverride, setCollapsedOverride] = useState<boolean | null>(null)
   const collapsed = collapsedOverride ?? (data == null || data.length === 0)
@@ -83,6 +86,7 @@ export function InvoicesSection({ jobId, reloadKey = 0 }: InvoicesSectionProps) 
                 <th className="px-4 py-3">Subtotal</th>
                 <th className="px-4 py-3">GST</th>
                 <th className="px-4 py-3">Total</th>
+                <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -102,6 +106,9 @@ export function InvoicesSection({ jobId, reloadKey = 0 }: InvoicesSectionProps) 
                       <span className="text-xs text-slate-400">({percent(inv.gstRate)} incl.)</span>
                     </td>
                     <td className="px-4 py-3 align-top font-medium text-slate-900">{currency(inv.totalAmount)}</td>
+                    <td className="px-4 py-3 align-top">
+                      <EmailStatusBadge status={inv.latestEmailStatus} />
+                    </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right align-top">
                       <DropdownMenu
                         label="Actions"
@@ -130,8 +137,7 @@ export function InvoicesSection({ jobId, reloadKey = 0 }: InvoicesSectionProps) 
                           },
                           {
                             label: 'Send Email',
-                            disabled: true,
-                            hint: 'Coming soon',
+                            onClick: () => setEmailing(inv),
                           },
                           {
                             label: 'Reject',
@@ -170,6 +176,22 @@ export function InvoicesSection({ jobId, reloadKey = 0 }: InvoicesSectionProps) 
               reload()
             }}
             onCancel={() => setPaying(null)}
+          />
+        )}
+      </Modal>
+
+      <Modal open={emailing !== null} title="Email Invoice" onClose={() => setEmailing(null)} maxWidth="max-w-xl">
+        {emailing && (
+          <EmailComposeModal
+            jobId={jobId}
+            invoice={emailing}
+            onSent={() => {
+              reload()
+            }}
+            onClose={() => {
+              setEmailing(null)
+              reload()
+            }}
           />
         )}
       </Modal>

@@ -32,6 +32,7 @@ import { ForecastPage } from '@/pages/ForecastPage'
 import { GstReportPage } from '@/pages/GstReportPage'
 import { PayeesPage } from '@/pages/PayeesPage'
 import { CategorizationRulesPage } from '@/pages/CategorizationRulesPage'
+import { EmailSettingsPage } from '@/pages/EmailSettingsPage'
 
 function App() {
   useNumberInputWheelGuard()
@@ -75,6 +76,7 @@ function App() {
             <Route path="gst-report" element={<GstReportPage />} />
             <Route path="tax" element={<TaxSettingsPage />} />
             <Route path="business-details" element={<BusinessDetailsSettingsPage />} />
+            <Route path="email-settings" element={<EmailSettingsPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/customers" replace />} />

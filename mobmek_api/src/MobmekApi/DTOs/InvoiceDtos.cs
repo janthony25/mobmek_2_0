@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using MobmekApi.Entities;
 
 namespace MobmekApi.DTOs;
 
@@ -40,7 +41,16 @@ public record InvoiceDto(
     decimal? CardAmount,
     IReadOnlyList<InvoiceItemDto> Items,
     DateTime CreatedAtUtc,
-    DateTime? UpdatedAtUtc);
+    DateTime? UpdatedAtUtc,
+    string? CustomerName,
+    string? CustomerEmail,
+    string? CarDescription,
+    /// <summary>Status of the most recent email sent for this invoice, or null if never emailed.
+    /// Only populated on the list/detail reads (<c>GetAllAsync</c>/<c>GetByIdAsync</c>) — a
+    /// freshly generated/accepted/rejected/paid invoice returns null here even if it does have
+    /// history, since the next list reload picks it up.</summary>
+    OutboundEmailStatus? LatestEmailStatus,
+    DateTime? LatestEmailedAtUtc);
 
 /// <summary>
 /// One row of the global Invoices/Quotations list — an invoice plus the job/customer/vehicle
