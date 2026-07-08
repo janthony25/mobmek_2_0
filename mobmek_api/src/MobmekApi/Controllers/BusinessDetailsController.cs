@@ -1,5 +1,6 @@
 using MobmekApi.DTOs;
 using MobmekApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MobmekApi.Controllers;
@@ -7,6 +8,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/business-details")]
 [Produces("application/json")]
+[Authorize(Roles = "Admin")]
 public class BusinessDetailsController(IBusinessDetailsService businessDetailsService) : ControllerBase
 {
     private const long MaxLogoBytes = 5 * 1024 * 1024;

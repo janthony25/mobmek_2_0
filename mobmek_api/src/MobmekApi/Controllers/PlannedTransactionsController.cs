@@ -1,5 +1,6 @@
 using MobmekApi.DTOs;
 using MobmekApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MobmekApi.Controllers;
@@ -7,6 +8,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/planned-transactions")]
 [Produces("application/json")]
+[Authorize(Roles = "Admin")]
 public class PlannedTransactionsController(IPlannedTransactionService plannedService) : ControllerBase
 {
     [HttpGet]

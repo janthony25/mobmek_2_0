@@ -1,5 +1,6 @@
 using MobmekApi.DTOs;
 using MobmekApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MobmekApi.Controllers;
@@ -7,6 +8,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/payees")]
 [Produces("application/json")]
+[Authorize(Roles = "Admin")]
 public class PayeesController(IPayeeService payeeService) : ControllerBase
 {
     /// <summary>All payees ordered by name; pass includeArchived=true to see archived ones.</summary>

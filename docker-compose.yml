@@ -6,7 +6,8 @@ services:
     environment:
       POSTGRES_DB: mobmek
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      # Set via .env (gitignored, copy from .env.example) — do not commit a real password.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
       # Host 5433 (not 5432) avoids the machine's EDB PostgreSQL 18 install that owns 5432.
       # Container still listens on 5432; host tooling (`dotnet run`, `dotnet ef`) uses localhost:5433.
@@ -29,10 +30,20 @@ services:
       db:
         condition: service_healthy
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
+      # Development auto-migrates on startup and exposes Swagger — override in .env for
+      # a real deployment (see .env.example) and run migrations as a separate step there.
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ASPNETCORE_HTTP_PORTS: "8080"
       # Inside the compose network the DB host is the service name "db", not localhost.
-      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=mobmek;Username=postgres;Password=postgres"
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=mobmek;Username=postgres;Password=${POSTGRES_PASSWORD:-postgres}"
+      # First-run admin bootstrap (docs/auth-module-design.md) — set real values via .env.
+      Bootstrap__AdminEmail: ${BOOTSTRAP_ADMIN_EMAIL:-justforvalo25@gmail.com}
+      Bootstrap__AdminPassword: ${BOOTSTRAP_ADMIN_PASSWORD:-DevAdmin!2026}
+      # Auth cookies are signed/encrypted with Data Protection keys; persist them to a
+      # volume so a container restart doesn't invalidate every signed-in session.
+      DataProtection__KeyPath: /keys
+    volumes:
+      - mobmek_dataprotection_keys:/keys
     ports:
       - "8080:8080"
 
@@ -50,3 +61,4 @@ services:
 
 volumes:
   mobmek_pgdata:
+  mobmek_dataprotection_keys:

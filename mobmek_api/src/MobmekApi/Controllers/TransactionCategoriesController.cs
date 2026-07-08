@@ -1,5 +1,6 @@
 using MobmekApi.DTOs;
 using MobmekApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MobmekApi.Controllers;
@@ -7,6 +8,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/transaction-categories")]
 [Produces("application/json")]
+[Authorize(Roles = "Admin")]
 public class TransactionCategoriesController(ITransactionCategoryService categoryService) : ControllerBase
 {
     /// <summary>Lists transaction categories, grouped for pickers; pass <c>?includeArchived=true</c> for archived ones too.</summary>

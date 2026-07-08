@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface NavItem {
   to: string
@@ -7,6 +8,8 @@ interface NavItem {
   icon: string
   /** Temporarily hidden from the sidebar (page still exists, just not linked here yet). */
   hidden?: boolean
+  /** Only shown to Admins — mirrors the route's RequireAdmin guard / the API's [Authorize(Roles = "Admin")]. */
+  adminOnly?: boolean
 }
 
 interface NavGroup {
@@ -40,29 +43,29 @@ const NAV_GROUPS: NavGroup[] = [
     heading: 'Finance',
     hiddenNote: 'Enable to see pages',
     items: [
-      { to: '/cash-flow', label: 'Cash Flow', icon: '💵', hidden: true },
-      { to: '/recurring-planned', label: 'Recurring & Planned', icon: '🔁', hidden: true },
-      { to: '/forecast', label: 'Forecast', icon: '📈', hidden: true },
-      { to: '/gst-report', label: 'GST Report', icon: '🧮', hidden: true },
-      { to: '/cash-accounts', label: 'Cash Accounts', icon: '🏦', hidden: true },
-      { to: '/transaction-categories', label: 'Categories', icon: '🗂️', hidden: true },
-      { to: '/payees', label: 'Payees', icon: '🤝', hidden: true },
-      { to: '/categorization-rules', label: 'Rules', icon: '⚙️', hidden: true },
+      { to: '/cash-flow', label: 'Cash Flow', icon: '💵', hidden: true, adminOnly: true },
+      { to: '/recurring-planned', label: 'Recurring & Planned', icon: '🔁', hidden: true, adminOnly: true },
+      { to: '/forecast', label: 'Forecast', icon: '📈', hidden: true, adminOnly: true },
+      { to: '/gst-report', label: 'GST Report', icon: '🧮', hidden: true, adminOnly: true },
+      { to: '/cash-accounts', label: 'Cash Accounts', icon: '🏦', hidden: true, adminOnly: true },
+      { to: '/transaction-categories', label: 'Categories', icon: '🗂️', hidden: true, adminOnly: true },
+      { to: '/payees', label: 'Payees', icon: '🤝', hidden: true, adminOnly: true },
+      { to: '/categorization-rules', label: 'Rules', icon: '⚙️', hidden: true, adminOnly: true },
     ],
   },
   {
     heading: 'Staff',
     items: [
-      { to: '/employees', label: 'Employees', icon: '🧑‍🔧' },
-      { to: '/employee-titles', label: 'Titles', icon: '🏷️' },
-      { to: '/employment-types', label: 'Employment Types', icon: '📋' },
+      { to: '/employees', label: 'Employees', icon: '🧑‍🔧', adminOnly: true },
+      { to: '/employee-titles', label: 'Titles', icon: '🏷️', adminOnly: true },
+      { to: '/employment-types', label: 'Employment Types', icon: '📋', adminOnly: true },
     ],
   },
   {
     heading: 'Settings',
     items: [
-      { to: '/tax', label: 'Tax (GST)', icon: '💰' },
-      { to: '/business-details', label: 'Business Details', icon: '🏢' },
+      { to: '/tax', label: 'Tax (GST)', icon: '💰', adminOnly: true },
+      { to: '/business-details', label: 'Business Details', icon: '🏢', adminOnly: true },
       { to: '/reminder-templates', label: 'Reminder Templates', icon: '⏰' },
     ],
   },
@@ -74,6 +77,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState<boolean>(
     () => localStorage.getItem(STORAGE_KEY) === 'true',
   )
+  const { user, isAdmin, logout } = useAuth()
 
   const toggle = () => {
     setCollapsed((prev) => {
@@ -126,7 +130,7 @@ export function Sidebar() {
 
       <nav className={['flex-1 py-4', collapsed ? 'px-2' : 'px-3'].join(' ')}>
         {NAV_GROUPS.map((group) => {
-          const visibleItems = group.items.filter((item) => !item.hidden)
+          const visibleItems = group.items.filter((item) => !item.hidden && (!item.adminOnly || isAdmin))
           return (
             <div key={group.heading} className="mb-4">
               {!collapsed && (
@@ -170,11 +174,31 @@ export function Sidebar() {
         })}
       </nav>
 
-      {!collapsed && (
-        <div className="shrink-0 border-t border-slate-800 px-6 py-4 text-xs text-slate-500">
-          Mobmek Workshop
-        </div>
-      )}
+      <div
+        className={[
+          'shrink-0 border-t border-slate-800 py-3',
+          collapsed ? 'flex flex-col items-center gap-2 px-2' : 'px-4',
+        ].join(' ')}
+      >
+        {!collapsed && user && (
+          <p className="truncate px-2 pb-2 text-xs text-slate-400" title={user.email}>
+            {user.firstName} {user.lastName}
+            {isAdmin && <span className="ml-1 text-slate-600">· Admin</span>}
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={() => void logout()}
+          title="Sign out"
+          className={[
+            'flex items-center gap-2 rounded-lg py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white',
+            collapsed ? 'justify-center px-2' : 'w-full px-3',
+          ].join(' ')}
+        >
+          <span aria-hidden>🚪</span>
+          {!collapsed && <span>Sign out</span>}
+        </button>
+      </div>
     </aside>
   )
 }

@@ -1,9 +1,12 @@
 using MobmekApi.Entities;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace MobmekApi.Data;
 
-public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+public class AppDbContext(DbContextOptions<AppDbContext> options)
+    : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options)
 {
     public DbSet<Product> Products => Set<Product>();
 
@@ -69,9 +72,37 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<Appointment> Appointments => Set<Appointment>();
 
+    public DbSet<LoginAttempt> LoginAttempts => Set<LoginAttempt>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<ApplicationUser>(entity =>
+        {
+            // One login per employee; block deleting an employee that still has an account.
+            entity.HasIndex(u => u.EmployeeId).IsUnique();
+
+            entity.HasOne(u => u.Employee)
+                .WithMany()
+                .HasForeignKey(u => u.EmployeeId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<LoginAttempt>(entity =>
+        {
+            entity.Property(a => a.Email).IsRequired().HasMaxLength(200);
+            entity.Property(a => a.FailureReason).HasMaxLength(100);
+            entity.Property(a => a.IpAddress).HasMaxLength(45); // fits an IPv6 address
+            entity.HasIndex(a => a.CreatedAtUtc);
+
+            // An employee's login history should survive the employee record being deleted
+            // (HR cleanup shouldn't quietly erase the audit trail).
+            entity.HasOne(a => a.Employee)
+                .WithMany()
+                .HasForeignKey(a => a.EmployeeId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
 
         modelBuilder.Entity<Product>(entity =>
         {

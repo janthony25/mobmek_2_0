@@ -6,6 +6,14 @@
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
+// AuthContext registers a handler here on mount so any 401 response (session expired,
+// never logged in) clears local auth state, regardless of which API module triggered it.
+let unauthorizedHandler: (() => void) | null = null
+
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  unauthorizedHandler = handler
+}
+
 export class ApiError extends Error {
   readonly status: number
 
@@ -45,6 +53,7 @@ async function toApiError(response: Response, path: string): Promise<ApiError> {
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
     method,
+    credentials: 'include',
     headers: {
       Accept: 'application/json',
       ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
@@ -53,6 +62,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   })
 
   if (!response.ok) {
+    if (response.status === 401) unauthorizedHandler?.()
     throw await toApiError(response, path)
   }
 
@@ -74,11 +84,13 @@ export const apiDelete = (path: string): Promise<void> => request<void>('DELETE'
 export async function apiPostForm<T>(path: string, form: FormData): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
     method: 'POST',
+    credentials: 'include',
     headers: { Accept: 'application/json' },
     body: form,
   })
 
   if (!response.ok) {
+    if (response.status === 401) unauthorizedHandler?.()
     throw await toApiError(response, path)
   }
 

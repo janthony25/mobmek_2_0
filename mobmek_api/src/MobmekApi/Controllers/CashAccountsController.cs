@@ -1,5 +1,6 @@
 using MobmekApi.DTOs;
 using MobmekApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MobmekApi.Controllers;
@@ -7,6 +8,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/cash-accounts")]
 [Produces("application/json")]
+[Authorize(Roles = "Admin")]
 public class CashAccountsController(ICashAccountService cashAccountService) : ControllerBase
 {
     /// <summary>Lists cash accounts with derived balances; pass <c>?includeArchived=true</c> for archived ones too.</summary>

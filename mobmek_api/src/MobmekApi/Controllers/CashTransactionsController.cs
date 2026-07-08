@@ -1,5 +1,6 @@
 using MobmekApi.DTOs;
 using MobmekApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MobmekApi.Controllers;
@@ -7,6 +8,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/cash-transactions")]
 [Produces("application/json")]
+[Authorize(Roles = "Admin")]
 public class CashTransactionsController(ICashTransactionService transactionService) : ControllerBase
 {
     private const long MaxAttachmentBytes = 10 * 1024 * 1024;

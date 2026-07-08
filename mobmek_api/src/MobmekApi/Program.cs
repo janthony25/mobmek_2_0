@@ -1,6 +1,12 @@
 using MobmekApi.Data;
 using MobmekApi.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+// Not `using MobmekApi.Entities` — MobmekApi.Entities.JobService clashes with
+// MobmekApi.Services.JobService, both used by name below. ApplicationUser is qualified instead.
+using ApplicationUser = MobmekApi.Entities.ApplicationUser;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,7 +14,72 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// --- Identity (staff login) ---
+// Auth cookies are signed/encrypted with the Data Protection key ring. Without a
+// persisted, shared location it defaults to an ephemeral/per-instance store, which
+// silently invalidates every signed-in session on restart or when scaled to >1
+// instance. DataProtection:KeyPath is set to a mounted volume in docker-compose.yml;
+// falls back to a folder under the content root for plain `dotnet run` locally.
+builder.Services.AddDataProtection()
+    .SetApplicationName("MobmekApi")
+    .PersistKeysToFileSystem(new DirectoryInfo(
+        builder.Configuration["DataProtection:KeyPath"]
+            ?? Path.Combine(builder.Environment.ContentRootPath, "dataprotection-keys")));
+
+builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme)
+    .AddCookie(IdentityConstants.ApplicationScheme);
+
+builder.Services.AddIdentityCore<ApplicationUser>(options =>
+    {
+        options.Password.RequiredLength = 10;
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+        options.User.RequireUniqueEmail = true;
+    })
+    .AddRoles<IdentityRole<Guid>>()
+    .AddEntityFrameworkStores<AppDbContext>()
+    .AddSignInManager()
+    .AddDefaultTokenProviders();
+
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.Cookie.Name = "Mobmek.Auth";
+    options.Cookie.HttpOnly = true;
+    // "SameAsRequest" (not "Always") so login still works over plain HTTP in local/Docker
+    // dev, which has no TLS today. Behind a TLS-terminating proxy in production this
+    // resolves to Secure automatically, provided forwarded-proto headers are honored
+    // (see the TLS item in docs/auth-module-design.md §6 Phase 2).
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.ExpireTimeSpan = TimeSpan.FromHours(12);
+    options.SlidingExpiration = true;
+    // This is an API, not a page app — on missing/denied auth, return a status code
+    // instead of redirecting to a server-rendered login page that doesn't exist.
+    options.Events.OnRedirectToLogin = context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return Task.CompletedTask;
+    };
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        return Task.CompletedTask;
+    };
+});
+
+builder.Services.AddAuthorization(options =>
+{
+    // Secure by default: every endpoint requires a signed-in user unless it opts out
+    // with [AllowAnonymous] (only AuthController.Login does). Admin-only endpoints add
+    // [Authorize(Roles = "Admin")], which layers a role check on top of this.
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
+
 // --- Application services ---
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ILoginAttemptService, LoginAttemptService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<ICarMakeService, CarMakeService>();
@@ -72,6 +143,20 @@ if (app.Environment.IsDevelopment())
     await CashFlowSeeder.SeedAsync(db);
 }
 
+// Runs in every environment — production needs the bootstrap Admin too, not just dev.
+// Assumes migrations have already been applied (auto in Development above; a deliberate
+// deploy step in production).
+{
+    using var scope = app.Services.CreateScope();
+    var services = scope.ServiceProvider;
+    await AdminSeeder.SeedAsync(
+        services.GetRequiredService<AppDbContext>(),
+        services.GetRequiredService<UserManager<ApplicationUser>>(),
+        services.GetRequiredService<RoleManager<IdentityRole<Guid>>>(),
+        services.GetRequiredService<IConfiguration>(),
+        services.GetRequiredService<ILoggerFactory>().CreateLogger("AdminSeeder"));
+}
+
 // --- HTTP pipeline ---
 app.UseExceptionHandler();
 
@@ -85,6 +170,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 

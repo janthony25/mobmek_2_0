@@ -1,5 +1,6 @@
 using MobmekApi.DTOs;
 using MobmekApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MobmekApi.Controllers;
@@ -7,6 +8,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/cash-flow-audit")]
 [Produces("application/json")]
+[Authorize(Roles = "Admin")]
 public class CashFlowAuditController(ICashFlowAuditService auditService) : ControllerBase
 {
     /// <summary>The audit trail, newest first; filter by entity type/id and time window.</summary>

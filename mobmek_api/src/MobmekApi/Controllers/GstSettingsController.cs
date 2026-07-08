@@ -1,5 +1,6 @@
 using MobmekApi.DTOs;
 using MobmekApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MobmekApi.Controllers;
@@ -7,6 +8,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/gst")]
 [Produces("application/json")]
+[Authorize(Roles = "Admin")]
 public class GstSettingsController(IGstSettingService gstSettingService) : ControllerBase
 {
     /// <summary>Returns the current GST setting (rate as a fraction, e.g. 0.15 = 15%).</summary>

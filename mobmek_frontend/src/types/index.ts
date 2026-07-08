@@ -1109,3 +1109,19 @@ export interface GstReport {
   excluded: GstScopeTotals
   cashGst: number
 }
+
+// --- Auth ----------------------------------------------------------------------
+
+export interface CurrentUser {
+  id: string
+  email: string
+  employeeId: string
+  firstName: string
+  lastName: string
+  roles: string[]
+}
+
+export interface LoginRequest {
+  email: string
+  password: string
+}

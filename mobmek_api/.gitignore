@@ -480,3 +480,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Data Protection keys for local `dotnet run` (decrypt/sign auth cookies) — never commit these.
+src/MobmekApi/dataprotection-keys/
