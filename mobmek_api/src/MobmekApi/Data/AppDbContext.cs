@@ -78,6 +78,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
 
     public DbSet<OutboundEmail> OutboundEmails => Set<OutboundEmail>();
 
+    public DbSet<PasswordChangeCode> PasswordChangeCodes => Set<PasswordChangeCode>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -681,6 +683,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
                 .WithMany()
                 .HasForeignKey(e => e.InvoiceId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<PasswordChangeCode>(entity =>
+        {
+            entity.Property(c => c.CodeHash).IsRequired().HasMaxLength(64);
+            entity.HasIndex(c => c.UserId);
         });
     }
 

@@ -187,6 +187,20 @@ export function Sidebar() {
             {isAdmin && <span className="ml-1 text-slate-600">· Admin</span>}
           </p>
         )}
+        <NavLink
+          to="/profile"
+          title={collapsed ? 'Profile' : undefined}
+          className={({ isActive }) =>
+            [
+              'flex items-center gap-2 rounded-lg py-2 text-sm font-medium transition-colors',
+              collapsed ? 'justify-center px-2' : 'w-full px-3',
+              isActive ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white',
+            ].join(' ')
+          }
+        >
+          <span aria-hidden>👤</span>
+          {!collapsed && <span>Profile</span>}
+        </NavLink>
         <button
           type="button"
           onClick={() => void logout()}

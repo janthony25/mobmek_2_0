@@ -33,6 +33,7 @@ import { GstReportPage } from '@/pages/GstReportPage'
 import { PayeesPage } from '@/pages/PayeesPage'
 import { CategorizationRulesPage } from '@/pages/CategorizationRulesPage'
 import { EmailSettingsPage } from '@/pages/EmailSettingsPage'
+import { ProfileSettingsPage } from '@/pages/ProfileSettingsPage'
 
 function App() {
   useNumberInputWheelGuard()
@@ -60,6 +61,7 @@ function App() {
           <Route path="products" element={<ProductsPage />} />
           <Route path="services" element={<JobServicesPage />} />
           <Route path="reminder-templates" element={<ReminderTemplatesPage />} />
+          <Route path="profile" element={<ProfileSettingsPage />} />
 
           {/* Admin-only: HR, settings, and financials — mirrors [Authorize(Roles = "Admin")] on the API. */}
           <Route element={<RequireAdmin />}>

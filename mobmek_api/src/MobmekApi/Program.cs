@@ -84,6 +84,7 @@ builder.Services.AddAuthorization(options =>
 // --- Application services ---
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ILoginAttemptService, LoginAttemptService>();
+builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<ICarMakeService, CarMakeService>();

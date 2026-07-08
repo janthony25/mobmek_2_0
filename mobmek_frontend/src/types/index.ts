@@ -1196,3 +1196,27 @@ export interface SendInvoiceEmailRequest {
   subject: string
   intro: string | null
 }
+
+// --- Account (self-service profile + password) ---------------------------------
+
+export interface Profile {
+  employeeId: string
+  firstName: string
+  lastName: string
+  contactNumber: string
+  physicalAddress: string
+  /** Login email — read-only here; only an Admin can change it, via Employees. */
+  email: string
+}
+
+export interface UpdateProfileRequest {
+  firstName: string
+  lastName: string
+  contactNumber: string
+  physicalAddress: string
+}
+
+export interface ConfirmPasswordChangeRequest {
+  code: string
+  newPassword: string
+}
