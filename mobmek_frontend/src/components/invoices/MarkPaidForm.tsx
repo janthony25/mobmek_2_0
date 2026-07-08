@@ -104,7 +104,7 @@ export function MarkPaidForm({
         <input
           type="text"
           value={paymentTerm}
-          onChange={(e) => setPaymentTerm(e.target.value)}
+          onChange={(e) => setPaymentTerm(e.target.value.toUpperCase())}
           placeholder="e.g. Net 14"
           className={controlClass}
         />

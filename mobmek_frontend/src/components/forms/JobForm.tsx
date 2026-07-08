@@ -121,7 +121,7 @@ export function JobForm({ initial, onSubmit, onCancel }: JobFormProps) {
         </Field>
 
         <Field label="Title" required className="sm:col-span-2">
-          <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={controlClass} />
+          <input type="text" value={title} onChange={(e) => setTitle(e.target.value.toUpperCase())} className={controlClass} />
         </Field>
 
         <Field label="Status">

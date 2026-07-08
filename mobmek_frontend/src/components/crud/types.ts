@@ -5,7 +5,7 @@ export interface SelectOption {
   label: string
 }
 
-export type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'checkbox'
+export type FieldType = 'text' | 'email' | 'textarea' | 'number' | 'select' | 'checkbox'
 
 /** Declarative description of a single form field, consumed by ResourceForm. */
 export interface FieldSchema {

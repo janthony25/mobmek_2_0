@@ -37,7 +37,7 @@ export function EmployeesPage() {
       options: (types.data ?? []).map((t) => ({ value: t.id, label: t.name })),
     },
     { name: 'contactNumber', label: 'Contact number', type: 'text', required: true },
-    { name: 'emailAddress', label: 'Email', type: 'text', required: true },
+    { name: 'emailAddress', label: 'Email', type: 'email', required: true },
     { name: 'physicalAddress', label: 'Address', type: 'text', required: true },
   ]
 

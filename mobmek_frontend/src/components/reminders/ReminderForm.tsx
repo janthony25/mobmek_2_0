@@ -99,7 +99,7 @@ export function ReminderForm({
       <Field label="Title" required>
         <input
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => setTitle(e.target.value.toUpperCase())}
           placeholder="e.g. Next WOF"
           className={controlClass}
         />

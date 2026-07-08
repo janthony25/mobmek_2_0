@@ -114,7 +114,7 @@ export function BusinessDetailsSettingsPage() {
           <span className="mb-1 block text-sm font-medium text-slate-700">
             Business name<span className="text-red-500"> *</span>
           </span>
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
+          <input type="text" value={name} onChange={(e) => setName(e.target.value.toUpperCase())} className={inputClass} />
         </label>
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-slate-700">Address</span>
@@ -130,22 +130,22 @@ export function BusinessDetailsSettingsPage() {
             <input
               type="text"
               value={businessPhone}
-              onChange={(e) => setBusinessPhone(e.target.value)}
+              onChange={(e) => setBusinessPhone(e.target.value.toUpperCase())}
               className={inputClass}
             />
           </label>
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-slate-700">Telephone #</span>
-            <input type="text" value={telephone} onChange={(e) => setTelephone(e.target.value)} className={inputClass} />
+            <input type="text" value={telephone} onChange={(e) => setTelephone(e.target.value.toUpperCase())} className={inputClass} />
           </label>
         </div>
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-slate-700">GST No</span>
-          <input type="text" value={gstNumber} onChange={(e) => setGstNumber(e.target.value)} className={inputClass} />
+          <input type="text" value={gstNumber} onChange={(e) => setGstNumber(e.target.value.toUpperCase())} className={inputClass} />
         </label>
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-slate-700">Website</span>
-          <input type="text" value={website} onChange={(e) => setWebsite(e.target.value)} className={inputClass} />
+          <input type="text" value={website} onChange={(e) => setWebsite(e.target.value.toUpperCase())} className={inputClass} />
         </label>
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-slate-700">Bank/payment details</span>

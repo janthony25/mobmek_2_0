@@ -110,20 +110,20 @@ export function ProfileSettingsPage() {
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
               <span className="mb-1 block text-sm font-medium text-slate-700">First name</span>
-              <input value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputClass} />
+              <input value={firstName} onChange={(e) => setFirstName(e.target.value.toUpperCase())} className={inputClass} />
             </label>
             <label className="block">
               <span className="mb-1 block text-sm font-medium text-slate-700">Last name</span>
-              <input value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputClass} />
+              <input value={lastName} onChange={(e) => setLastName(e.target.value.toUpperCase())} className={inputClass} />
             </label>
           </div>
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-slate-700">Contact number</span>
-            <input value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} className={inputClass} />
+            <input value={contactNumber} onChange={(e) => setContactNumber(e.target.value.toUpperCase())} className={inputClass} />
           </label>
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-slate-700">Address</span>
-            <input value={physicalAddress} onChange={(e) => setPhysicalAddress(e.target.value)} className={inputClass} />
+            <input value={physicalAddress} onChange={(e) => setPhysicalAddress(e.target.value.toUpperCase())} className={inputClass} />
           </label>
         </div>
 

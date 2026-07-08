@@ -100,7 +100,7 @@ export function EmailSettingsPage() {
         <div className="space-y-4">
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-slate-700">From name</span>
-            <input value={fromName} onChange={(e) => setFromName(e.target.value)} className={inputClass} />
+            <input value={fromName} onChange={(e) => setFromName(e.target.value.toUpperCase())} className={inputClass} />
           </label>
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-slate-700">From address</span>

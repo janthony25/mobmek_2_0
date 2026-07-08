@@ -930,7 +930,7 @@ function TransactionForm({
       <Field label="Description" required>
         <input
           type="text" required maxLength={500} value={description}
-          onChange={(e) => setDescription(e.target.value)} onBlur={() => void suggest()} className={controlClass}
+          onChange={(e) => setDescription(e.target.value.toUpperCase())} onBlur={() => void suggest()} className={controlClass}
         />
       </Field>
       {suggestionHint && <p className="text-xs text-sky-600">{suggestionHint}</p>}
@@ -968,7 +968,7 @@ function TransactionForm({
       </div>
       {!payeeId && (
         <Field label="Payee / payer (free text)">
-          <input type="text" maxLength={200} value={counterparty} onChange={(e) => setCounterparty(e.target.value)} className={controlClass} />
+          <input type="text" maxLength={200} value={counterparty} onChange={(e) => setCounterparty(e.target.value.toUpperCase())} className={controlClass} />
         </Field>
       )}
       <Field label="Notes">
@@ -1058,7 +1058,7 @@ function TransferForm({
       <Field label="Description">
         <input
           type="text" maxLength={500} value={description} placeholder="Defaults to “Transfer to/from …”"
-          onChange={(e) => setDescription(e.target.value)} className={controlClass}
+          onChange={(e) => setDescription(e.target.value.toUpperCase())} className={controlClass}
         />
       </Field>
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -1200,7 +1200,7 @@ function SplitForm({
         </Field>
       </div>
       <Field label="Description" required>
-        <input type="text" required maxLength={500} value={description} onChange={(e) => setDescription(e.target.value)} className={controlClass} />
+        <input type="text" required maxLength={500} value={description} onChange={(e) => setDescription(e.target.value.toUpperCase())} className={controlClass} />
       </Field>
 
       <div>
@@ -1225,7 +1225,7 @@ function SplitForm({
               </select>
               <input
                 type="text" maxLength={500} placeholder="Line description (optional)" value={line.description}
-                onChange={(e) => updateLine(i, { description: e.target.value })}
+                onChange={(e) => updateLine(i, { description: e.target.value.toUpperCase() })}
                 className={`${controlClass} mt-0 flex-1`} aria-label={`Line ${i + 1} description`}
               />
               <Button

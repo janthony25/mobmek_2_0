@@ -58,7 +58,7 @@ const customerFields: FieldSchema[] = [
   { name: 'firstName', label: 'First name', type: 'text', required: true },
   { name: 'lastName', label: 'Last name', type: 'text', required: true },
   { name: 'phoneNumber', label: 'Phone number', type: 'text', required: true },
-  { name: 'emailAddress', label: 'Email', type: 'text' },
+  { name: 'emailAddress', label: 'Email', type: 'email' },
   { name: 'physicalAddress', label: 'Address', type: 'text' },
   { name: 'notes', label: 'Notes', type: 'textarea' },
 ]

@@ -341,10 +341,10 @@ function QuickCustomerForm({ appointment, onDone, onCancel }: QuickCustomerFormP
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="First name" required>
-          <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className={controlClass} />
+          <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value.toUpperCase())} className={controlClass} />
         </Field>
         <Field label="Last name" required>
-          <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className={controlClass} />
+          <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value.toUpperCase())} className={controlClass} />
         </Field>
         <Field label="Phone" required>
           <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className={controlClass} />

@@ -183,15 +183,15 @@ function FieldControl({ field, value, error, onChange }: FieldControlProps) {
         </select>
       )}
 
-      {(field.type === 'text' || field.type === 'number') && (
+      {(field.type === 'text' || field.type === 'email' || field.type === 'number') && (
         <input
-          type={field.type === 'number' ? 'number' : 'text'}
+          type={field.type === 'number' ? 'number' : field.type === 'email' ? 'email' : 'text'}
           value={value as string}
           placeholder={field.placeholder}
           step={field.step}
           min={field.min}
           max={field.max}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => onChange(field.type === 'text' ? e.target.value.toUpperCase() : e.target.value)}
           className={inputClass}
         />
       )}

@@ -374,7 +374,7 @@ export function JobDetailPage() {
 
           {mode === 'edit' ? (
             <Field label="Title" required>
-              <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={controlClass} />
+              <input type="text" value={title} onChange={(e) => setTitle(e.target.value.toUpperCase())} className={controlClass} />
             </Field>
           ) : (
             <ReadField label="Title" value={job.title} />

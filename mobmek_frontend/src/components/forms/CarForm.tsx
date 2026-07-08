@@ -102,16 +102,16 @@ export function CarForm({ initial, onSubmit, onCancel }: CarFormProps) {
           <input type="number" value={year} min={1900} max={2100} onChange={(e) => setYear(e.target.value)} className={controlClass} />
         </Field>
         <Field label="Rego" required>
-          <input type="text" value={rego} onChange={(e) => setRego(e.target.value)} className={controlClass} />
+          <input type="text" value={rego} onChange={(e) => setRego(e.target.value.toUpperCase())} className={controlClass} />
         </Field>
         <Field label="VIN">
-          <input type="text" value={vin ?? ''} onChange={(e) => setVin(e.target.value)} className={controlClass} />
+          <input type="text" value={vin ?? ''} onChange={(e) => setVin(e.target.value.toUpperCase())} className={controlClass} />
         </Field>
         <Field label="Color">
-          <input type="text" value={color ?? ''} onChange={(e) => setColor(e.target.value)} className={controlClass} />
+          <input type="text" value={color ?? ''} onChange={(e) => setColor(e.target.value.toUpperCase())} className={controlClass} />
         </Field>
         <Field label="Engine type">
-          <input type="text" value={engineType ?? ''} onChange={(e) => setEngineType(e.target.value)} className={controlClass} />
+          <input type="text" value={engineType ?? ''} onChange={(e) => setEngineType(e.target.value.toUpperCase())} className={controlClass} />
         </Field>
       </div>
 

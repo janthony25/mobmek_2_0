@@ -324,7 +324,7 @@ export function AppointmentForm({ initial, initialSlot, initialJob, onSubmit, on
         ) : (
           <>
             <Field label="Contact name" required>
-              <input type="text" value={contactName} onChange={(e) => setContactName(e.target.value)} className={controlClass} />
+              <input type="text" value={contactName} onChange={(e) => setContactName(e.target.value.toUpperCase())} className={controlClass} />
             </Field>
             <Field label="Phone" required>
               <input type="tel" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className={controlClass} />
@@ -333,7 +333,7 @@ export function AppointmentForm({ initial, initialSlot, initialJob, onSubmit, on
               <input
                 type="text"
                 value={vehicleDescription}
-                onChange={(e) => setVehicleDescription(e.target.value)}
+                onChange={(e) => setVehicleDescription(e.target.value.toUpperCase())}
                 placeholder="e.g. White 2014 Hilux, rego ABC123"
                 className={controlClass}
               />
@@ -345,7 +345,7 @@ export function AppointmentForm({ initial, initialSlot, initialJob, onSubmit, on
           <input
             type="text"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => setTitle(e.target.value.toUpperCase())}
             placeholder="Reason for the visit"
             className={controlClass}
           />

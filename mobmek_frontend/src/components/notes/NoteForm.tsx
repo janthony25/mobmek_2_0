@@ -54,7 +54,7 @@ export function NoteForm({ initial, customerOptions, onSubmit, onCancel }: NoteF
       <Field label="Title" required>
         <input
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => setTitle(e.target.value.toUpperCase())}
           placeholder="e.g. Order more oil filters"
           className={controlClass}
           autoFocus

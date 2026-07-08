@@ -192,7 +192,7 @@ function RuleForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <Field label="Name" required>
-          <input type="text" required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} className={controlClass} />
+          <input type="text" required maxLength={200} value={name} onChange={(e) => setName(e.target.value.toUpperCase())} className={controlClass} />
         </Field>
         <Field label="Priority" required>
           <input
@@ -221,7 +221,7 @@ function RuleForm({
           </Field>
         </div>
         <Field label="Text to match" required>
-          <input type="text" required maxLength={200} value={matchValue} onChange={(e) => setMatchValue(e.target.value)} className={controlClass} />
+          <input type="text" required maxLength={200} value={matchValue} onChange={(e) => setMatchValue(e.target.value.toUpperCase())} className={controlClass} />
         </Field>
         <div className="grid grid-cols-3 gap-4">
           <Field label="Direction">

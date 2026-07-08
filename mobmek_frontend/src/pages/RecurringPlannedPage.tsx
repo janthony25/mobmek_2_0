@@ -414,7 +414,7 @@ function RecurringForm({
       <Field label="Description" required>
         <input
           type="text" required maxLength={500} value={description}
-          onChange={(e) => setDescription(e.target.value)} className={controlClass}
+          onChange={(e) => setDescription(e.target.value.toUpperCase())} className={controlClass}
         />
       </Field>
       <div className="grid grid-cols-2 gap-4">
@@ -471,7 +471,7 @@ function RecurringForm({
         <Field label="Payee / payer">
           <input
             type="text" maxLength={200} value={counterparty}
-            onChange={(e) => setCounterparty(e.target.value)} className={controlClass}
+            onChange={(e) => setCounterparty(e.target.value.toUpperCase())} className={controlClass}
           />
         </Field>
         <Field label="GST treatment">
@@ -555,7 +555,7 @@ function PlannedForm({
       <Field label="Description" required>
         <input
           type="text" required maxLength={500} value={description}
-          onChange={(e) => setDescription(e.target.value)} className={controlClass}
+          onChange={(e) => setDescription(e.target.value.toUpperCase())} className={controlClass}
         />
       </Field>
       <div className="grid grid-cols-2 gap-4">

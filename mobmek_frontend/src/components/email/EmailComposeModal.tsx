@@ -80,7 +80,7 @@ export function EmailComposeModal({ jobId, invoice, onSent, onClose }: EmailComp
             <input
               type="text"
               value={toName}
-              onChange={(e) => setToName(e.target.value)}
+              onChange={(e) => setToName(e.target.value.toUpperCase())}
               className={controlClass}
             />
           </Field>
@@ -93,7 +93,7 @@ export function EmailComposeModal({ jobId, invoice, onSent, onClose }: EmailComp
             type="text"
             required
             value={subject}
-            onChange={(e) => setSubject(e.target.value)}
+            onChange={(e) => setSubject(e.target.value.toUpperCase())}
             className={controlClass}
           />
         </Field>

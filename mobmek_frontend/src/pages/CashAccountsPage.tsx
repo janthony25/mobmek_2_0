@@ -100,7 +100,7 @@ function AccountForm({ initial, onSubmit, onCancel }: CrudFormProps<CashAccount>
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <Field label="Name" required>
-        <input type="text" required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} className={controlClass} />
+        <input type="text" required maxLength={200} value={name} onChange={(e) => setName(e.target.value.toUpperCase())} className={controlClass} />
       </Field>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Type" required>
@@ -111,7 +111,7 @@ function AccountForm({ initial, onSubmit, onCancel }: CrudFormProps<CashAccount>
           </select>
         </Field>
         <Field label="Account number">
-          <input type="text" maxLength={50} value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} className={controlClass} />
+          <input type="text" maxLength={50} value={accountNumber} onChange={(e) => setAccountNumber(e.target.value.toUpperCase())} className={controlClass} />
         </Field>
         <Field label="Opening balance" required>
           <input type="number" step="0.01" required value={openingBalance} onChange={(e) => setOpeningBalance(e.target.value)} className={controlClass} />

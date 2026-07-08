@@ -324,7 +324,7 @@ export function NewJobPage() {
                 type="text"
                 value={title}
                 onChange={(e) => {
-                  setTitle(e.target.value)
+                  setTitle(e.target.value.toUpperCase())
                   setInvalidFields((prev) => {
                     const next = new Set(prev)
                     next.delete('title')
