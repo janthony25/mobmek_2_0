@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/MobmekApi/MobmekApi.csproj" />
+    <Project Path="src/MobmekApi.LegacyImport/MobmekApi.LegacyImport.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/MobmekApi.Tests/MobmekApi.Tests.csproj" />

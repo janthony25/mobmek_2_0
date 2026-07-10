@@ -36,14 +36,14 @@ public class CashFlowAuditService(AppDbContext db) : ICashFlowAuditService
             query = query.Where(a => a.EntityId == filter.EntityId);
         }
 
-        if (filter.From is not null)
+        if (UtcKind.Normalize(filter.From) is { } from)
         {
-            query = query.Where(a => a.CreatedAtUtc >= filter.From);
+            query = query.Where(a => a.CreatedAtUtc >= from);
         }
 
-        if (filter.To is not null)
+        if (UtcKind.Normalize(filter.To) is { } to)
         {
-            query = query.Where(a => a.CreatedAtUtc <= filter.To);
+            query = query.Where(a => a.CreatedAtUtc <= to);
         }
 
         var totalCount = await query.CountAsync(cancellationToken);

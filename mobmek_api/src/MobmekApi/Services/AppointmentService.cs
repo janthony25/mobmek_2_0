@@ -47,12 +47,12 @@ public class AppointmentService(AppDbContext db) : IAppointmentService
 
         // Overlap semantics: anything that intersects [from, to), so appointments
         // spanning a boundary still show on both sides of it.
-        if (from is { } f)
+        if (UtcKind.Normalize(from) is { } f)
         {
             query = query.Where(a => a.EndUtc > f);
         }
 
-        if (to is { } t)
+        if (UtcKind.Normalize(to) is { } t)
         {
             query = query.Where(a => a.StartUtc < t);
         }

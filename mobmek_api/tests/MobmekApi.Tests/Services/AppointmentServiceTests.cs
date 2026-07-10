@@ -229,6 +229,24 @@ public class AppointmentServiceTests
     }
 
     [Fact]
+    public async Task GetAllAsync_UnspecifiedKindRange_IsTreatedAsUtc()
+    {
+        // Bare query-string dates ("?from=2025-01-01") bind with Kind=Unspecified, which
+        // Npgsql rejects for timestamptz — the service must normalize before comparing.
+        await using var db = CreateContext();
+        var service = new AppointmentService(db);
+        await service.CreateAsync(NewCallerBooking(Start.AddDays(-2), Start.AddDays(-2).AddHours(1)));
+        var (inside, _) = await service.CreateAsync(NewCallerBooking(Start.AddHours(3), Start.AddHours(4)));
+
+        var results = await service.GetAllAsync(
+            from: DateTime.SpecifyKind(Start, DateTimeKind.Unspecified),
+            to: DateTime.SpecifyKind(Start.AddDays(1), DateTimeKind.Unspecified));
+
+        Assert.Single(results);
+        Assert.Equal(inside!.Id, results[0].Id);
+    }
+
+    [Fact]
     public async Task GetAllAsync_FiltersByStatusAndMechanic()
     {
         await using var db = CreateContext();

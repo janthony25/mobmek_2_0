@@ -1,2 +1,7 @@
 # Local secrets for docker compose — see .env.example for the template.
 .env
+
+# Legacy MSSQL backup for the one-time data import (real customer data — never commit).
+# See docs/legacy-import-design.md §1.1.
+legacy-backup/
+legacy-import-report-*.md

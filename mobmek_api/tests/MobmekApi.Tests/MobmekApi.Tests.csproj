@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\MobmekApi\MobmekApi.csproj" />
+    <ProjectReference Include="..\..\src\MobmekApi.LegacyImport\MobmekApi.LegacyImport.csproj" />
   </ItemGroup>
 
 </Project>

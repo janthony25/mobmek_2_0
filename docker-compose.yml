@@ -50,6 +50,32 @@ services:
     ports:
       - "8080:8080"
 
+  # Temporary migration source for the one-time legacy data import
+  # (docs/legacy-import-design.md). Only starts with: docker compose --profile legacy up -d
+  # Restore the .bak once the container is healthy (adjust logical names from FILELISTONLY):
+  #   sqlcmd() { docker exec mobmek_legacy_mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C "$@"; }
+  #   sqlcmd -Q "RESTORE FILELISTONLY FROM DISK='/var/opt/mssql/backup/<file>.bak'"
+  #   sqlcmd -Q "RESTORE DATABASE MobileMekaniko FROM DISK='/var/opt/mssql/backup/<file>.bak'
+  #              WITH MOVE '<data_logical>' TO '/var/opt/mssql/data/MobileMekaniko.mdf',
+  #                   MOVE '<log_logical>'  TO '/var/opt/mssql/data/MobileMekaniko_log.ldf'"
+  # Remove this service (and the legacy-backup/ folder) after migration sign-off.
+  legacy-mssql:
+    # Needs SQL Server 2022 (the .bak is database version 957; sql-edge tops out at 931).
+    # amd64 image on Apple Silicon requires Rosetta emulation — with Colima:
+    # `rosetta: true` in ~/.colima/default/colima.yaml (crashes under plain qemu binfmt).
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: mobmek_legacy_mssql
+    platform: linux/amd64
+    profiles: ["legacy"]
+    environment:
+      ACCEPT_EULA: "Y"
+      # Dev-only password for a throwaway local container holding the migration copy.
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-LegacyImport!2026}
+    ports:
+      - "1433:1433"
+    volumes:
+      - ./legacy-backup:/var/opt/mssql/backup
+
   frontend:
     build:
       context: ./mobmek_frontend
