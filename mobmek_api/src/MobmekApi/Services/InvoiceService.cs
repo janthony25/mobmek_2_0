@@ -24,7 +24,11 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
         return invoices.Select(i => ToDto(i, latestEmailByInvoiceId.GetValueOrDefault(i.Id))).ToList();
     }
 
-    public async Task<PagedResult<InvoiceListItemDto>> GetPagedAsync(string documentType, int page, int pageSize, string? search, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<InvoiceListItemDto>> GetPagedAsync(
+        string documentType, int page, int pageSize, string? search,
+        string? sortBy = null, string? status = null, bool? isPaid = null,
+        DateOnly? dateFrom = null, DateOnly? dateTo = null,
+        CancellationToken cancellationToken = default)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
@@ -33,34 +37,63 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim();
-            var lowerTerm = term.ToLower();
-            // A search term that parses as a date matches the invoice's issue date
-            // (CreatedAtUtc) exactly, alongside the usual name/rego substring match.
-            // Npgsql only accepts UTC-kinded DateTimes against "timestamp with time zone" columns.
-            var searchDate = DateOnly.TryParse(term, out var parsedDate)
-                ? DateTime.SpecifyKind(parsedDate.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc)
-                : (DateTime?)null;
-
+            var lowerTerm = search.Trim().ToLower();
             query = query.Where(i =>
                 (i.Job != null && i.Job.Customer != null &&
                     (i.Job.Customer.FirstName + " " + i.Job.Customer.LastName).ToLower().Contains(lowerTerm)) ||
-                (i.Job != null && i.Job.Car != null && i.Job.Car.Rego.ToLower().Contains(lowerTerm)) ||
-                (searchDate != null && i.CreatedAtUtc.Date == searchDate));
+                (i.Job != null && i.Job.Car != null && i.Job.Car.Rego.ToLower().Contains(lowerTerm)));
         }
 
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            query = query.Where(i => i.Status == status);
+        }
+
+        if (isPaid is { } isPaidValue)
+        {
+            query = query.Where(i => i.IsPaid == isPaidValue);
+        }
+
+        query = ApplyDateRange(query, dateFrom, dateTo);
+
         var totalCount = await query.CountAsync(cancellationToken);
+
+        query = sortBy switch
+        {
+            "oldest" => query.OrderBy(i => i.CreatedAtUtc),
+            "amountDesc" => query.OrderByDescending(i => i.TotalAmount),
+            "amountAsc" => query.OrderBy(i => i.TotalAmount),
+            _ => query.OrderByDescending(i => i.CreatedAtUtc),
+        };
 
         var items = await query
             .Include(i => i.Job).ThenInclude(j => j!.Customer)
             .Include(i => i.Job).ThenInclude(j => j!.Car).ThenInclude(c => c!.CarMake)
             .Include(i => i.Job).ThenInclude(j => j!.Car).ThenInclude(c => c!.CarModel)
-            .OrderByDescending(i => i.CreatedAtUtc)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
         return new PagedResult<InvoiceListItemDto>(items.Select(ToListItemDto).ToList(), totalCount, page, pageSize);
+    }
+
+    // Npgsql only accepts UTC-kinded DateTimes against "timestamp with time zone" columns, so
+    // the inclusive DateOnly bounds are converted to a [from 00:00, to+1day 00:00) UTC range.
+    private static IQueryable<Invoice> ApplyDateRange(IQueryable<Invoice> query, DateOnly? dateFrom, DateOnly? dateTo)
+    {
+        if (dateFrom is { } from)
+        {
+            var fromUtc = DateTime.SpecifyKind(from.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+            query = query.Where(i => i.CreatedAtUtc >= fromUtc);
+        }
+
+        if (dateTo is { } to)
+        {
+            var toUtcExclusive = DateTime.SpecifyKind(to.AddDays(1).ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+            query = query.Where(i => i.CreatedAtUtc < toUtcExclusive);
+        }
+
+        return query;
     }
 
     public async Task<InvoiceDto?> GetByIdAsync(Guid jobId, Guid id, CancellationToken cancellationToken = default)

@@ -12,7 +12,7 @@ public class CarService(AppDbContext db) : ICarService
     private static readonly Expression<Func<Car, CarDto>> ToDto =
         c => new CarDto(
             c.Id, c.CustomerId, c.CarMakeId, c.CarMake!.Name, c.CarModelId, c.CarModel!.Name,
-            c.Year, c.Rego, c.Vin, c.Color, c.EngineType, c.CreatedAtUtc, c.UpdatedAtUtc);
+            c.Year, c.Rego, c.Vin, c.Color, c.EngineType, c.CreatedAtUtc, c.UpdatedAtUtc, c.UpdatedByName);
 
     public async Task<IReadOnlyList<CarDto>> GetAllAsync(Guid? customerId = null, CancellationToken cancellationToken = default)
     {

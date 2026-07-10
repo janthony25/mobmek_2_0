@@ -4,9 +4,9 @@ import { ApiError } from '@/api/client'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { StateMessage } from '@/components/ui/StateMessage'
+import { UpdatedByTag } from '@/components/ui/UpdatedByTag'
 import { useToast } from '@/components/ui/toast'
 import { useAsync } from '@/hooks/useAsync'
-import { date } from '@/lib/format'
 
 const inputClass =
   'w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500'
@@ -131,9 +131,7 @@ export function EmailSettingsPage() {
           <Button onClick={save} disabled={saving}>
             {saving ? 'Saving…' : 'Save'}
           </Button>
-          {data?.updatedAtUtc && (
-            <span className="text-xs text-slate-400">Last updated {date(data.updatedAtUtc)}</span>
-          )}
+          <UpdatedByTag updatedAtUtc={data?.updatedAtUtc ?? null} updatedByName={data?.updatedByName ?? null} />
         </div>
       </div>
 

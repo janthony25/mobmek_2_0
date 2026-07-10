@@ -16,7 +16,8 @@ public record CarDto(
     string? Color,
     string? EngineType,
     DateTime CreatedAtUtc,
-    DateTime? UpdatedAtUtc);
+    DateTime? UpdatedAtUtc,
+    string? UpdatedByName);
 
 /// <summary>
 /// Payload for creating a car. <c>CustomerId</c> must exist, and <c>CarModelId</c> must

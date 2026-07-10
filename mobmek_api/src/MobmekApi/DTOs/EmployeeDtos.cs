@@ -15,7 +15,8 @@ public record EmployeeDto(
     string EmailAddress,
     string PhysicalAddress,
     DateTime CreatedAtUtc,
-    DateTime? UpdatedAtUtc);
+    DateTime? UpdatedAtUtc,
+    string? UpdatedByName);
 
 /// <summary>Payload for creating an employee. <c>TitleId</c> and <c>EmploymentTypeId</c> must reference existing records.</summary>
 public record CreateEmployeeRequest(

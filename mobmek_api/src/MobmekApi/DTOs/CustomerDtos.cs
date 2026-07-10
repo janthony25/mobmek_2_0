@@ -12,7 +12,8 @@ public record CustomerDto(
     string? PhysicalAddress,
     string? Notes,
     DateTime CreatedAtUtc,
-    DateTime? UpdatedAtUtc);
+    DateTime? UpdatedAtUtc,
+    string? UpdatedByName);
 
 /// <summary>A customer's car as shown on the customer list, with its active-reminder info.</summary>
 public record CustomerCarSummaryDto(
@@ -37,6 +38,7 @@ public record CustomerListItemDto(
     string? Notes,
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc,
+    string? UpdatedByName,
     IReadOnlyList<CustomerCarSummaryDto> Cars,
     int ActiveNoteCount,
     DateOnly? NextNoteDueDate);

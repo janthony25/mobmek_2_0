@@ -1,11 +1,22 @@
 import { apiDelete, apiGet, apiPost, apiPut } from './client'
-import type { CreateJobRequest, Job, PagedResult, UpdateJobRequest } from '@/types'
+import type { CreateJobRequest, Job, JobStatus, PagedResult, UpdateJobRequest } from '@/types'
+
+export interface JobPagedFilters {
+  sortBy?: 'newest' | 'oldest'
+  status?: JobStatus
+  dateFrom?: string
+  dateTo?: string
+}
 
 export const getJobs = (customerId?: string) =>
   apiGet<Job[]>(`/jobs${customerId ? `?customerId=${encodeURIComponent(customerId)}` : ''}`)
-export const getJobsPaged = (page: number, pageSize: number, search?: string) => {
+export const getJobsPaged = (page: number, pageSize: number, search?: string, filters?: JobPagedFilters) => {
   const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
   if (search) params.set('search', search)
+  if (filters?.sortBy) params.set('sortBy', filters.sortBy)
+  if (filters?.status !== undefined) params.set('status', String(filters.status))
+  if (filters?.dateFrom) params.set('dateFrom', filters.dateFrom)
+  if (filters?.dateTo) params.set('dateTo', filters.dateTo)
   return apiGet<PagedResult<Job>>(`/jobs/paged?${params}`)
 }
 export const getJob = (id: string) => apiGet<Job>(`/jobs/${id}`)

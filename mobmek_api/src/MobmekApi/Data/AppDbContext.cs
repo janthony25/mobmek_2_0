@@ -1,11 +1,13 @@
+using System.Security.Claims;
 using MobmekApi.Entities;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace MobmekApi.Data;
 
-public class AppDbContext(DbContextOptions<AppDbContext> options)
+public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAccessor? httpContextAccessor = null)
     : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options)
 {
     public DbSet<Product> Products => Set<Product>();
@@ -79,6 +81,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<OutboundEmail> OutboundEmails => Set<OutboundEmail>();
 
     public DbSet<PasswordChangeCode> PasswordChangeCodes => Set<PasswordChangeCode>();
+
+    public DbSet<EmailConfirmationCode> EmailConfirmationCodes => Set<EmailConfirmationCode>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -690,18 +694,37 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             entity.Property(c => c.CodeHash).IsRequired().HasMaxLength(64);
             entity.HasIndex(c => c.UserId);
         });
+
+        modelBuilder.Entity<EmailConfirmationCode>(entity =>
+        {
+            entity.Property(c => c.CodeHash).IsRequired().HasMaxLength(64);
+            entity.HasIndex(c => c.UserId);
+        });
     }
 
     /// <summary>
-    /// Stamps audit timestamps automatically on save so callers never have to.
+    /// Stamps audit timestamps (and who made the change, if there's a signed-in request) automatically
+    /// on save so callers never have to.
     /// </summary>
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
+        var user = httpContextAccessor?.HttpContext?.User;
+        var userIdClaim = user?.FindFirstValue(ClaimTypes.NameIdentifier);
+        var userId = userIdClaim is not null ? Guid.Parse(userIdClaim) : (Guid?)null;
+        var userName = user?.FindFirstValue(Services.AppUserClaimsPrincipalFactory.FullNameClaimType);
+
         foreach (var entry in ChangeTracker.Entries<BaseEntity>())
         {
             if (entry.State == EntityState.Modified)
             {
                 entry.Entity.UpdatedAtUtc = DateTime.UtcNow;
+                // No signed-in request (seeders, background jobs like the recurring-transaction
+                // auto-poster) leaves these null rather than attributing the change to nobody.
+                if (userId is not null)
+                {
+                    entry.Entity.UpdatedByUserId = userId;
+                    entry.Entity.UpdatedByName = userName;
+                }
             }
         }
 

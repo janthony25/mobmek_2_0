@@ -12,15 +12,30 @@ import type {
 
 const base = (jobId: string) => `/jobs/${encodeURIComponent(jobId)}/invoices`
 
+export interface InvoicePagedFilters {
+  sortBy?: 'newest' | 'oldest' | 'amountDesc' | 'amountAsc'
+  /** "Active" | "Accepted" (quotations only) | "Rejected". */
+  status?: string
+  isPaid?: boolean
+  dateFrom?: string
+  dateTo?: string
+}
+
 /** One page of invoices or quotations across all jobs, for the global list pages. */
 export const getInvoicesPaged = (
   documentType: 'Invoice' | 'Quotation',
   page: number,
   pageSize: number,
   search: string,
+  filters?: InvoicePagedFilters,
 ) => {
   const params = new URLSearchParams({ documentType, page: String(page), pageSize: String(pageSize) })
   if (search) params.set('search', search)
+  if (filters?.sortBy) params.set('sortBy', filters.sortBy)
+  if (filters?.status) params.set('status', filters.status)
+  if (filters?.isPaid !== undefined) params.set('isPaid', String(filters.isPaid))
+  if (filters?.dateFrom) params.set('dateFrom', filters.dateFrom)
+  if (filters?.dateTo) params.set('dateTo', filters.dateTo)
   return apiGet<PagedResult<InvoiceListItem>>(`/invoices/paged?${params.toString()}`)
 }
 

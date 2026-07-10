@@ -18,6 +18,12 @@ const timeFmt = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2
 export const time = (value: string | null | undefined): string =>
   value == null ? '—' : timeFmt.format(new Date(value))
 
+const dateTimeFmt = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+
+/** Formats an ISO timestamp as a short local date + time, or a dash when absent. */
+export const dateTime = (value: string | null | undefined): string =>
+  value == null ? '—' : dateTimeFmt.format(new Date(value))
+
 /** Formats a fraction (0.15) as a percentage string ("15%"). */
 export const percent = (fraction: number): string =>
   `${(fraction * 100).toLocaleString(undefined, { maximumFractionDigits: 2 })}%`

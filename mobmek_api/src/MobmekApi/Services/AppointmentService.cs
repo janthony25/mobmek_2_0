@@ -32,7 +32,8 @@ public class AppointmentService(AppDbContext db) : IAppointmentService
             a.Mechanic != null ? a.Mechanic.FirstName + " " + a.Mechanic.LastName : null,
             a.GoogleEventId,
             a.CreatedAtUtc,
-            a.UpdatedAtUtc);
+            a.UpdatedAtUtc,
+            a.UpdatedByName);
 
     public async Task<IReadOnlyList<AppointmentDto>> GetAllAsync(
         DateTime? from = null,

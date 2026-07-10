@@ -27,7 +27,8 @@ public record AppointmentDto(
     string? MechanicName,
     string? GoogleEventId,
     DateTime CreatedAtUtc,
-    DateTime? UpdatedAtUtc);
+    DateTime? UpdatedAtUtc,
+    string? UpdatedByName);
 
 /// <summary>
 /// Payload for creating an appointment. Either <c>CustomerId</c> or

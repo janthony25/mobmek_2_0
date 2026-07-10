@@ -14,6 +14,7 @@ import { Modal } from '@/components/ui/Modal'
 import { PaginatedList } from '@/components/ui/PaginatedList'
 import { Spinner } from '@/components/ui/Spinner'
 import { StateMessage } from '@/components/ui/StateMessage'
+import { UpdatedByTag } from '@/components/ui/UpdatedByTag'
 import { useToast } from '@/components/ui/toast'
 import {
   BellIcon,
@@ -247,6 +248,11 @@ export function CustomerDetailPage() {
               {customer.firstName} {customer.lastName}
             </h1>
             <p className="text-sm text-slate-500">Customer since {date(customer.createdAtUtc)}</p>
+            <UpdatedByTag
+              className="mt-0.5 block"
+              updatedAtUtc={customer.updatedAtUtc}
+              updatedByName={customer.updatedByName}
+            />
           </div>
         </div>
         <div className="flex gap-2">

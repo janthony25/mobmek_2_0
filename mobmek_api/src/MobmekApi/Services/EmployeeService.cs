@@ -16,7 +16,7 @@ public class EmployeeService(AppDbContext db) : IEmployeeService
             e.TitleId, e.Title!.Name,
             e.EmploymentTypeId, e.EmploymentType!.Name,
             e.ContactNumber, e.EmailAddress, e.PhysicalAddress,
-            e.CreatedAtUtc, e.UpdatedAtUtc);
+            e.CreatedAtUtc, e.UpdatedAtUtc, e.UpdatedByName);
 
     public async Task<IReadOnlyList<EmployeeDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {

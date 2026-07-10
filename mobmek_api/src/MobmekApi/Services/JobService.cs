@@ -31,7 +31,8 @@ public class JobService(AppDbContext db) : IJobService
                 .Select(m => new JobMechanicDto(m.EmployeeId, m.Employee!.FirstName + " " + m.Employee.LastName))
                 .ToList(),
             j.CreatedAtUtc,
-            j.UpdatedAtUtc);
+            j.UpdatedAtUtc,
+            j.UpdatedByName);
 
     public async Task<IReadOnlyList<JobDto>> GetAllAsync(Guid? customerId = null, CancellationToken cancellationToken = default)
     {
@@ -48,7 +49,10 @@ public class JobService(AppDbContext db) : IJobService
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<PagedResult<JobDto>> GetPagedAsync(int page, int pageSize, string? search, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<JobDto>> GetPagedAsync(
+        int page, int pageSize, string? search,
+        string? sortBy = null, JobStatus? status = null, DateOnly? dateFrom = null, DateOnly? dateTo = null,
+        CancellationToken cancellationToken = default)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
@@ -68,16 +72,43 @@ public class JobService(AppDbContext db) : IJobService
                 j.Car.Rego.ToLower().Contains(term));
         }
 
+        if (status is { } statusValue)
+        {
+            query = query.Where(j => j.Status == statusValue);
+        }
+
+        query = ApplyDateRange(query, dateFrom, dateTo);
+
         var totalCount = await query.CountAsync(cancellationToken);
 
+        query = sortBy == "oldest" ? query.OrderBy(j => j.CreatedAtUtc) : query.OrderByDescending(j => j.CreatedAtUtc);
+
         var items = await query
-            .OrderByDescending(j => j.CreatedAtUtc)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(ToDto)
             .ToListAsync(cancellationToken);
 
         return new PagedResult<JobDto>(items, totalCount, page, pageSize);
+    }
+
+    // Npgsql only accepts UTC-kinded DateTimes against "timestamp with time zone" columns, so
+    // the inclusive DateOnly bounds are converted to a [from 00:00, to+1day 00:00) UTC range.
+    private static IQueryable<Job> ApplyDateRange(IQueryable<Job> query, DateOnly? dateFrom, DateOnly? dateTo)
+    {
+        if (dateFrom is { } from)
+        {
+            var fromUtc = DateTime.SpecifyKind(from.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+            query = query.Where(j => j.CreatedAtUtc >= fromUtc);
+        }
+
+        if (dateTo is { } to)
+        {
+            var toUtcExclusive = DateTime.SpecifyKind(to.AddDays(1).ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+            query = query.Where(j => j.CreatedAtUtc < toUtcExclusive);
+        }
+
+        return query;
     }
 
     public async Task<JobDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)

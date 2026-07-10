@@ -19,9 +19,10 @@ public class InvoicesController(IInvoiceService invoiceService, IOutboundEmailSe
     }
 
     /// <summary>
-    /// Returns one page of invoices or quotations across all jobs (newest first), for the
-    /// global Invoices/Quotations pages. <c>documentType</c> is "Invoice" or "Quotation";
-    /// <c>search</c> matches customer name, car rego, or an exact issue date.
+    /// Returns one page of invoices or quotations across all jobs, for the global
+    /// Invoices/Quotations pages. <c>documentType</c> is "Invoice" or "Quotation"; <c>search</c>
+    /// matches customer name or car rego. Optionally sorted/filtered by <c>sortBy</c>, <c>status</c>,
+    /// <c>isPaid</c>, and <c>dateFrom</c>/<c>dateTo</c> (issue date range).
     /// </summary>
     [HttpGet("/api/invoices/paged")]
     [ProducesResponseType(typeof(PagedResult<InvoiceListItemDto>), StatusCodes.Status200OK)]
@@ -30,9 +31,15 @@ public class InvoicesController(IInvoiceService invoiceService, IOutboundEmailSe
         [FromQuery] string documentType = "Invoice",
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
-        [FromQuery] string? search = null)
+        [FromQuery] string? search = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? status = null,
+        [FromQuery] bool? isPaid = null,
+        [FromQuery] DateOnly? dateFrom = null,
+        [FromQuery] DateOnly? dateTo = null)
     {
-        var result = await invoiceService.GetPagedAsync(documentType, page, pageSize, search, cancellationToken);
+        var result = await invoiceService.GetPagedAsync(
+            documentType, page, pageSize, search, sortBy, status, isPaid, dateFrom, dateTo, cancellationToken);
         return Ok(result);
     }
 

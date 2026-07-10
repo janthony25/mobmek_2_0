@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/Button'
 import { DropdownMenu } from '@/components/ui/DropdownMenu'
@@ -8,8 +8,6 @@ import { Pagination } from '@/components/ui/Pagination'
 import { Spinner } from '@/components/ui/Spinner'
 import { StateMessage } from '@/components/ui/StateMessage'
 import { useToast } from '@/components/ui/toast'
-import { CalendarIcon } from '@/components/ui/icons'
-import { controlClass } from '@/components/forms/controls'
 import { useAsync } from '@/hooks/useAsync'
 import { ResourceForm } from './ResourceForm'
 import type { Column, FieldSchema } from './types'
@@ -37,8 +35,6 @@ interface CrudSectionProps<T> {
   load?: () => Promise<T[]>
   /** Server-side mode: fetches one page at a time and shows a search box. Replaces `load`. */
   loadPaged?: (query: { page: number; pageSize: number; search: string }) => Promise<PagedResult<T>>
-  /** Adds a calendar-icon button beside the search box that picks an exact date into it. */
-  dateSearchButton?: boolean
   /** Rows per page. With `load`, slices client-side; with `loadPaged`, sent to the server. Omit for no pagination. */
   pageSize?: number
   /** Rows per page for the cards view (defaults to `pageSize`). */
@@ -89,7 +85,6 @@ export function CrudSection<T>({
   collapsible = false,
   load,
   loadPaged,
-  dateSearchButton,
   pageSize,
   cardsPageSize,
   reloadKey,
@@ -263,7 +258,6 @@ export function CrudSection<T>({
                   <Spinner className="absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                 )}
               </div>
-              {dateSearchButton && <DateSearchButton onPick={setSearch} />}
               {search !== '' && (
                 <button
                   type="button"
@@ -437,46 +431,5 @@ export function CrudSection<T>({
         onCancel={() => setDeleting(null)}
       />
     </section>
-  )
-}
-
-/** Calendar-icon button beside a search box that picks an exact date into it, so the user doesn't have to type one. */
-function DateSearchButton({ onPick }: { onPick: (value: string) => void }) {
-  const [open, setOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const onDocClick = (e: MouseEvent) => {
-      if (!containerRef.current?.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onDocClick)
-    return () => document.removeEventListener('mousedown', onDocClick)
-  }, [open])
-
-  return (
-    <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-label="Search by date"
-        className="rounded-md border border-slate-300 bg-white p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-      >
-        <CalendarIcon className="h-4 w-4" />
-      </button>
-      {open && (
-        <div className="absolute right-0 top-full z-10 mt-2 rounded-md border border-slate-200 bg-white p-2 shadow-lg">
-          <input
-            type="date"
-            autoFocus
-            onChange={(e) => {
-              onPick(e.target.value)
-              setOpen(false)
-            }}
-            className={controlClass}
-          />
-        </div>
-      )}
-    </div>
   )
 }

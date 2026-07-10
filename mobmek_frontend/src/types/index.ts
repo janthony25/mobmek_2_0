@@ -25,6 +25,7 @@ export interface Customer {
   notes: string | null
   createdAtUtc: string
   updatedAtUtc: string | null
+  updatedByName: string | null
 }
 
 export interface CustomerRequest {
@@ -71,6 +72,7 @@ export interface Car {
   engineType: string | null
   createdAtUtc: string
   updatedAtUtc: string | null
+  updatedByName: string | null
 }
 
 export interface CreateCarRequest {
@@ -170,6 +172,7 @@ export interface Job {
   mechanics: JobMechanic[]
   createdAtUtc: string
   updatedAtUtc: string | null
+  updatedByName: string | null
 }
 
 export interface CreateJobRequest {
@@ -233,6 +236,7 @@ export interface Appointment {
   googleEventId: string | null
   createdAtUtc: string
   updatedAtUtc: string | null
+  updatedByName: string | null
 }
 
 export interface CreateAppointmentRequest {
@@ -436,6 +440,7 @@ export interface GstSetting {
   rate: number
   createdAtUtc: string
   updatedAtUtc: string | null
+  updatedByName: string | null
 }
 
 export interface UpdateGstSettingRequest {
@@ -459,6 +464,7 @@ export interface BusinessDetails {
   logoUrl: string | null
   createdAtUtc: string
   updatedAtUtc: string | null
+  updatedByName: string | null
 }
 
 export interface UpdateBusinessDetailsRequest {
@@ -506,6 +512,7 @@ export interface Employee {
   physicalAddress: string
   createdAtUtc: string
   updatedAtUtc: string | null
+  updatedByName: string | null
 }
 
 export interface EmployeeRequest {
@@ -1127,6 +1134,45 @@ export interface CurrentUser {
   roles: string[]
 }
 
+// --- Account / role management (Admin only) -------------------------------------
+
+/** The only two roles seeded today (see AdminSeeder) — kept in sync manually. */
+export type AccountRole = 'Admin' | 'Employee'
+
+export interface AccountListItem {
+  userId: string
+  employeeId: string
+  firstName: string
+  lastName: string
+  email: string
+  roles: string[]
+  isActive: boolean
+  /** Set by an Admin — blocks sign-in immediately; the account is hard-deleted 30 days after this. */
+  deactivatedAtUtc: string | null
+}
+
+export interface CreateAccountRequest {
+  employeeId: string
+  email: string
+  role: AccountRole
+}
+
+export interface UpdateAccountRoleRequest {
+  role: AccountRole
+}
+
+export interface ConfirmAccountRequest {
+  token: string
+  newPassword: string
+}
+
+/** Shown on the confirm-account page before the new hire sets a password. */
+export interface AccountInvitePreview {
+  email: string
+  firstName: string
+  lastName: string
+}
+
 export interface LoginRequest {
   email: string
   password: string
@@ -1144,6 +1190,7 @@ export interface EmailSettings {
   resendConfigured: boolean
   createdAtUtc: string
   updatedAtUtc: string | null
+  updatedByName: string | null
 }
 
 export interface UpdateEmailSettingsRequest {

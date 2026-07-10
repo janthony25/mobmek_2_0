@@ -8,12 +8,19 @@ public interface IInvoiceService
     Task<IReadOnlyList<InvoiceDto>> GetAllAsync(Guid jobId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Returns one page of invoices or quotations (newest first) across all jobs, filtered by
+    /// Returns one page of invoices or quotations across all jobs, filtered by
     /// <paramref name="documentType"/> ("Invoice" or "Quotation"). <paramref name="search"/>
-    /// matches the customer name or car rego (case-insensitively), or an exact issue date when
-    /// it parses as one.
+    /// matches the customer name or car rego, case-insensitively. <paramref name="sortBy"/> is
+    /// "newest" (default), "oldest", "amountDesc", or "amountAsc". <paramref name="status"/>
+    /// filters to "Active", "Accepted" (quotations only), or "Rejected". <paramref name="isPaid"/>
+    /// filters invoices by payment state. <paramref name="dateFrom"/>/<paramref name="dateTo"/>
+    /// filter by the issue date (inclusive).
     /// </summary>
-    Task<PagedResult<InvoiceListItemDto>> GetPagedAsync(string documentType, int page, int pageSize, string? search, CancellationToken cancellationToken = default);
+    Task<PagedResult<InvoiceListItemDto>> GetPagedAsync(
+        string documentType, int page, int pageSize, string? search,
+        string? sortBy = null, string? status = null, bool? isPaid = null,
+        DateOnly? dateFrom = null, DateOnly? dateTo = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>Returns one invoice, only if it belongs to <paramref name="jobId"/>.</summary>
     Task<InvoiceDto?> GetByIdAsync(Guid jobId, Guid id, CancellationToken cancellationToken = default);

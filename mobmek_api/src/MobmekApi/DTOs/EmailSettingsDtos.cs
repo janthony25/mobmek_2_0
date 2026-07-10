@@ -12,7 +12,8 @@ public record EmailSettingsDto(
     bool BccSelf,
     bool ResendConfigured,
     DateTime CreatedAtUtc,
-    DateTime? UpdatedAtUtc);
+    DateTime? UpdatedAtUtc,
+    string? UpdatedByName);
 
 public record UpdateEmailSettingsRequest(
     [Required, MaxLength(200)] string FromName,

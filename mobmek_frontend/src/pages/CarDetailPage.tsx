@@ -10,6 +10,7 @@ import { Modal } from '@/components/ui/Modal'
 import { PaginatedList } from '@/components/ui/PaginatedList'
 import { Spinner } from '@/components/ui/Spinner'
 import { StateMessage } from '@/components/ui/StateMessage'
+import { UpdatedByTag } from '@/components/ui/UpdatedByTag'
 import { useToast } from '@/components/ui/toast'
 import { CarIcon, PencilIcon, PlusIcon, TrashIcon } from '@/components/ui/icons'
 import { CarForm } from '@/components/forms/CarForm'
@@ -72,6 +73,7 @@ export function CarDetailPage() {
               {car.year} {car.carMakeName} {car.carModelName}
             </h1>
             <p className="text-sm text-slate-500">{subtitle}</p>
+            <UpdatedByTag className="mt-0.5 block" updatedAtUtc={car.updatedAtUtc} updatedByName={car.updatedByName} />
           </div>
         </div>
         <div className="flex flex-wrap gap-2">

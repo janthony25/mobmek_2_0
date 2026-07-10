@@ -24,7 +24,8 @@ public record JobDto(
     decimal TotalJobProfit,
     IReadOnlyList<JobMechanicDto> Mechanics,
     DateTime CreatedAtUtc,
-    DateTime? UpdatedAtUtc);
+    DateTime? UpdatedAtUtc,
+    string? UpdatedByName);
 
 /// <summary>Payload for creating a job. <c>CarId</c> must belong to <c>CustomerId</c>.</summary>
 public record CreateJobRequest(

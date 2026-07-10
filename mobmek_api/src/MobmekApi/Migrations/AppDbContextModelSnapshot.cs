@@ -165,6 +165,9 @@ namespace MobmekApi.Migrations
                         .IsConcurrencyToken()
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("DeactivatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
@@ -279,6 +282,12 @@ namespace MobmekApi.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("VehicleDescription")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
@@ -351,6 +360,12 @@ namespace MobmekApi.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Website")
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
@@ -394,6 +409,12 @@ namespace MobmekApi.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Vin")
                         .HasMaxLength(17)
                         .HasColumnType("character varying(17)");
@@ -429,6 +450,12 @@ namespace MobmekApi.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Name")
@@ -456,6 +483,12 @@ namespace MobmekApi.Migrations
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -500,6 +533,12 @@ namespace MobmekApi.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.ToTable("CashAccounts");
@@ -539,6 +578,12 @@ namespace MobmekApi.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedAtUtc");
@@ -577,6 +622,12 @@ namespace MobmekApi.Migrations
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -651,6 +702,12 @@ namespace MobmekApi.Migrations
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -733,6 +790,12 @@ namespace MobmekApi.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("SetCategoryId");
@@ -781,9 +844,54 @@ namespace MobmekApi.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.ToTable("Customers");
+                });
+
+            modelBuilder.Entity("MobmekApi.Entities.EmailConfirmationCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("ConsumedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("EmailConfirmationCodes");
                 });
 
             modelBuilder.Entity("MobmekApi.Entities.EmailSettings", b =>
@@ -814,6 +922,12 @@ namespace MobmekApi.Migrations
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -863,6 +977,12 @@ namespace MobmekApi.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("EmploymentTypeId");
@@ -889,6 +1009,12 @@ namespace MobmekApi.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Name")
@@ -914,6 +1040,12 @@ namespace MobmekApi.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Name")
@@ -936,6 +1068,12 @@ namespace MobmekApi.Migrations
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -1026,6 +1164,12 @@ namespace MobmekApi.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("JobId");
@@ -1061,6 +1205,12 @@ namespace MobmekApi.Migrations
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -1122,6 +1272,12 @@ namespace MobmekApi.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CarId");
@@ -1177,6 +1333,12 @@ namespace MobmekApi.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("JobId");
@@ -1226,6 +1388,12 @@ namespace MobmekApi.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.ToTable("JobServices");
@@ -1257,6 +1425,12 @@ namespace MobmekApi.Migrations
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -1293,6 +1467,12 @@ namespace MobmekApi.Migrations
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -1331,6 +1511,12 @@ namespace MobmekApi.Migrations
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -1380,6 +1566,12 @@ namespace MobmekApi.Migrations
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -1455,6 +1647,12 @@ namespace MobmekApi.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CustomerId");
@@ -1488,6 +1686,12 @@ namespace MobmekApi.Migrations
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
@@ -1529,6 +1733,12 @@ namespace MobmekApi.Migrations
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -1583,6 +1793,12 @@ namespace MobmekApi.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AccountId");
@@ -1618,6 +1834,12 @@ namespace MobmekApi.Migrations
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -1684,6 +1906,12 @@ namespace MobmekApi.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AccountId");
@@ -1729,6 +1957,12 @@ namespace MobmekApi.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CarId");
@@ -1765,6 +1999,12 @@ namespace MobmekApi.Migrations
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -1806,6 +2046,12 @@ namespace MobmekApi.Migrations
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -1854,6 +2100,12 @@ namespace MobmekApi.Migrations
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 

@@ -16,7 +16,8 @@ public record BusinessDetailsDto(
     /// <summary>URL to fetch the uploaded logo from (<c>GET /api/business-details/logo</c>), or null when none is set.</summary>
     string? LogoUrl,
     DateTime CreatedAtUtc,
-    DateTime? UpdatedAtUtc);
+    DateTime? UpdatedAtUtc,
+    string? UpdatedByName);
 
 /// <summary>Payload for updating the workshop's letterhead details. The logo is set separately via the upload endpoint.</summary>
 public record UpdateBusinessDetailsRequest(

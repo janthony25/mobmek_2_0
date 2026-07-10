@@ -4,6 +4,8 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { RequireAuth } from '@/components/auth/RequireAuth'
 import { RequireAdmin } from '@/components/auth/RequireAdmin'
 import { LoginPage } from '@/pages/LoginPage'
+import { ConfirmAccountPage } from '@/pages/ConfirmAccountPage'
+import { AccountsPage } from '@/pages/AccountsPage'
 import { CustomersPage } from '@/pages/CustomersPage'
 import { CustomerDetailPage } from '@/pages/CustomerDetailPage'
 import { CarDetailPage } from '@/pages/CarDetailPage'
@@ -40,6 +42,7 @@ function App() {
   return (
     <Routes>
       <Route path="login" element={<LoginPage />} />
+      <Route path="confirm-account" element={<ConfirmAccountPage />} />
 
       <Route element={<RequireAuth />}>
         {/* Outside AppLayout: a bare, print-friendly page with no sidebar/notes panel. */}
@@ -65,6 +68,7 @@ function App() {
 
           {/* Admin-only: HR, settings, and financials — mirrors [Authorize(Roles = "Admin")] on the API. */}
           <Route element={<RequireAdmin />}>
+            <Route path="accounts" element={<AccountsPage />} />
             <Route path="employees" element={<EmployeesPage />} />
             <Route path="employee-titles" element={<EmployeeTitlesPage />} />
             <Route path="employment-types" element={<EmploymentTypesPage />} />

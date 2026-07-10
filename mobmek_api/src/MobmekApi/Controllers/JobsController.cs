@@ -1,4 +1,5 @@
 using MobmekApi.DTOs;
+using MobmekApi.Entities;
 using MobmekApi.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,16 +19,20 @@ public class JobsController(IJobService jobService) : ControllerBase
         return Ok(jobs);
     }
 
-    /// <summary>Returns one page of jobs (newest first), optionally filtered by <c>?search=</c>.</summary>
+    /// <summary>Returns one page of jobs, optionally filtered/sorted.</summary>
     [HttpGet("paged")]
     [ProducesResponseType(typeof(PagedResult<JobDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResult<JobDto>>> GetPaged(
         CancellationToken cancellationToken,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 15,
-        [FromQuery] string? search = null)
+        [FromQuery] string? search = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] JobStatus? status = null,
+        [FromQuery] DateOnly? dateFrom = null,
+        [FromQuery] DateOnly? dateTo = null)
     {
-        var result = await jobService.GetPagedAsync(page, pageSize, search, cancellationToken);
+        var result = await jobService.GetPagedAsync(page, pageSize, search, sortBy, status, dateFrom, dateTo, cancellationToken);
         return Ok(result);
     }
 

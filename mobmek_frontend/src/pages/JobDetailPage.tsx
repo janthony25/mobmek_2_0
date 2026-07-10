@@ -23,6 +23,7 @@ import { RemindersSection } from '@/components/reminders/RemindersSection'
 import { Button } from '@/components/ui/Button'
 import { CalendarIcon } from '@/components/ui/icons'
 import { StateMessage } from '@/components/ui/StateMessage'
+import { UpdatedByTag } from '@/components/ui/UpdatedByTag'
 import { useToast } from '@/components/ui/toast'
 import { useAsync } from '@/hooks/useAsync'
 import { currency, orDash } from '@/lib/format'
@@ -328,6 +329,7 @@ export function JobDetailPage() {
           <Detail label="Total price" value={currency(job.totalJobPrice)} />
           <Detail label="Total profit" value={currency(job.totalJobProfit)} />
         </dl>
+        <UpdatedByTag className="mt-2 block" updatedAtUtc={job.updatedAtUtc} updatedByName={job.updatedByName} />
       </div>
 
       <InvoicesSection jobId={id} reloadKey={invoicesReloadKey} />

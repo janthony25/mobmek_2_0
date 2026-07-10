@@ -19,7 +19,10 @@ public class CustomerService(AppDbContext db) : ICustomerService
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<PagedResult<CustomerListItemDto>> GetPagedAsync(int page, int pageSize, string? search, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<CustomerListItemDto>> GetPagedAsync(
+        int page, int pageSize, string? search,
+        string? sortBy = null, DateOnly? dateFrom = null, DateOnly? dateTo = null,
+        CancellationToken cancellationToken = default)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
@@ -38,10 +41,18 @@ public class CustomerService(AppDbContext db) : ICustomerService
                 c.Cars.Any(car => car.Rego.ToLower().Contains(term)));
         }
 
+        query = ApplyDateRange(query, dateFrom, dateTo);
+
         var totalCount = await query.CountAsync(cancellationToken);
 
+        query = sortBy switch
+        {
+            "oldest" => query.OrderBy(c => c.CreatedAtUtc),
+            "name" => query.OrderBy(c => c.LastName).ThenBy(c => c.FirstName),
+            _ => query.OrderByDescending(c => c.CreatedAtUtc),
+        };
+
         var items = await query
-            .OrderByDescending(c => c.CreatedAtUtc)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(c => new CustomerListItemDto(
@@ -54,6 +65,7 @@ public class CustomerService(AppDbContext db) : ICustomerService
                 c.Notes,
                 c.CreatedAtUtc,
                 c.UpdatedAtUtc,
+                c.UpdatedByName,
                 c.Cars
                     .OrderBy(car => car.CreatedAtUtc)
                     .Select(car => new CustomerCarSummaryDto(
@@ -73,6 +85,25 @@ public class CustomerService(AppDbContext db) : ICustomerService
             .ToListAsync(cancellationToken);
 
         return new PagedResult<CustomerListItemDto>(items, totalCount, page, pageSize);
+    }
+
+    // Npgsql only accepts UTC-kinded DateTimes against "timestamp with time zone" columns, so
+    // the inclusive DateOnly bounds are converted to a [from 00:00, to+1day 00:00) UTC range.
+    private static IQueryable<Customer> ApplyDateRange(IQueryable<Customer> query, DateOnly? dateFrom, DateOnly? dateTo)
+    {
+        if (dateFrom is { } from)
+        {
+            var fromUtc = DateTime.SpecifyKind(from.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+            query = query.Where(c => c.CreatedAtUtc >= fromUtc);
+        }
+
+        if (dateTo is { } to)
+        {
+            var toUtcExclusive = DateTime.SpecifyKind(to.AddDays(1).ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+            query = query.Where(c => c.CreatedAtUtc < toUtcExclusive);
+        }
+
+        return query;
     }
 
     public async Task<CustomerDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -137,5 +168,5 @@ public class CustomerService(AppDbContext db) : ICustomerService
     }
 
     private static CustomerDto ToDto(Customer c) =>
-        new(c.Id, c.FirstName, c.LastName, c.PhoneNumber, c.EmailAddress, c.PhysicalAddress, c.Notes, c.CreatedAtUtc, c.UpdatedAtUtc);
+        new(c.Id, c.FirstName, c.LastName, c.PhoneNumber, c.EmailAddress, c.PhysicalAddress, c.Notes, c.CreatedAtUtc, c.UpdatedAtUtc, c.UpdatedByName);
 }

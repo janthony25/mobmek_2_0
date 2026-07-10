@@ -1,9 +1,14 @@
 using MobmekApi.DTOs;
 using MobmekApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MobmekApi.Controllers;
 
+/// <summary>Reminder templates are read by every signed-in user (any mechanic picking a preset
+/// while adding a reminder on a job/car), so only the write endpoints are Admin-gated — not the
+/// whole controller like the other Settings pages (Tax/BusinessDetails/EmailSettings), which
+/// nobody but Admin needs to even view.</summary>
 [ApiController]
 [Route("api/[controller]")]
 [Produces("application/json")]
@@ -29,6 +34,7 @@ public class ReminderTemplatesController(IReminderTemplateService templateServic
     }
 
     /// <summary>Creates a new reminder template.</summary>
+    [Authorize(Roles = "Admin")]
     [HttpPost]
     [ProducesResponseType(typeof(ReminderTemplateDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -39,6 +45,7 @@ public class ReminderTemplatesController(IReminderTemplateService templateServic
     }
 
     /// <summary>Updates an existing reminder template.</summary>
+    [Authorize(Roles = "Admin")]
     [HttpPut("{id:guid}")]
     [ProducesResponseType(typeof(ReminderTemplateDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -50,6 +57,7 @@ public class ReminderTemplatesController(IReminderTemplateService templateServic
     }
 
     /// <summary>Deletes a reminder template.</summary>
+    [Authorize(Roles = "Admin")]
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

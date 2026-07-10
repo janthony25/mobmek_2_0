@@ -6,6 +6,7 @@ import {
 } from '@/api/reminderTemplates'
 import { CrudSection } from '@/components/crud/CrudSection'
 import type { FieldSchema } from '@/components/crud/types'
+import { useAuth } from '@/contexts/AuthContext'
 import { orDash } from '@/lib/format'
 import type { ReminderTemplate, ReminderTemplateRequest } from '@/types'
 
@@ -23,10 +24,19 @@ const fields: FieldSchema[] = [
 ]
 
 export function ReminderTemplatesPage() {
+  // Everyone can read these (picked when adding a reminder on a job/car); only Admin can
+  // change the presets themselves — mirrors the API's method-level [Authorize(Roles = "Admin")]
+  // on create/update/delete.
+  const { isAdmin } = useAuth()
+
   return (
     <CrudSection<ReminderTemplate>
       resourceName="Reminder Template"
-      description="Reusable reminder presets (e.g. Next WOF, Next Service) you can pick when adding a reminder."
+      description={
+        isAdmin
+          ? 'Reusable reminder presets (e.g. Next WOF, Next Service) you can pick when adding a reminder.'
+          : 'Reusable reminder presets you can pick when adding a reminder. Only an Admin can add, edit, or remove presets.'
+      }
       load={getReminderTemplates}
       getId={(t) => t.id}
       rowLabel={(t) => t.name}
@@ -39,11 +49,17 @@ export function ReminderTemplatesPage() {
         { header: 'Description', cell: (t) => orDash(t.description) },
       ]}
       fields={fields}
-      onCreate={(v) => createReminderTemplate(v as unknown as ReminderTemplateRequest).then(() => undefined)}
-      onUpdate={(id, v) =>
-        updateReminderTemplate(id, v as unknown as ReminderTemplateRequest).then(() => undefined)
+      onCreate={
+        isAdmin
+          ? (v) => createReminderTemplate(v as unknown as ReminderTemplateRequest).then(() => undefined)
+          : undefined
       }
-      onDelete={deleteReminderTemplate}
+      onUpdate={
+        isAdmin
+          ? (id, v) => updateReminderTemplate(id, v as unknown as ReminderTemplateRequest).then(() => undefined)
+          : undefined
+      }
+      onDelete={isAdmin ? deleteReminderTemplate : undefined}
     />
   )
 }

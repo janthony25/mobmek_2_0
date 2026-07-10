@@ -3,6 +3,7 @@ import { getEmployeeTitles } from '@/api/employeeTitles'
 import { getEmploymentTypes } from '@/api/employmentTypes'
 import { CrudSection } from '@/components/crud/CrudSection'
 import { StateMessage } from '@/components/ui/StateMessage'
+import { UpdatedByTag } from '@/components/ui/UpdatedByTag'
 import type { FieldSchema } from '@/components/crud/types'
 import { useAsync } from '@/hooks/useAsync'
 import { orDash } from '@/lib/format'
@@ -58,6 +59,10 @@ export function EmployeesPage() {
         { header: 'Type', cell: (e) => orDash(e.employmentTypeName) },
         { header: 'Contact', cell: (e) => e.contactNumber },
         { header: 'Email', cell: (e) => e.emailAddress },
+        {
+          header: 'Last updated',
+          cell: (e) => <UpdatedByTag updatedAtUtc={e.updatedAtUtc} updatedByName={e.updatedByName} />,
+        },
       ]}
       fields={fields}
       onCreate={(v) => createEmployee(v as unknown as EmployeeRequest).then(() => undefined)}

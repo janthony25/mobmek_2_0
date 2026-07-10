@@ -439,18 +439,65 @@ public class InvoiceServiceTests
     }
 
     [Fact]
-    public async Task GetPagedAsync_SearchMatchesExactIssueDate()
+    public async Task GetPagedAsync_DateRangeFiltersByIssueDate()
     {
         await using var db = CreateContext();
         var (invoices, _, jobId) = await SeedFullJobAsync(db);
         var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
         var issueDate = DateOnly.FromDateTime(invoice!.CreatedAtUtc);
 
-        var matched = await invoices.GetPagedAsync("Invoice", 1, 20, issueDate.ToString("yyyy-MM-dd"));
+        var matched = await invoices.GetPagedAsync("Invoice", 1, 20, null, dateFrom: issueDate, dateTo: issueDate);
         Assert.Single(matched.Items);
 
-        var missed = await invoices.GetPagedAsync("Invoice", 1, 20, issueDate.AddDays(-1).ToString("yyyy-MM-dd"));
+        var missed = await invoices.GetPagedAsync(
+            "Invoice", 1, 20, null, dateFrom: issueDate.AddDays(-2), dateTo: issueDate.AddDays(-1));
         Assert.Empty(missed.Items);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SortByOldest_ReversesTheDefaultNewestFirstOrder()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var first = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+        var second = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+
+        var oldest = await invoices.GetPagedAsync("Invoice", 1, 20, null, sortBy: "oldest");
+
+        Assert.Equal(first!.Id, oldest.Items[0].Id);
+        Assert.Equal(second!.Id, oldest.Items[1].Id);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_StatusFilter_MatchesOnlyThatStatus()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var active = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+        var toReject = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+        await invoices.RejectAsync(jobId, toReject!.Id);
+
+        var activeOnly = await invoices.GetPagedAsync("Invoice", 1, 20, null, status: "Active");
+        var rejectedOnly = await invoices.GetPagedAsync("Invoice", 1, 20, null, status: "Rejected");
+
+        Assert.Equal(active!.Id, Assert.Single(activeOnly.Items).Id);
+        Assert.Equal(toReject.Id, Assert.Single(rejectedOnly.Items).Id);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_IsPaidFilter_MatchesOnlyPaidOrUnpaid()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var unpaid = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+        var paid = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+        await invoices.MarkPaidAsync(jobId, paid!.Id, new MarkInvoicePaidRequest("Cash", null, null, null, null));
+
+        var paidOnly = await invoices.GetPagedAsync("Invoice", 1, 20, null, isPaid: true);
+        var unpaidOnly = await invoices.GetPagedAsync("Invoice", 1, 20, null, isPaid: false);
+
+        Assert.Equal(paid.Id, Assert.Single(paidOnly.Items).Id);
+        Assert.Equal(unpaid!.Id, Assert.Single(unpaidOnly.Items).Id);
     }
 
     [Fact]

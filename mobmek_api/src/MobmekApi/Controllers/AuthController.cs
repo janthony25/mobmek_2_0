@@ -36,9 +36,29 @@ public class AuthController(
 
         if (!result.Succeeded)
         {
-            var failureReason = result.IsLockedOut ? "LockedOut" : "InvalidCredentials";
+            var failureReason = result.IsLockedOut ? "LockedOut" : result.IsNotAllowed ? "EmailNotConfirmed" : "InvalidCredentials";
             await loginAttemptService.RecordAsync(
                 request.Email, user?.EmployeeId, succeeded: false, failureReason, ipAddress, cancellationToken);
+
+            // Distinct from the generic 401 below: a newly created account genuinely needs to
+            // know it must confirm its email first, rather than assume the password is wrong.
+            if (result.IsNotAllowed)
+            {
+                return Problem(
+                    detail: "This account hasn't been activated yet — check your email for the activation link.",
+                    statusCode: StatusCodes.Status401Unauthorized);
+            }
+
+            // A deactivated account is also reported as IsLockedOut (same Identity mechanism as a
+            // temporary failed-attempts lockout), but "try again later" would be actively
+            // misleading here — it's permanent until an Admin reactivates it.
+            if (result.IsLockedOut && user?.DeactivatedAtUtc is not null)
+            {
+                return Problem(
+                    detail: "This account has been deactivated — contact an Admin.",
+                    statusCode: StatusCodes.Status401Unauthorized);
+            }
+
             return Unauthorized();
         }
 

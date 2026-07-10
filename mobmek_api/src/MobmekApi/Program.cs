@@ -18,6 +18,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// AppDbContext.SaveChangesAsync reads the signed-in user off HttpContext to stamp
+// BaseEntity.UpdatedByUserId/UpdatedByName — needs the accessor registered to be injected.
+builder.Services.AddHttpContextAccessor();
+
 // --- Identity (staff login) ---
 // Auth cookies are signed/encrypted with the Data Protection key ring. Without a
 // persisted, shared location it defaults to an ephemeral/per-instance store, which
@@ -39,10 +43,15 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
         options.Lockout.MaxFailedAccessAttempts = 5;
         options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
         options.User.RequireUniqueEmail = true;
+        // Accounts created via role management start with EmailConfirmed = false and can't sign
+        // in until the emailed confirmation code is used — enforced here via SignInManager's
+        // built-in confirmed-email check rather than a hand-rolled one in AuthController.
+        options.SignIn.RequireConfirmedEmail = true;
     })
     .AddRoles<IdentityRole<Guid>>()
     .AddEntityFrameworkStores<AppDbContext>()
     .AddSignInManager()
+    .AddClaimsPrincipalFactory<AppUserClaimsPrincipalFactory>()
     .AddDefaultTokenProviders();
 
 builder.Services.ConfigureApplicationCookie(options =>
@@ -85,6 +94,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ILoginAttemptService, LoginAttemptService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<IAccountAdminService, AccountAdminService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<ICarMakeService, CarMakeService>();
@@ -127,6 +137,7 @@ builder.Services.AddHttpClient<IEmailSender, ResendEmailSender>(client =>
 });
 builder.Services.AddHostedService<RecurringTransactionPostingJob>();
 builder.Services.AddHostedService<OutboundStatusPollJob>();
+builder.Services.AddHostedService<AccountPurgeJob>();
 
 // Transaction receipts land on local disk for now; swap this registration for an
 // S3-backed IFileStorage when file storage moves to the cloud.

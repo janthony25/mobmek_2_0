@@ -37,5 +37,5 @@ public class EmailSettingsService(AppDbContext db, IConfiguration configuration)
     private EmailSettingsDto ToDto(EmailSettings s) => new(
         s.Id, s.FromName, s.FromAddress, s.ReplyToAddress, s.BccSelf,
         ResendConfigured: !string.IsNullOrWhiteSpace(configuration["Email:Resend:ApiKey"]),
-        s.CreatedAtUtc, s.UpdatedAtUtc);
+        s.CreatedAtUtc, s.UpdatedAtUtc, s.UpdatedByName);
 }

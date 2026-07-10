@@ -152,6 +152,62 @@ public class CustomerServiceTests
     }
 
     [Fact]
+    public async Task GetPagedAsync_SortByOldest_ReversesTheDefaultNewestFirstOrder()
+    {
+        await using var db = CreateContext();
+        var service = new CustomerService(db);
+        var lastNames = new[] { "Adams", "Baker", "Clark" };
+        for (var i = 0; i < lastNames.Length; i++)
+        {
+            var created = await service.CreateAsync(new CreateCustomerRequest("Ann", lastNames[i], "0", null, null, null));
+            (await db.Customers.FirstAsync(c => c.Id == created.Id)).CreatedAtUtc = new DateTime(2026, 1, 1 + i, 0, 0, 0, DateTimeKind.Utc);
+        }
+        await db.SaveChangesAsync();
+
+        var oldest = await service.GetPagedAsync(1, 10, null, sortBy: "oldest");
+
+        Assert.Collection(oldest.Items,
+            c => Assert.Equal("Adams", c.LastName),
+            c => Assert.Equal("Baker", c.LastName),
+            c => Assert.Equal("Clark", c.LastName));
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SortByName_OrdersByLastThenFirstName()
+    {
+        await using var db = CreateContext();
+        var service = new CustomerService(db);
+        await service.CreateAsync(new CreateCustomerRequest("Zed", "Adams", "0", null, null, null));
+        await service.CreateAsync(new CreateCustomerRequest("Ann", "Baker", "0", null, null, null));
+
+        var byName = await service.GetPagedAsync(1, 10, null, sortBy: "name");
+
+        Assert.Collection(byName.Items,
+            c => Assert.Equal("Adams", c.LastName),
+            c => Assert.Equal("Baker", c.LastName));
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_DateRangeFiltersByCreatedDate()
+    {
+        await using var db = CreateContext();
+        var service = new CustomerService(db);
+        var lastNames = new[] { "Adams", "Baker", "Clark" };
+        for (var i = 0; i < lastNames.Length; i++)
+        {
+            var created = await service.CreateAsync(new CreateCustomerRequest("Ann", lastNames[i], "0", null, null, null));
+            (await db.Customers.FirstAsync(c => c.Id == created.Id)).CreatedAtUtc = new DateTime(2026, 1, 1 + i, 0, 0, 0, DateTimeKind.Utc);
+        }
+        await db.SaveChangesAsync();
+
+        var middleDayOnly = await service.GetPagedAsync(
+            1, 10, null, dateFrom: new DateOnly(2026, 1, 2), dateTo: new DateOnly(2026, 1, 2));
+
+        var item = Assert.Single(middleDayOnly.Items);
+        Assert.Equal("Baker", item.LastName);
+    }
+
+    [Fact]
     public async Task GetPagedAsync_PageBeyondEnd_ReturnsEmptyWithTotal()
     {
         await using var db = CreateContext();

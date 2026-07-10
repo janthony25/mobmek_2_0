@@ -32,5 +32,5 @@ public class GstSettingService(AppDbContext db) : IGstSettingService
         return setting;
     }
 
-    private static GstSettingDto ToDto(GstSetting g) => new(g.Id, g.Rate, g.CreatedAtUtc, g.UpdatedAtUtc);
+    private static GstSettingDto ToDto(GstSetting g) => new(g.Id, g.Rate, g.CreatedAtUtc, g.UpdatedAtUtc, g.UpdatedByName);
 }

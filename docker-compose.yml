@@ -45,6 +45,9 @@ services:
       # Outbound invoice email (docs/email-module-design.md) — set via .env once you have a
       # Resend account; sends fail gracefully with a setup hint until this is set.
       Email__Resend__ApiKey: ${RESEND_API_KEY:-}
+      # Base URL of the deployed frontend, used to build absolute links in emails (e.g. the
+      # new-account activation link) — override in .env for a real deployment.
+      Frontend__BaseUrl: ${FRONTEND_BASE_URL:-http://localhost:3000}
     volumes:
       - mobmek_dataprotection_keys:/keys
     ports:

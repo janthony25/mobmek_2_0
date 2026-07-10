@@ -31,12 +31,13 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    heading: 'Catalog',
+    heading: 'Templates',
     hiddenNote: 'Products page is hidden, enable to show',
     items: [
       { to: '/products', label: 'Products', icon: '📦', hidden: true },
       { to: '/services', label: 'Services', icon: '🧾' },
       { to: '/car-makes', label: 'Car Makes & Models', icon: '🚗' },
+      { to: '/reminder-templates', label: 'Reminder Templates', icon: '⏰' },
     ],
   },
   {
@@ -56,6 +57,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     heading: 'Staff',
     items: [
+      { to: '/accounts', label: 'Accounts & Roles', icon: '🔑', adminOnly: true },
       { to: '/employees', label: 'Employees', icon: '🧑‍🔧', adminOnly: true },
       { to: '/employee-titles', label: 'Titles', icon: '🏷️', adminOnly: true },
       { to: '/employment-types', label: 'Employment Types', icon: '📋', adminOnly: true },
@@ -67,7 +69,6 @@ const NAV_GROUPS: NavGroup[] = [
       { to: '/tax', label: 'Tax (GST)', icon: '💰', adminOnly: true },
       { to: '/business-details', label: 'Business Details', icon: '🏢', adminOnly: true },
       { to: '/email-settings', label: 'Email', icon: '✉️', adminOnly: true },
-      { to: '/reminder-templates', label: 'Reminder Templates', icon: '⏰' },
     ],
   },
 ]

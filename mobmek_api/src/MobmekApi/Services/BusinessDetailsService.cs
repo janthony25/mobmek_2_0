@@ -87,5 +87,5 @@ public class BusinessDetailsService(AppDbContext db, IFileStorage fileStorage) :
     private static BusinessDetailsDto ToDto(BusinessDetails b) =>
         new(b.Id, b.Name, b.Address, b.Email, b.BusinessPhone, b.Telephone, b.GstNumber, b.Website, b.BankDetails,
             b.LogoStorageKey is null ? null : "/business-details/logo",
-            b.CreatedAtUtc, b.UpdatedAtUtc);
+            b.CreatedAtUtc, b.UpdatedAtUtc, b.UpdatedByName);
 }

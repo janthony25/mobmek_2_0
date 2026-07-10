@@ -3,9 +3,9 @@ import { getGstSetting, updateGstSetting } from '@/api/gst'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { StateMessage } from '@/components/ui/StateMessage'
+import { UpdatedByTag } from '@/components/ui/UpdatedByTag'
 import { useToast } from '@/components/ui/toast'
 import { useAsync } from '@/hooks/useAsync'
-import { date } from '@/lib/format'
 
 export function TaxSettingsPage() {
   const toast = useToast()
@@ -70,9 +70,7 @@ export function TaxSettingsPage() {
 
         <div className="mt-4 flex items-center gap-4">
           <Button onClick={requestSave}>Save</Button>
-          {data?.updatedAtUtc && (
-            <span className="text-xs text-slate-400">Last updated {date(data.updatedAtUtc)}</span>
-          )}
+          <UpdatedByTag updatedAtUtc={data?.updatedAtUtc ?? null} updatedByName={data?.updatedByName ?? null} />
         </div>
       </div>
 

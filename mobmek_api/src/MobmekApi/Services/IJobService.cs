@@ -1,4 +1,5 @@
 using MobmekApi.DTOs;
+using MobmekApi.Entities;
 
 namespace MobmekApi.Services;
 
@@ -19,10 +20,15 @@ public interface IJobService
     Task<IReadOnlyList<JobDto>> GetAllAsync(Guid? customerId = null, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Returns one page of jobs (newest first). <paramref name="search"/> matches the title,
-    /// customer name, car make/model or rego, case-insensitively.
+    /// Returns one page of jobs. <paramref name="search"/> matches the title, customer name, car
+    /// make/model or rego, case-insensitively. <paramref name="sortBy"/> is "newest" (default) or
+    /// "oldest". <paramref name="status"/> filters to a single <see cref="JobStatus"/>.
+    /// <paramref name="dateFrom"/>/<paramref name="dateTo"/> filter by the job's created date (inclusive).
     /// </summary>
-    Task<PagedResult<JobDto>> GetPagedAsync(int page, int pageSize, string? search, CancellationToken cancellationToken = default);
+    Task<PagedResult<JobDto>> GetPagedAsync(
+        int page, int pageSize, string? search,
+        string? sortBy = null, JobStatus? status = null, DateOnly? dateFrom = null, DateOnly? dateTo = null,
+        CancellationToken cancellationToken = default);
 
     Task<JobDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 

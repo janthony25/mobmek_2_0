@@ -221,4 +221,60 @@ public class JobServiceTests
         Assert.Single((await service.GetPagedAsync(1, 10, "abc123")).Items);
         Assert.Empty((await service.GetPagedAsync(1, 10, "no-match")).Items);
     }
+
+    [Fact]
+    public async Task GetPagedAsync_SortByOldest_ReversesTheDefaultNewestFirstOrder()
+    {
+        await using var db = CreateContext();
+        var (customerId, carId) = await SeedCustomerWithCarAsync(db);
+        var service = new JobService(db);
+        for (var i = 0; i < 3; i++)
+        {
+            var (job, _) = await service.CreateAsync(
+                new CreateJobRequest(customerId, carId, $"Job {i}", JobStatus.Open, 0, null, null));
+            (await db.Jobs.FirstAsync(j => j.Id == job!.Id)).CreatedAtUtc = new DateTime(2026, 1, 1 + i, 0, 0, 0, DateTimeKind.Utc);
+        }
+        await db.SaveChangesAsync();
+
+        var oldest = await service.GetPagedAsync(1, 10, null, sortBy: "oldest");
+
+        Assert.Collection(oldest.Items,
+            j => Assert.Equal("Job 0", j.Title),
+            j => Assert.Equal("Job 1", j.Title),
+            j => Assert.Equal("Job 2", j.Title));
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_StatusFilter_MatchesOnlyThatStatus()
+    {
+        await using var db = CreateContext();
+        var (customerId, carId) = await SeedCustomerWithCarAsync(db);
+        var service = new JobService(db);
+        var (openJob, _) = await service.CreateAsync(new CreateJobRequest(customerId, carId, "Open job", JobStatus.Open, 0, null, null));
+        await service.CreateAsync(new CreateJobRequest(customerId, carId, "Completed job", JobStatus.Completed, 0, null, null));
+
+        var openOnly = await service.GetPagedAsync(1, 10, null, status: JobStatus.Open);
+
+        Assert.Equal(openJob!.Id, Assert.Single(openOnly.Items).Id);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_DateRangeFiltersByCreatedDate()
+    {
+        await using var db = CreateContext();
+        var (customerId, carId) = await SeedCustomerWithCarAsync(db);
+        var service = new JobService(db);
+        for (var i = 0; i < 3; i++)
+        {
+            var (job, _) = await service.CreateAsync(
+                new CreateJobRequest(customerId, carId, $"Job {i}", JobStatus.Open, 0, null, null));
+            (await db.Jobs.FirstAsync(j => j.Id == job!.Id)).CreatedAtUtc = new DateTime(2026, 1, 1 + i, 0, 0, 0, DateTimeKind.Utc);
+        }
+        await db.SaveChangesAsync();
+
+        var middleDayOnly = await service.GetPagedAsync(
+            1, 10, null, dateFrom: new DateOnly(2026, 1, 2), dateTo: new DateOnly(2026, 1, 2));
+
+        Assert.Equal("Job 1", Assert.Single(middleDayOnly.Items).Title);
+    }
 }
