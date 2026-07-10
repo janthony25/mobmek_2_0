@@ -209,6 +209,16 @@ Frontend: http://localhost:3000 (proxies `/api` → `http://localhost:8080` by d
 
 ---
 
+## Legacy data (one-time import)
+
+To fill your local database with the real data from the old MobileMekaniko system, get the MSSQL backup from the owner (real customer data — it's gitignored and never committed), save it as `legacy-backup/<anything>.bak`, then run:
+
+```bash
+./scripts/setup-legacy-data.sh
+```
+
+The script starts Postgres and a temporary SQL Server container, restores the `.bak`, applies EF migrations, and runs the importer. It's safe to re-run — already-imported rows are skipped. Use `--dry-run` to test the full pipeline with every change rolled back. It needs the .NET 10 SDK in `~/.dotnet` (see Option B above); on Apple Silicon + Colima, the SQL Server image also needs `rosetta: true` in `~/.colima/default/colima.yaml`. Details: `docs/legacy-import-design.md`.
+
 ## Project structure
 
 ```

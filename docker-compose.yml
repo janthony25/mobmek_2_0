@@ -55,7 +55,8 @@ services:
 
   # Temporary migration source for the one-time legacy data import
   # (docs/legacy-import-design.md). Only starts with: docker compose --profile legacy up -d
-  # Restore the .bak once the container is healthy (adjust logical names from FILELISTONLY):
+  # Preferred: ./scripts/setup-legacy-data.sh runs the whole flow (start, restore, import).
+  # Manual restore, if ever needed (adjust logical names from FILELISTONLY):
   #   sqlcmd() { docker exec mobmek_legacy_mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C "$@"; }
   #   sqlcmd -Q "RESTORE FILELISTONLY FROM DISK='/var/opt/mssql/backup/<file>.bak'"
   #   sqlcmd -Q "RESTORE DATABASE MobileMekaniko FROM DISK='/var/opt/mssql/backup/<file>.bak'
