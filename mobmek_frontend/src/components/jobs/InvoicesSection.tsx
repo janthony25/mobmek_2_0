@@ -59,7 +59,7 @@ export function InvoicesSection({ jobId, reloadKey = 0 }: InvoicesSectionProps) 
           className="flex items-center gap-2"
         >
           <span aria-hidden className="text-2xl">🧾</span>
-          <h2 className="text-xl font-bold text-slate-900">Invoices</h2>
+          <h2 className="text-xl font-bold text-slate-900">Invoices{data && ` (${data.length})`}</h2>
           <span aria-hidden className="text-sm text-slate-400">{collapsed ? '▸' : '▾'}</span>
           {!collapsed && refreshing && <Spinner className="h-4 w-4 text-slate-400" />}
         </button>

@@ -147,6 +147,8 @@ export function CrudSection<T>({
   )
 
   const total = result?.total ?? 0
+  // Appended to the visible heading only — messages/placeholders below keep using `heading` bare.
+  const headingWithCount = result != null ? `${heading} (${total})` : heading
   const collapsed = collapsible && (collapsedOverride ?? (result == null || total === 0))
   // Only the very first fetch (no data yet) blocks the section body; a refetch after
   // that (search/page/reload) keeps existing rows visible with a small inline spinner.
@@ -224,7 +226,7 @@ export function CrudSection<T>({
                     : 'text-lg font-semibold text-slate-900'
                 }
               >
-                {heading}
+                {headingWithCount}
               </h2>
               <span aria-hidden className="text-sm text-slate-400">{collapsed ? '▸' : '▾'}</span>
               {!collapsed && refreshing && <Spinner className="h-4 w-4 text-slate-400" />}
@@ -237,7 +239,7 @@ export function CrudSection<T>({
                   : 'text-lg font-semibold text-slate-900'
               }`}
             >
-              {heading}
+              {headingWithCount}
               {!collapsed && refreshing && <Spinner className="h-4 w-4 text-slate-400" />}
             </h2>
           )}
