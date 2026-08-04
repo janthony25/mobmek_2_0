@@ -45,6 +45,10 @@ services:
       # Outbound invoice email (docs/email-module-design.md) — set via .env once you have a
       # Resend account; sends fail gracefully with a setup hint until this is set.
       Email__Resend__ApiKey: ${RESEND_API_KEY:-}
+      # Google Calendar sync (docs/google-calendar-sync-design.md) — set via .env once the
+      # service account + Workshop calendar exist; sync stays cleanly disabled until then.
+      GoogleCalendar__CredentialsJson: ${GOOGLE_CALENDAR_CREDENTIALS_JSON:-}
+      GoogleCalendar__CalendarId: ${GOOGLE_CALENDAR_ID:-}
       # Base URL of the deployed frontend, used to build absolute links in emails (e.g. the
       # new-account activation link) — override in .env for a real deployment.
       Frontend__BaseUrl: ${FRONTEND_BASE_URL:-http://localhost:3000}

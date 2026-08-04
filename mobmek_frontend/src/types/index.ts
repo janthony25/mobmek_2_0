@@ -256,6 +256,15 @@ export interface CreateAppointmentRequest {
 
 export type UpdateAppointmentRequest = CreateAppointmentRequest
 
+/** Diagnostics for the Google Calendar sync — "why isn't this on my phone". */
+export interface CalendarSyncStatus {
+  configured: boolean
+  outboxDepth: number
+  oldestPendingUtc: string | null
+  lastReconcileUtc: string | null
+  lastReconcileError: string | null
+}
+
 // --- Job items ---------------------------------------------------------------
 
 export const MarkupSolution = {

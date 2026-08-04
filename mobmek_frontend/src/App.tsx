@@ -35,6 +35,7 @@ import { GstReportPage } from '@/pages/GstReportPage'
 import { PayeesPage } from '@/pages/PayeesPage'
 import { CategorizationRulesPage } from '@/pages/CategorizationRulesPage'
 import { EmailSettingsPage } from '@/pages/EmailSettingsPage'
+import { CalendarSyncSettingsPage } from '@/pages/CalendarSyncSettingsPage'
 import { ProfileSettingsPage } from '@/pages/ProfileSettingsPage'
 
 function App() {
@@ -83,6 +84,7 @@ function App() {
             <Route path="tax" element={<TaxSettingsPage />} />
             <Route path="business-details" element={<BusinessDetailsSettingsPage />} />
             <Route path="email-settings" element={<EmailSettingsPage />} />
+            <Route path="calendar-sync" element={<CalendarSyncSettingsPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/customers" replace />} />

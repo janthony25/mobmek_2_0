@@ -135,9 +135,18 @@ builder.Services.AddHttpClient<IEmailSender, ResendEmailSender>(client =>
     client.BaseAddress = new Uri("https://api.resend.com/");
     client.Timeout = TimeSpan.FromSeconds(15);
 });
+// Singleton: wraps one lazily-initialized Google CalendarService client, same lifetime as the
+// legacy service it replaces. Cleanly disabled (IsConfigured = false) until GoogleCalendar:*
+// config is present — nothing else in the app changes when it's not.
+builder.Services.AddSingleton<IGoogleCalendarClient, GoogleCalendarClient>();
+builder.Services.AddSingleton<CalendarSyncStatus>();
+// Registered as its own singleton (not just via AddHostedService<T>) so CalendarSyncController
+// can resolve the same running instance to trigger an on-demand reconcile.
+builder.Services.AddSingleton<CalendarSyncJob>();
 builder.Services.AddHostedService<RecurringTransactionPostingJob>();
 builder.Services.AddHostedService<OutboundStatusPollJob>();
 builder.Services.AddHostedService<AccountPurgeJob>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<CalendarSyncJob>());
 
 // Transaction receipts land on local disk for now; swap this registration for an
 // S3-backed IFileStorage when file storage moves to the cloud.

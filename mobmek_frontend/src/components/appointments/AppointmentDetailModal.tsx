@@ -154,6 +154,11 @@ export function AppointmentDetailModal({
             {isPast && a.status === AppointmentStatus.Scheduled && (
               <Badge tone="amber">Past due</Badge>
             )}
+            {a.googleEventId && (
+              <span title={`Google Calendar event id: ${a.googleEventId}`}>
+                <Badge tone="blue">📆 On Google Calendar</Badge>
+              </span>
+            )}
           </div>
 
           <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">

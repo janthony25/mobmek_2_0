@@ -84,6 +84,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAc
 
     public DbSet<EmailConfirmationCode> EmailConfirmationCodes => Set<EmailConfirmationCode>();
 
+    public DbSet<CalendarSyncItem> CalendarSyncItems => Set<CalendarSyncItem>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -699,6 +701,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAc
         {
             entity.Property(c => c.CodeHash).IsRequired().HasMaxLength(64);
             entity.HasIndex(c => c.UserId);
+        });
+
+        modelBuilder.Entity<CalendarSyncItem>(entity =>
+        {
+            entity.Property(c => c.Action).HasConversion<string>().HasMaxLength(20);
+            entity.Property(c => c.GoogleEventId).HasMaxLength(1024);
+            entity.Property(c => c.LastError).HasMaxLength(2000);
+
+            // At most one pending Upsert per appointment — re-editing before the push
+            // runs just leaves the existing row (the job reads current state at push time).
+            entity.HasIndex(c => c.AppointmentId)
+                .IsUnique()
+                .HasFilter("\"Action\" = 'Upsert'");
+
+            entity.HasIndex(c => c.NextAttemptUtc);
         });
     }
 

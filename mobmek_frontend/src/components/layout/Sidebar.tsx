@@ -69,6 +69,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: '/tax', label: 'Tax (GST)', icon: '💰', adminOnly: true },
       { to: '/business-details', label: 'Business Details', icon: '🏢', adminOnly: true },
       { to: '/email-settings', label: 'Email', icon: '✉️', adminOnly: true },
+      { to: '/calendar-sync', label: 'Calendar Sync', icon: '📆', adminOnly: true },
     ],
   },
 ]

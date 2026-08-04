@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace MobmekApi.Services;
 
-public class AppointmentService(AppDbContext db) : IAppointmentService
+public class AppointmentService(AppDbContext db, IGoogleCalendarClient calendarClient) : IAppointmentService
 {
     // Inline projection so EF resolves linked names via joins.
     private static readonly Expression<Func<Appointment, AppointmentDto>> ToDto =
@@ -131,6 +131,7 @@ public class AppointmentService(AppDbContext db) : IAppointmentService
         };
 
         db.Appointments.Add(appointment);
+        EnqueueCalendarUpsert(appointment.Id);
         await db.SaveChangesAsync(cancellationToken);
 
         return (await GetByIdAsync(appointment.Id, cancellationToken), AppointmentWriteError.None);
@@ -166,6 +167,7 @@ public class AppointmentService(AppDbContext db) : IAppointmentService
         appointment.JobId = request.JobId;
         appointment.MechanicId = request.MechanicId;
 
+        await EnqueueCalendarUpsertIfNotPendingAsync(appointment.Id, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
 
         return (await GetByIdAsync(appointment.Id, cancellationToken), AppointmentWriteError.None);
@@ -179,10 +181,68 @@ public class AppointmentService(AppDbContext db) : IAppointmentService
             return false;
         }
 
+        if (calendarClient.IsConfigured)
+        {
+            // Drop any pending push for this appointment — it's about to stop existing — and,
+            // if it ever made it onto the calendar, snapshot the event id so the sync job can
+            // still remove it (the appointment row itself won't be there for the job to read).
+            var pendingUpserts = await db.CalendarSyncItems
+                .Where(i => i.AppointmentId == appointment.Id && i.Action == CalendarSyncAction.Upsert)
+                .ToListAsync(cancellationToken);
+            db.CalendarSyncItems.RemoveRange(pendingUpserts);
+
+            if (appointment.GoogleEventId is not null)
+            {
+                db.CalendarSyncItems.Add(new CalendarSyncItem
+                {
+                    Action = CalendarSyncAction.Delete,
+                    GoogleEventId = appointment.GoogleEventId,
+                });
+            }
+        }
+
         db.Appointments.Remove(appointment);
         await db.SaveChangesAsync(cancellationToken);
 
         return true;
+    }
+
+    /// <summary>Unconditional enqueue for a brand-new appointment — there's no way a pending row
+    /// can already exist for an id that was just generated.</summary>
+    private void EnqueueCalendarUpsert(Guid appointmentId)
+    {
+        if (!calendarClient.IsConfigured)
+        {
+            return;
+        }
+
+        db.CalendarSyncItems.Add(new CalendarSyncItem
+        {
+            Action = CalendarSyncAction.Upsert,
+            AppointmentId = appointmentId,
+        });
+    }
+
+    /// <summary>Coalescing enqueue for an edit: at most one pending Upsert per appointment (also
+    /// enforced by a unique partial index), so re-editing before the job runs just leaves the
+    /// existing row — the job reads current appointment state at push time regardless.</summary>
+    private async Task EnqueueCalendarUpsertIfNotPendingAsync(Guid appointmentId, CancellationToken cancellationToken)
+    {
+        if (!calendarClient.IsConfigured)
+        {
+            return;
+        }
+
+        var alreadyPending = await db.CalendarSyncItems.AnyAsync(
+            i => i.AppointmentId == appointmentId && i.Action == CalendarSyncAction.Upsert, cancellationToken);
+        if (!alreadyPending)
+        {
+            db.CalendarSyncItems.Add(new CalendarSyncItem
+            {
+                Action = CalendarSyncAction.Upsert,
+                AppointmentId = appointmentId,
+            });
+        }
     }
 
     private async Task<AppointmentWriteError> ValidateAsync(
