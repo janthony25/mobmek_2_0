@@ -6,7 +6,7 @@ and the checklist doubles as a punch list.
 
 **Which phase do you actually need? Phase 1, right now — that's it.** Phase 1 is a complete,
 real production deployment: staff and customers reach it from any device over the internet like
-any normal website, at ~$15–20/month. "Growth path" below is a reference menu for *later*, each
+any normal website, at ~$19–23/month. "Growth path" below is a reference menu for *later*, each
 item adopted independently and only when a specific trigger happens — it is not a second
 deployment you also need to set up today, and adopting one item from it doesn't require adopting
 the rest.
@@ -17,9 +17,17 @@ has, backed up to S3, is a legitimate production setup at this scale — not a s
 embarrassed about. Most of what makes AWS expensive (ALB, NAT Gateway, RDS Multi-AZ, Fargate)
 solves problems a one-shop system doesn't have yet.
 
-Region: **ap-southeast-2 (Sydney)** — closest AWS region to NZ, no AWS region exists in NZ itself.
+Region: **ap-southeast-6 (Asia Pacific — New Zealand, Auckland)**. AWS launched this region in
+2026 — it's a real, fully available region (confirmed live via the AWS API: 3 availability zones,
+no opt-in required), not the Sydney workaround this doc originally assumed before that existed.
+Using it means data stays in-country and latency to the shop is minimal.
 
 ## Cost summary — every option, one table
+
+Numbers marked ✓ below were pulled live from the AWS Pricing API for this account in
+ap-southeast-6 (Aug 2026) — the rest are estimates (AWS doesn't expose every service's pricing
+via that API cleanly) and worth double-checking on the [AWS Pricing Calculator](https://calculator.aws)
+before committing real money.
 
 Everything below Phase 1 is optional and only added if/when its trigger happens (see each
 section for the trigger). "Total" is the full monthly bill if you had *only* that row's changes
@@ -27,10 +35,10 @@ on top of Phase 1 — rows don't stack with each other unless stated.
 
 | Setup | What's running | Total /month (USD) |
 |---|---|---|
-| **Phase 1 (do this now)** | Everything on 1 EC2 box | **~$15–20** |
-| Phase 1 + RDS single-AZ | EC2 (frontend+api) + RDS for the DB | ~$30–38 |
-| Phase 1 + RDS Multi-AZ | Same, with DB failover | ~$45–55 |
-| Everything (Fargate+ALB+RDS+CloudFront+CI/CD) | Full "standard" AWS shape, no EC2 at all | ~$56–72 (single-AZ RDS) to ~$85–100 (Multi-AZ RDS) |
+| **Phase 1 (do this now)** | Everything on 1 EC2 box | **~$19–23** |
+| Phase 1 + RDS single-AZ | EC2 (frontend+api) + RDS for the DB | ~$36–42 |
+| Phase 1 + RDS Multi-AZ | Same, with DB failover | ~$54–62 |
+| Everything (Fargate+ALB+RDS+CloudFront+CI/CD) | Full "standard" AWS shape, no EC2 at all | ~$69–85 (single-AZ RDS) to ~$93–100 (Multi-AZ RDS) |
 
 Full breakdown of each row is in "Growth path" further down.
 
@@ -97,25 +105,32 @@ just hit the domain in a browser).
 (5433 in local compose) and the API's raw 8080 are **not** exposed publicly — nginx is still the
 only public entry point, proxying `/api` internally exactly like it does today.
 
-### Rough monthly cost (ap-southeast-2, USD, approximate)
+### Rough monthly cost (ap-southeast-6, USD)
 
-| Item | Cost |
-|---|---|
-| EC2 t4g.small on-demand | ~$12–14 |
-| EC2 t4g.small, 1-yr no-upfront reserved (once stable) | ~$8 |
-| EBS gp3 30GB | ~$2.50 |
-| Elastic IP (attached) | $0 |
-| S3 backups (<5GB) | <$1 |
-| Route 53 hosted zone | ~$0.50 + $0.40/million queries |
-| Data transfer out | first 100GB/mo free, then $0.09/GB |
-| **Total** | **~$15–20/month** |
+This is **one EC2 instance** — on-demand billing, paid by the hour, no commitment. (Reserved/1-yr
+pricing — cheaper but locks you in — isn't offered yet in this region as of Aug 2026: checked
+live via the AWS Pricing API and it returns zero reserved-term offers here, presumably because
+it's a newly launched region. Revisit that option later; it may appear over time.)
+
+| Item | Cost | Source |
+|---|---|---|
+| EC2 t4g.small — on-demand | ~$16 | ✓ AWS Pricing API |
+| EBS gp3 30GB | ~$3 | ✓ AWS Pricing API |
+| Elastic IP (attached) | $0 | AWS pricing docs |
+| S3 backups (<5GB) | <$1 | Estimate |
+| Route 53 hosted zone | ~$0.50 + $0.40/million queries | AWS pricing docs (global, not region-specific) |
+| Data transfer out | first 100GB/mo free, then ~$0.09–0.12/GB | Estimate |
+| **Total** | **~$19–23/month** | |
+
+**Exact resources to provision for this specific account/instance — see
+[`infrastructure/docs/phase-1-plan.md`](docs/phase-1-plan.md).**
 
 ---
 
 ## What we're deliberately NOT doing in Phase 1 (cost discipline)
 
 - **No RDS.** Postgres in the same Compose stack on the EC2 box, backed up nightly to S3, is fine
-  at this scale and saves ~$15–30/mo over even a single-AZ `db.t4g.micro`.
+  at this scale and saves ~$19/mo over a single-AZ `db.t4g.micro` (~$38/mo over Multi-AZ).
 - **No ALB / ECS / Fargate.** One box running the Compose file already tested locally is the same
   shape in prod — no new orchestration layer to learn or pay for.
 - **No CloudFront.** The nginx container already serves the SPA fine at this traffic volume.
@@ -208,20 +223,20 @@ flowchart TB
   confident in it — RDS's automated, point-in-time backup/restore replaces that whole workflow.
 - Downtime from restarting/rebuilding the EC2 box (which currently takes the DB down with
   everything else) becomes unacceptable during business hours — RDS Multi-AZ adds failover, at
-  a higher tier (~$25–30+/mo vs. single-AZ's ~$13/mo).
+  roughly double the single-AZ price.
 - You adopt Upgrade 2 (multiple compute instances) — at that point RDS stops being optional,
   since a Postgres container on one box can't be shared across several app servers.
 
 **Cost:**
 
-| Item | /month |
-|---|---|
-| EC2 t4g.small (frontend + api only, db container removed) | ~$12–14 (unchanged) |
-| RDS `db.t4g.micro`, single-AZ, 20GB gp3 | ~$15–18 |
-| Everything else (EBS, Route 53, S3, Elastic IP) | ~$3–4 |
-| **Total (single-AZ)** | **~$30–38** |
-| RDS Multi-AZ instead (adds failover) | ~$28–32 in place of the single-AZ RDS line |
-| **Total (Multi-AZ)** | **~$45–55** |
+| Item | /month | Source |
+|---|---|---|
+| EC2 t4g.small (frontend + api only, db container removed) | ~$16 (unchanged) | ✓ AWS Pricing API |
+| RDS `db.t4g.micro`, single-AZ | ~$19 | ✓ AWS Pricing API |
+| Everything else (EBS, Route 53, S3, Elastic IP) | ~$2–3 | Estimate |
+| **Total (single-AZ)** | **~$36–42** | |
+| RDS Multi-AZ instead (roughly doubles the RDS line, ~$38/mo) | | Estimate, based on standard AWS Multi-AZ pricing pattern |
+| **Total (Multi-AZ)** | **~$54–62** | |
 
 ### Upgrade 2 — ECS Fargate + ALB (compute, independent of where the DB lives)
 
@@ -231,13 +246,13 @@ Fargate tasks are ephemeral, so they can't host a Postgres container the way EC2
 
 **Cost (replaces the EC2 instance; assumes RDS single-AZ is already in place from Upgrade 1):**
 
-| Item | /month |
-|---|---|
-| Application Load Balancer | ~$16–20 |
-| Fargate tasks (api + frontend, small size) | ~$20–25 |
-| RDS single-AZ (carried over from Upgrade 1) | ~$15–18 |
-| Everything else (Route 53, S3, EBS→gone, Elastic IP→gone) | ~$1–2 |
-| **Total** | **~$52–65** |
+| Item | /month | Source |
+|---|---|---|
+| Application Load Balancer (base + light traffic LCU usage) | ~$25 | ✓ AWS Pricing API (base rate) + estimate (usage) |
+| Fargate tasks (api + frontend, small size) | ~$23–29 | Estimate |
+| RDS single-AZ (carried over from Upgrade 1) | ~$19 | ✓ AWS Pricing API |
+| Everything else (Route 53, S3) | ~$1 | Estimate |
+| **Total** | **~$66–78** | |
 
 ### Upgrade 3 — CloudFront + S3 static hosting for the SPA
 
@@ -290,11 +305,11 @@ flowchart TB
 
 | Item | /month |
 |---|---|
-| ALB + Fargate tasks + RDS single-AZ (Upgrades 1+2 combined) | ~$52–65 |
+| ALB + Fargate tasks + RDS single-AZ (Upgrades 1+2 combined) | ~$66–78 |
 | + CloudFront/S3 static hosting (Upgrade 3) | +~$2–5 |
 | + ECR + CI/CD (Upgrade 4) | +~$1–2 |
-| **Total (single-AZ RDS)** | **~$56–72** |
-| **Total (Multi-AZ RDS instead)** | **~$85–100** |
+| **Total (single-AZ RDS)** | **~$69–85** |
+| **Total (Multi-AZ RDS instead, RDS line ~doubles)** | **~$93–100** |
 
 Worth it once the business outgrows one box — not before, and not all at once. Each piece is
 still adopted independently, per its own trigger above.
@@ -303,7 +318,7 @@ still adopted independently, per its own trigger above.
 
 ## Open questions
 
-- Domain name to register/point (Route 53 or existing registrar + Route 53 as DNS).
-- Who holds the AWS root account (billing owner, MFA device)?
-- Any NZ data-residency requirement for customer PII? There's no AWS NZ region — Sydney
-  (ap-southeast-2) is the nearest option and is what this plan assumes.
+- Domain name to register/point (Route 53 or existing registrar + Route 53 as DNS, likely as a
+  subdomain like `app.<yourdomain>` so the existing website is untouched).
+- ~~Any NZ data-residency requirement for customer PII?~~ Resolved — deploying in `ap-southeast-6`
+  (Auckland) keeps everything in-country.
