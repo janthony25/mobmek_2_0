@@ -26,6 +26,12 @@ public class Appointment : BaseEntity
 
     public string? ContactPhone { get; set; }
 
+    /// <summary>
+    /// Contact email, captured when the booking came from the public website so the
+    /// customer can be emailed back a confirmation. Optional for phone bookings.
+    /// </summary>
+    public string? ContactEmail { get; set; }
+
     /// <summary>Free-text vehicle description, e.g. "White 2014 Hilux, rego ABC123".</summary>
     public string? VehicleDescription { get; set; }
 

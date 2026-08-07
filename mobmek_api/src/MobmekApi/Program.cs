@@ -1,3 +1,7 @@
+using System.Threading.RateLimiting;
+// Program.cs is top-level statements, so it compiles into the global namespace and doesn't
+// pick up MobmekApi.* by enclosing-namespace lookup the way the controllers do.
+using MobmekApi;
 using MobmekApi.Data;
 using MobmekApi.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -106,6 +110,13 @@ builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IJobServiceCatalogService, JobServiceCatalogService>();
 builder.Services.AddScoped<IJobService, JobService>();
 builder.Services.AddScoped<IAppointmentService, AppointmentService>();
+// PublicBookingService takes its clock as a dependency rather than calling DateTime.UtcNow,
+// so the slot grid can be tested against a fixed "now".
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<IPublicBookingService, PublicBookingService>();
+// Singleton: subscribers (open SSE connections) and the writers that notify them must share
+// one instance across the whole app, not one per request.
+builder.Services.AddSingleton<IAppointmentChangeNotifier, AppointmentChangeNotifier>();
 builder.Services.AddScoped<IJobItemService, JobItemService>();
 builder.Services.AddScoped<ILabourService, LabourService>();
 builder.Services.AddScoped<IJobServiceLineService, JobServiceLineService>();
@@ -152,6 +163,72 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<CalendarSyncJob>()
 // S3-backed IFileStorage when file storage moves to the cloud.
 builder.Services.AddSingleton<IFileStorage>(new LocalFileStorage(
     Path.Combine(builder.Environment.ContentRootPath, builder.Configuration["FileStorage:RootPath"] ?? "uploads")));
+
+// --- Public marketing site (anonymous booking endpoints) ---
+// The booking page is served from a different origin than this API, so it needs an explicit
+// CORS grant. Origins are configured, never wildcarded: these endpoints accept writes, and
+// AllowAnyOrigin would let any site on the internet post into the workshop calendar.
+var publicSiteOrigins = builder.Configuration
+    .GetSection("PublicSite:AllowedOrigins").Get<string[]>() ?? [];
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(CorsPolicies.PublicSite, policy =>
+    {
+        policy.WithMethods("GET", "POST").WithHeaders("Content-Type");
+
+        if (builder.Environment.IsDevelopment())
+        {
+            // Any loopback port is fine locally, so the booking page works whether it's served
+            // by VS Code Live Server, Vite, `python -m http.server` or anything else, without
+            // needing a config edit and restart per port. Development only — production still
+            // uses the explicit list below.
+            policy.SetIsOriginAllowed(origin =>
+                Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+                && (uri.IsLoopback || uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)));
+        }
+        else
+        {
+            policy.WithOrigins(publicSiteOrigins);
+        }
+    });
+});
+
+// Nothing authenticates the booking endpoints, so a per-IP rate limit is the only thing
+// stopping a script from flooding the calendar with junk requests.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.AddPolicy(RateLimitPolicies.PublicBookingRead, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            ClientKey(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                // Browsing the calendar week by week is cheap and idempotent — be generous
+                // so a normal visitor clicking through dates is never throttled.
+                PermitLimit = 120,
+                Window = TimeSpan.FromMinutes(1),
+            }));
+
+    options.AddPolicy(RateLimitPolicies.PublicBookingWrite, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            ClientKey(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                // A real person books once. Five an hour leaves room for retries and for a
+                // household sharing an IP, while making bulk spam useless.
+                PermitLimit = 5,
+                Window = TimeSpan.FromHours(1),
+            }));
+
+    // Behind a reverse proxy every request arrives from the proxy's IP, which would collapse
+    // all callers into one partition. Honour the forwarded header when present.
+    static string ClientKey(HttpContext httpContext) =>
+        httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()?.Split(',')[0].Trim()
+            ?? httpContext.Connection.RemoteIpAddress?.ToString()
+            ?? "unknown";
+});
 
 // --- MVC / API ---
 builder.Services.AddControllers();
@@ -204,7 +281,13 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+// Ahead of UseHttpsRedirection on purpose: a CORS preflight that gets a 307 is treated as a
+// failure by browsers (they don't follow redirects on OPTIONS), which would break the booking
+// page whenever it calls the API over plain HTTP.
+app.UseCors();
+
 app.UseHttpsRedirection();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

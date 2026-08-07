@@ -1,6 +1,8 @@
+using System.Threading.Channels;
 using MobmekApi.DTOs;
 using MobmekApi.Entities;
 using MobmekApi.Services;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MobmekApi.Controllers;
@@ -8,8 +10,58 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Produces("application/json")]
-public class AppointmentsController(IAppointmentService appointmentService) : ControllerBase
+public class AppointmentsController(
+    IAppointmentService appointmentService, IAppointmentChangeNotifier changeNotifier)
+    : ControllerBase
 {
+    /// <summary>
+    /// Server-Sent Events stream: emits a <c>changed</c> event whenever an appointment is
+    /// created, updated, or deleted — including a booking arriving from the public website —
+    /// so the calendar page can refetch instantly instead of polling. Carries no data; it's a
+    /// doorbell, not a payload. Requires the normal staff auth cookie like every other
+    /// endpoint here (this route has no <c>[AllowAnonymous]</c>).
+    /// </summary>
+    [HttpGet("stream")]
+    public async Task Stream(CancellationToken cancellationToken)
+    {
+        Response.ContentType = "text/event-stream";
+        Response.Headers.CacheControl = "no-cache";
+        // Buffering the response would defeat the whole point: the browser wouldn't see an
+        // event until the buffer flushed or the connection closed. Only affects Kestrel
+        // itself — the Docker/nginx deployment needs its own proxy_buffering off (nginx.conf).
+        HttpContext.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
+
+        using var subscription = changeNotifier.Subscribe(out ChannelReader<byte> reader);
+
+        // A comment (":" prefix) rather than a real event: EventSource fires onopen as soon
+        // as headers arrive, but writing something immediately guards against a proxy in
+        // between deciding an empty response is still "pending" and holding it back.
+        await Response.WriteAsync(": connected\n\n", cancellationToken);
+        await Response.Body.FlushAsync(cancellationToken);
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            using var waitCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            // A periodic comment keeps the connection alive through any intermediary that
+            // times out an idle proxied connection, and doubles as a cheap dead-client check —
+            // if the write fails, the loop's outer try naturally ends the response.
+            waitCts.CancelAfter(TimeSpan.FromSeconds(20));
+
+            try
+            {
+                await reader.ReadAsync(waitCts.Token);
+                await Response.WriteAsync("event: changed\ndata: {}\n\n", cancellationToken);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // The 20s heartbeat timer fired, not a real disconnect.
+                await Response.WriteAsync(": heartbeat\n\n", cancellationToken);
+            }
+
+            await Response.Body.FlushAsync(cancellationToken);
+        }
+    }
+
     /// <summary>
     /// Returns appointments overlapping <c>?from=</c>/<c>?to=</c> (both optional),
     /// optionally filtered by <c>?status=</c>, <c>?mechanicId=</c> and <c>?jobId=</c>.

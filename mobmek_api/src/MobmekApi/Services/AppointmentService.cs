@@ -6,7 +6,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace MobmekApi.Services;
 
-public class AppointmentService(AppDbContext db, IGoogleCalendarClient calendarClient) : IAppointmentService
+public class AppointmentService(
+    AppDbContext db, IGoogleCalendarClient calendarClient, IAppointmentChangeNotifier changeNotifier)
+    : IAppointmentService
 {
     // Inline projection so EF resolves linked names via joins.
     private static readonly Expression<Func<Appointment, AppointmentDto>> ToDto =
@@ -19,6 +21,7 @@ public class AppointmentService(AppDbContext db, IGoogleCalendarClient calendarC
             a.Notes,
             a.ContactName,
             a.ContactPhone,
+            a.ContactEmail,
             a.VehicleDescription,
             a.CustomerId,
             a.Customer != null ? a.Customer.FirstName + " " + a.Customer.LastName : null,
@@ -123,6 +126,7 @@ public class AppointmentService(AppDbContext db, IGoogleCalendarClient calendarC
             Notes = request.Notes,
             ContactName = request.ContactName,
             ContactPhone = request.ContactPhone,
+            ContactEmail = request.ContactEmail,
             VehicleDescription = request.VehicleDescription,
             CustomerId = request.CustomerId,
             CarId = request.CarId,
@@ -133,6 +137,7 @@ public class AppointmentService(AppDbContext db, IGoogleCalendarClient calendarC
         db.Appointments.Add(appointment);
         EnqueueCalendarUpsert(appointment.Id);
         await db.SaveChangesAsync(cancellationToken);
+        changeNotifier.NotifyChanged();
 
         return (await GetByIdAsync(appointment.Id, cancellationToken), AppointmentWriteError.None);
     }
@@ -161,6 +166,7 @@ public class AppointmentService(AppDbContext db, IGoogleCalendarClient calendarC
         appointment.Notes = request.Notes;
         appointment.ContactName = request.ContactName;
         appointment.ContactPhone = request.ContactPhone;
+        appointment.ContactEmail = request.ContactEmail;
         appointment.VehicleDescription = request.VehicleDescription;
         appointment.CustomerId = request.CustomerId;
         appointment.CarId = request.CarId;
@@ -169,6 +175,7 @@ public class AppointmentService(AppDbContext db, IGoogleCalendarClient calendarC
 
         await EnqueueCalendarUpsertIfNotPendingAsync(appointment.Id, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
+        changeNotifier.NotifyChanged();
 
         return (await GetByIdAsync(appointment.Id, cancellationToken), AppointmentWriteError.None);
     }
@@ -203,6 +210,7 @@ public class AppointmentService(AppDbContext db, IGoogleCalendarClient calendarC
 
         db.Appointments.Remove(appointment);
         await db.SaveChangesAsync(cancellationToken);
+        changeNotifier.NotifyChanged();
 
         return true;
     }

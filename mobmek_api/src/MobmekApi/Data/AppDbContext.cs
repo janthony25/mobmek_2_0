@@ -260,6 +260,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAc
             entity.Property(a => a.Notes).HasMaxLength(4000);
             entity.Property(a => a.ContactName).HasMaxLength(200);
             entity.Property(a => a.ContactPhone).HasMaxLength(30);
+            entity.Property(a => a.ContactEmail).HasMaxLength(256);
             entity.Property(a => a.VehicleDescription).HasMaxLength(500);
             entity.Property(a => a.GoogleEventId).HasMaxLength(200);
 

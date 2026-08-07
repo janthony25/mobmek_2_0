@@ -73,6 +73,7 @@ export function AppointmentForm({ initial, initialSlot, initialJob, onSubmit, on
 
   const [contactName, setContactName] = useState(initial?.contactName ?? '')
   const [contactPhone, setContactPhone] = useState(initial?.contactPhone ?? '')
+  const [contactEmail, setContactEmail] = useState(initial?.contactEmail ?? '')
   const [vehicleDescription, setVehicleDescription] = useState(initial?.vehicleDescription ?? '')
 
   const start = initial ? new Date(initial.startUtc) : initialSlot?.start
@@ -186,6 +187,7 @@ export function AppointmentForm({ initial, initialSlot, initialJob, onSubmit, on
         notes: notes.trim() || null,
         contactName: contactName.trim() || null,
         contactPhone: contactPhone.trim() || null,
+        contactEmail: contactEmail.trim() || null,
         vehicleDescription: vehicleDescription.trim() || null,
         customerId: mode === 'existing' || mode === 'job' ? customerId : null,
         carId: (mode === 'existing' || mode === 'job') && carId ? carId : null,
@@ -328,6 +330,9 @@ export function AppointmentForm({ initial, initialSlot, initialJob, onSubmit, on
             </Field>
             <Field label="Phone" required>
               <input type="tel" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className={controlClass} />
+            </Field>
+            <Field label="Email">
+              <input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className={controlClass} />
             </Field>
             <Field label="Vehicle (free text)" className="sm:col-span-2">
               <input

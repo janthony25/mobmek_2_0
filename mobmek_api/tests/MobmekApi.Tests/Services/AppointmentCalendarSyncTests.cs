@@ -32,6 +32,7 @@ public class AppointmentCalendarSyncTests
             null,
             "Dave Miller",
             "0215551234",
+            null,
             "White 2014 Hilux",
             null, null, null, null);
 
@@ -40,7 +41,7 @@ public class AppointmentCalendarSyncTests
     {
         await using var db = CreateContext();
         var client = new FakeGoogleCalendarClient { IsConfigured = true };
-        var service = new AppointmentService(db, client);
+        var service = new AppointmentService(db, client, new FakeAppointmentChangeNotifier());
 
         var (appointment, _) = await service.CreateAsync(NewCallerBooking());
 
@@ -55,7 +56,7 @@ public class AppointmentCalendarSyncTests
     {
         await using var db = CreateContext();
         var client = new FakeGoogleCalendarClient { IsConfigured = false };
-        var service = new AppointmentService(db, client);
+        var service = new AppointmentService(db, client, new FakeAppointmentChangeNotifier());
 
         await service.CreateAsync(NewCallerBooking());
 
@@ -67,7 +68,7 @@ public class AppointmentCalendarSyncTests
     {
         await using var db = CreateContext();
         var client = new FakeGoogleCalendarClient { IsConfigured = true };
-        var service = new AppointmentService(db, client);
+        var service = new AppointmentService(db, client, new FakeAppointmentChangeNotifier());
         var (appointment, _) = await service.CreateAsync(NewCallerBooking());
 
         // Simulate the sync job already having pushed and cleared the create's outbox row.
@@ -87,7 +88,7 @@ public class AppointmentCalendarSyncTests
     {
         await using var db = CreateContext();
         var client = new FakeGoogleCalendarClient { IsConfigured = true };
-        var service = new AppointmentService(db, client);
+        var service = new AppointmentService(db, client, new FakeAppointmentChangeNotifier());
         var (appointment, _) = await service.CreateAsync(NewCallerBooking());
 
         await service.UpdateAsync(appointment!.Id, ToUpdateRequest(appointment) with { Title = "First edit" });
@@ -103,7 +104,7 @@ public class AppointmentCalendarSyncTests
     {
         await using var db = CreateContext();
         var client = new FakeGoogleCalendarClient { IsConfigured = true };
-        var service = new AppointmentService(db, client);
+        var service = new AppointmentService(db, client, new FakeAppointmentChangeNotifier());
         var (appointment, _) = await service.CreateAsync(NewCallerBooking());
 
         // Simulate: already pushed once (has a GoogleEventId), then edited again (pending Upsert).
@@ -126,7 +127,7 @@ public class AppointmentCalendarSyncTests
     {
         await using var db = CreateContext();
         var client = new FakeGoogleCalendarClient { IsConfigured = true };
-        var service = new AppointmentService(db, client);
+        var service = new AppointmentService(db, client, new FakeAppointmentChangeNotifier());
         var (appointment, _) = await service.CreateAsync(NewCallerBooking());
 
         await service.DeleteAsync(appointment!.Id);
@@ -141,7 +142,7 @@ public class AppointmentCalendarSyncTests
     {
         await using var db = CreateContext();
         var client = new FakeGoogleCalendarClient { IsConfigured = false };
-        var service = new AppointmentService(db, client);
+        var service = new AppointmentService(db, client, new FakeAppointmentChangeNotifier());
         var (appointment, _) = await service.CreateAsync(NewCallerBooking());
 
         await service.DeleteAsync(appointment!.Id);
@@ -151,6 +152,6 @@ public class AppointmentCalendarSyncTests
 
     private static UpdateAppointmentRequest ToUpdateRequest(AppointmentDto dto) => new(
         dto.Title, dto.StartUtc, dto.EndUtc, dto.Status, dto.Notes,
-        dto.ContactName, dto.ContactPhone, dto.VehicleDescription,
+        dto.ContactName, dto.ContactPhone, dto.ContactEmail, dto.VehicleDescription,
         dto.CustomerId, dto.CarId, dto.JobId, dto.MechanicId);
 }

@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPost, apiPut } from './client'
+import { apiDelete, apiGet, apiPost, apiPut, apiUrl } from './client'
 import type {
   Appointment,
   AppointmentStatus,
@@ -41,6 +41,9 @@ export const toAppointmentRequest = (
   notes: a.notes,
   contactName: a.contactName,
   contactPhone: a.contactPhone,
+  // Must be carried through: this helper rebuilds the *whole* payload for a PUT, so omitting
+  // a field here would blank it on the server every time a status is changed.
+  contactEmail: a.contactEmail,
   vehicleDescription: a.vehicleDescription,
   customerId: a.customerId,
   carId: a.carId,
@@ -48,6 +51,13 @@ export const toAppointmentRequest = (
   mechanicId: a.mechanicId,
   ...patch,
 })
+
+/**
+ * Server-Sent Events endpoint the calendar page subscribes to for live updates — one
+ * "changed" event per appointment create/update/delete, including bookings from the public
+ * website. Returns a plain URL (not a fetch helper) because EventSource takes a URL directly.
+ */
+export const appointmentsStreamUrl = () => apiUrl('/appointments/stream')
 
 export const getAppointment = (id: string) => apiGet<Appointment>(`/appointments/${id}`)
 export const createAppointment = (body: CreateAppointmentRequest) =>

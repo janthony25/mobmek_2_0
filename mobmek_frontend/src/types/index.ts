@@ -198,6 +198,12 @@ export const AppointmentStatus = {
   Completed: 3,
   NoShow: 4,
   Cancelled: 5,
+  /**
+   * Booked by a customer on the public website, awaiting approval. Holds the slot but isn't
+   * a commitment until moved to Confirmed. Numbered last to match the backend enum, which
+   * appended it rather than inserting it in lifecycle order.
+   */
+  Requested: 6,
 } as const
 
 export type AppointmentStatus = (typeof AppointmentStatus)[keyof typeof AppointmentStatus]
@@ -209,6 +215,7 @@ export const APPOINTMENT_STATUS_LABELS: Record<AppointmentStatus, string> = {
   [AppointmentStatus.Completed]: 'Completed',
   [AppointmentStatus.NoShow]: 'No-show',
   [AppointmentStatus.Cancelled]: 'Cancelled',
+  [AppointmentStatus.Requested]: 'Requested (website)',
 }
 
 /**
@@ -224,6 +231,7 @@ export interface Appointment {
   notes: string | null
   contactName: string | null
   contactPhone: string | null
+  contactEmail: string | null
   vehicleDescription: string | null
   customerId: string | null
   customerName: string | null
@@ -247,6 +255,7 @@ export interface CreateAppointmentRequest {
   notes: string | null
   contactName: string | null
   contactPhone: string | null
+  contactEmail: string | null
   vehicleDescription: string | null
   customerId: string | null
   carId: string | null

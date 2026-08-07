@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { getAppointments, createAppointment } from '@/api/appointments'
+import { appointmentsStreamUrl, getAppointments, createAppointment } from '@/api/appointments'
 import { getEmployees } from '@/api/employees'
 import { useAsync } from '@/hooks/useAsync'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -122,6 +122,7 @@ const STATUS_BLOCK_CLASSES: Record<AppointmentStatus, string> = {
   [AppointmentStatus.Completed]: 'border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200',
   [AppointmentStatus.NoShow]: 'border-red-300 bg-red-100 text-red-800 hover:bg-red-200',
   [AppointmentStatus.Cancelled]: 'border-slate-200 bg-slate-50 text-slate-400 line-through hover:bg-slate-100',
+  [AppointmentStatus.Requested]: 'border-orange-400 border-dashed bg-orange-100 text-orange-900 hover:bg-orange-200',
 }
 
 const STATUS_OPTIONS = Object.entries(APPOINTMENT_STATUS_LABELS)
@@ -224,6 +225,29 @@ export function AppointmentsPage() {
       setPendingSelectId(null)
     }
   }, [pendingSelectId, appointments])
+
+  // Bookings can land from the public website at any time, with nobody at the keyboard to
+  // notice. A Server-Sent Events connection pushes a "changed" event the instant any
+  // appointment is created, edited, or deleted — including a website booking — so a new
+  // request shows up (as the orange "Requested" block) the moment it happens, not on the
+  // next manual refresh. useAsync keeps the current list on screen during a reload (only
+  // the small inline spinner near the range label shows), so this never interrupts
+  // whatever the admin is doing. EventSource reconnects on its own if the connection drops.
+  useEffect(() => {
+    const source = new EventSource(appointmentsStreamUrl())
+    source.addEventListener('changed', () => reload())
+
+    // Pure backstop: if the stream is ever silently unavailable — a misconfigured proxy
+    // between the browser and the API buffering or blocking long-lived connections — this
+    // slow poll still catches up eventually instead of leaving the calendar stale forever.
+    const FALLBACK_POLL_MS = 5 * 60_000
+    const fallback = setInterval(reload, FALLBACK_POLL_MS)
+
+    return () => {
+      source.close()
+      clearInterval(fallback)
+    }
+  }, [reload])
 
   const goToday = () => setAnchor(startOfDay(new Date()))
   const step = (dir: 1 | -1) => {
