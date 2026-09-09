@@ -10,6 +10,7 @@ import { toAppointmentRequest, updateAppointment } from '@/api/appointments'
 import { createJobItem } from '@/api/jobItems'
 import { createLabour } from '@/api/labour'
 import { createJobServiceLine } from '@/api/jobServiceLines'
+import { addJobPhoto } from '@/api/jobPhotos'
 import { getGstSetting } from '@/api/gst'
 import { Button } from '@/components/ui/Button'
 import { Field, controlClass } from '@/components/forms/controls'
@@ -17,6 +18,7 @@ import { Combobox } from '@/components/forms/Combobox'
 import { PartsEditor } from '@/components/jobs/PartsEditor'
 import { LabourEditor } from '@/components/jobs/LabourEditor'
 import { DiscountEditor } from '@/components/jobs/DiscountEditor'
+import { JobPhotoDraftPicker } from '@/components/jobs/JobPhotos'
 import { RemindersSection } from '@/components/reminders/RemindersSection'
 import { useToast } from '@/components/ui/toast'
 import { currency, percent } from '@/lib/format'
@@ -27,9 +29,11 @@ import {
   emptyLabour,
   emptyPart,
   num,
+  photoDraft,
   round2,
   type LabourDraft,
   type PartDraft,
+  type PhotoDraft,
 } from '@/lib/jobLineDrafts'
 import {
   AppointmentStatus,
@@ -87,6 +91,7 @@ export function NewJobPage() {
   const [serviceIds, setServiceIds] = useState<Set<string>>(new Set())
   const [parts, setParts] = useState<PartDraft[]>([])
   const [labour, setLabour] = useState<LabourDraft[]>([])
+  const [photos, setPhotos] = useState<PhotoDraft[]>([])
   const [discountType, setDiscountType] = useState<DiscountType>(DiscountType.None)
   const [discountValue, setDiscountValue] = useState('0')
 
@@ -238,6 +243,11 @@ export function NewJobPage() {
         }),
       )
 
+    // Photos can only be uploaded once the job has an id, which is why they're held as
+    // drafts above rather than posted as the user picks them.
+    for (const p of photos)
+      await attempt(`Photo ${p.file.name}`, () => addJobPhoto(jobId, p.file))
+
     // Arrived from an appointment's check-in: link the new job back and mark it Arrived.
     if (appointment) {
       await attempt('Appointment link', () =>
@@ -247,6 +257,8 @@ export function NewJobPage() {
         ),
       )
     }
+
+    for (const p of photos) URL.revokeObjectURL(p.previewUrl)
 
     setBusy(false)
     if (failures.length > 0) {
@@ -423,6 +435,22 @@ export function NewJobPage() {
             className={controlClass}
             placeholder="Shown on invoices generated from this job."
           />
+
+          <div className="space-y-3 border-t border-slate-100 pt-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Photos</h2>
+            <JobPhotoDraftPicker
+              photos={photos}
+              disabled={busy}
+              onAdd={(files) => setPhotos((prev) => [...prev, ...files.map(photoDraft)])}
+              onRemove={(key) =>
+                setPhotos((prev) => {
+                  const dropped = prev.find((p) => p.key === key)
+                  if (dropped) URL.revokeObjectURL(dropped.previewUrl)
+                  return prev.filter((p) => p.key !== key)
+                })
+              }
+            />
+          </div>
         </div>
       </section>
 

@@ -120,6 +120,7 @@ builder.Services.AddSingleton<IAppointmentChangeNotifier, AppointmentChangeNotif
 builder.Services.AddScoped<IJobItemService, JobItemService>();
 builder.Services.AddScoped<ILabourService, LabourService>();
 builder.Services.AddScoped<IJobServiceLineService, JobServiceLineService>();
+builder.Services.AddScoped<IJobPhotoService, JobPhotoService>();
 builder.Services.AddScoped<IGstSettingService, GstSettingService>();
 builder.Services.AddScoped<IGstReportService, GstReportService>();
 builder.Services.AddScoped<IBusinessDetailsService, BusinessDetailsService>();

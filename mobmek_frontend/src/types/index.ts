@@ -189,6 +189,19 @@ export interface CreateJobRequest {
 
 export type UpdateJobRequest = Omit<CreateJobRequest, 'customerId'>
 
+/**
+ * A photo attached to a job (metadata only). The image bytes are fetched from
+ * `jobPhotoUrl(jobId, id)` — hand that straight to an `<img src>`.
+ */
+export interface JobPhoto {
+  id: string
+  jobId: string
+  fileName: string
+  contentType: string
+  sizeBytes: number
+  createdAtUtc: string
+}
+
 // --- Appointments --------------------------------------------------------------
 
 export const AppointmentStatus = {

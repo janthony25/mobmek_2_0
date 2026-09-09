@@ -6,6 +6,7 @@ import { getEmployees } from '@/api/employees'
 import { Button } from '@/components/ui/Button'
 import { AsyncCombobox } from './AsyncCombobox'
 import { Field, controlClass } from './controls'
+import { PhoneInput } from './PhoneInput'
 import { APPOINTMENT_STATUS_LABELS, AppointmentStatus, JOB_STATUS_LABELS } from '@/types'
 import type { Appointment, Car, CreateAppointmentRequest, Employee, Job } from '@/types'
 
@@ -329,7 +330,7 @@ export function AppointmentForm({ initial, initialSlot, initialJob, onSubmit, on
               <input type="text" value={contactName} onChange={(e) => setContactName(e.target.value.toUpperCase())} className={controlClass} />
             </Field>
             <Field label="Phone" required>
-              <input type="tel" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className={controlClass} />
+              <PhoneInput value={contactPhone} onChange={setContactPhone} />
             </Field>
             <Field label="Email">
               <input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className={controlClass} />

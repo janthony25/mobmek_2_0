@@ -46,4 +46,6 @@ public class Job : BaseEntity
     public ICollection<Labour> Labour { get; set; } = [];
 
     public ICollection<JobServiceLine> ServiceLines { get; set; } = [];
+
+    public ICollection<JobPhoto> Photos { get; set; } = [];
 }

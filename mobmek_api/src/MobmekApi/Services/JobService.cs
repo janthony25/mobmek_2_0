@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace MobmekApi.Services;
 
-public class JobService(AppDbContext db) : IJobService
+public class JobService(AppDbContext db, IFileStorage? fileStorage = null) : IJobService
 {
     private const int MaxPageSize = 200;
 
@@ -185,6 +185,20 @@ public class JobService(AppDbContext db) : IJobService
         if (job is null)
         {
             return false;
+        }
+
+        // The photo rows cascade with the job, but their stored image files don't —
+        // drop them here so deleting a job doesn't leak orphaned blobs.
+        if (fileStorage is not null)
+        {
+            var storageKeys = await db.JobPhotos
+                .Where(p => p.JobId == id)
+                .Select(p => p.StorageKey)
+                .ToListAsync(cancellationToken);
+            foreach (var key in storageKeys)
+            {
+                await fileStorage.DeleteAsync(key, cancellationToken);
+            }
         }
 
         db.Jobs.Remove(job);

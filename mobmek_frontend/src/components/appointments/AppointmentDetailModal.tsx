@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/toast'
 import { AppointmentForm } from '@/components/forms/AppointmentForm'
 import { CarForm } from '@/components/forms/CarForm'
 import { Field, controlClass } from '@/components/forms/controls'
+import { PhoneInput } from '@/components/forms/PhoneInput'
 import { date, time, orDash } from '@/lib/format'
 import { APPOINTMENT_STATUS_LABELS, AppointmentStatus } from '@/types'
 import type { Appointment, CreateAppointmentRequest, CreateCarRequest } from '@/types'
@@ -352,7 +353,7 @@ function QuickCustomerForm({ appointment, onDone, onCancel }: QuickCustomerFormP
           <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value.toUpperCase())} className={controlClass} />
         </Field>
         <Field label="Phone" required>
-          <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className={controlClass} />
+          <PhoneInput value={phoneNumber} onChange={setPhoneNumber} />
         </Field>
         <Field label="Email">
           <input type="email" value={emailAddress} onChange={(e) => setEmailAddress(e.target.value)} className={controlClass} />

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
+import { PhoneInput } from '@/components/forms/PhoneInput'
 import { Spinner } from '@/components/ui/Spinner'
 import type { FieldSchema } from './types'
 
@@ -166,6 +167,10 @@ function FieldControl({ field, value, error, onChange }: FieldControlProps) {
           rows={3}
           className={inputClass}
         />
+      )}
+
+      {field.type === 'phone' && (
+        <PhoneInput value={value as string} onChange={onChange} invalid={Boolean(error)} />
       )}
 
       {field.type === 'select' && (

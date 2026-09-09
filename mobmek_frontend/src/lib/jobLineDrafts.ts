@@ -28,6 +28,14 @@ export interface PartDraft {
   itemQuantity: string
 }
 
+/** A photo chosen before the job exists: the file plus a local preview URL. */
+export interface PhotoDraft {
+  key: string
+  file: File
+  /** Object URL for the thumbnail; revoke it when the draft is dropped. */
+  previewUrl: string
+}
+
 export interface LabourDraft {
   key: string
   id: string | null
@@ -35,6 +43,12 @@ export interface LabourDraft {
   ratePerHour: string
   fixedAmount: string
 }
+
+export const photoDraft = (file: File): PhotoDraft => ({
+  key: newKey(),
+  file,
+  previewUrl: URL.createObjectURL(file),
+})
 
 export const emptyPart = (): PartDraft => ({
   key: newKey(),

@@ -19,6 +19,7 @@ import { QuotationsSection } from '@/components/jobs/QuotationsSection'
 import { PartsEditor } from '@/components/jobs/PartsEditor'
 import { LabourEditor } from '@/components/jobs/LabourEditor'
 import { DiscountEditor } from '@/components/jobs/DiscountEditor'
+import { JobPhotosSection } from '@/components/jobs/JobPhotos'
 import { RemindersSection } from '@/components/reminders/RemindersSection'
 import { Button } from '@/components/ui/Button'
 import { CalendarIcon } from '@/components/ui/icons'
@@ -489,6 +490,8 @@ export function JobDetailPage() {
           )}
         </div>
       </section>
+
+      <JobPhotosSection jobId={job.id} />
 
       <section className="rounded-lg border border-slate-200 bg-white p-5">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Services</h2>
