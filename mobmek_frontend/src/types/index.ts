@@ -168,7 +168,8 @@ export interface Job {
   discountType: DiscountType
   discountValue: number
   totalJobPrice: number
-  totalJobProfit: number
+  /** Null for a non-Admin caller — the API hides margin from any role but Admin. */
+  totalJobProfit: number | null
   mechanics: JobMechanic[]
   createdAtUtc: string
   updatedAtUtc: string | null
@@ -305,13 +306,15 @@ export interface JobItem {
   id: string
   jobId: string
   itemName: string
+  // tradePrice/markup/unitProfit are null for a non-Admin caller — the API hides cost and
+  // margin from any role but Admin.
   tradePrice: number | null
   retailPrice: number | null
   markupSolution: MarkupSolution
-  markup: number
+  markup: number | null
   itemQuantity: number
   sellingPrice: number
-  unitProfit: number
+  unitProfit: number | null
   itemTotal: number
   createdAtUtc: string
   updatedAtUtc: string | null

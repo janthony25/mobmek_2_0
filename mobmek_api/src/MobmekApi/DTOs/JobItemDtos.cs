@@ -3,7 +3,11 @@ using MobmekApi.Entities;
 
 namespace MobmekApi.DTOs;
 
-/// <summary>Shape returned to API clients. Money fields below the inputs are backend-computed.</summary>
+/// <summary>
+/// Shape returned to API clients. Money fields below the inputs are backend-computed.
+/// <c>TradePrice</c>/<c>Markup</c>/<c>UnitProfit</c> are null for a non-Admin caller — see
+/// <see cref="Controllers.JobRoleRedaction"/> — because together they reveal cost and margin.
+/// </summary>
 public record JobItemDto(
     Guid Id,
     Guid JobId,
@@ -11,10 +15,10 @@ public record JobItemDto(
     decimal? TradePrice,
     decimal? RetailPrice,
     MarkupSolution MarkupSolution,
-    decimal Markup,
+    decimal? Markup,
     int ItemQuantity,
     decimal SellingPrice,
-    decimal UnitProfit,
+    decimal? UnitProfit,
     decimal ItemTotal,
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc);

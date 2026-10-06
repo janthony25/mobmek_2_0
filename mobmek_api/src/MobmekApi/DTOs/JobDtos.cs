@@ -6,7 +6,10 @@ namespace MobmekApi.DTOs;
 /// <summary>A mechanic assigned to a job.</summary>
 public record JobMechanicDto(Guid EmployeeId, string FullName);
 
-/// <summary>Shape returned to API clients. Totals are maintained by the backend.</summary>
+/// <summary>
+/// Shape returned to API clients. Totals are maintained by the backend. <c>TotalJobProfit</c>
+/// is null for a non-Admin caller — see <see cref="Controllers.JobRoleRedaction"/>.
+/// </summary>
 public record JobDto(
     Guid Id,
     Guid CustomerId,
@@ -21,7 +24,7 @@ public record JobDto(
     DiscountType DiscountType,
     decimal DiscountValue,
     decimal TotalJobPrice,
-    decimal TotalJobProfit,
+    decimal? TotalJobProfit,
     IReadOnlyList<JobMechanicDto> Mechanics,
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc,

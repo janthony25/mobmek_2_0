@@ -10,13 +10,15 @@ namespace MobmekApi.Controllers;
 [Produces("application/json")]
 public class JobsController(IJobService jobService) : ControllerBase
 {
+    private bool IsAdmin => User.IsInRole("Admin");
+
     /// <summary>Returns all jobs, optionally filtered by customer via <c>?customerId=</c>.</summary>
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<JobDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<JobDto>>> GetAll([FromQuery] Guid? customerId, CancellationToken cancellationToken)
     {
         var jobs = await jobService.GetAllAsync(customerId, cancellationToken);
-        return Ok(jobs);
+        return Ok(jobs.Redact(IsAdmin));
     }
 
     /// <summary>Returns one page of jobs, optionally filtered/sorted.</summary>
@@ -33,7 +35,7 @@ public class JobsController(IJobService jobService) : ControllerBase
         [FromQuery] DateOnly? dateTo = null)
     {
         var result = await jobService.GetPagedAsync(page, pageSize, search, sortBy, status, dateFrom, dateTo, cancellationToken);
-        return Ok(result);
+        return Ok(result.Redact(IsAdmin));
     }
 
     /// <summary>Returns a single job by id.</summary>
@@ -43,7 +45,7 @@ public class JobsController(IJobService jobService) : ControllerBase
     public async Task<ActionResult<JobDto>> GetById(Guid id, CancellationToken cancellationToken)
     {
         var job = await jobService.GetByIdAsync(id, cancellationToken);
-        return job is null ? NotFound() : Ok(job);
+        return job is null ? NotFound() : Ok(job.Redact(IsAdmin));
     }
 
     /// <summary>Creates a new job for a customer's car.</summary>
@@ -58,7 +60,7 @@ public class JobsController(IJobService jobService) : ControllerBase
             return MapError(error);
         }
 
-        return CreatedAtAction(nameof(GetById), new { id = job!.Id }, job);
+        return CreatedAtAction(nameof(GetById), new { id = job!.Id }, job.Redact(IsAdmin));
     }
 
     /// <summary>Updates an existing job.</summary>
@@ -74,7 +76,7 @@ public class JobsController(IJobService jobService) : ControllerBase
             return MapError(error);
         }
 
-        return Ok(job);
+        return Ok(job!.Redact(IsAdmin));
     }
 
     /// <summary>Deletes a job (and its items, labour, service lines and mechanic links).</summary>
@@ -95,7 +97,7 @@ public class JobsController(IJobService jobService) : ControllerBase
     public async Task<ActionResult<JobDto>> AddMechanic(Guid id, AddJobMechanicRequest request, CancellationToken cancellationToken)
     {
         var (job, error) = await jobService.AddMechanicAsync(id, request.EmployeeId, cancellationToken);
-        return error != JobWriteError.None ? MapError(error) : Ok(job);
+        return error != JobWriteError.None ? MapError(error) : Ok(job!.Redact(IsAdmin));
     }
 
     /// <summary>Removes a mechanic from a job.</summary>

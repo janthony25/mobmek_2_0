@@ -184,7 +184,7 @@ export function JobDetailPage() {
         tradePrice: i.tradePrice != null ? String(i.tradePrice) : '',
         retailPrice: i.retailPrice != null ? String(i.retailPrice) : '',
         markupSolution: i.markupSolution,
-        markup: String(i.markup),
+        markup: i.markup != null ? String(i.markup) : '',
         sellingPrice: String(i.sellingPrice),
         itemQuantity: String(i.itemQuantity),
       })),
@@ -627,7 +627,7 @@ export function JobDetailPage() {
   )
 }
 
-function PartsSummary({ items }: { items: { id: string; itemName: string; itemQuantity: number; sellingPrice: number; unitProfit: number; itemTotal: number }[] }) {
+function PartsSummary({ items }: { items: { id: string; itemName: string; itemQuantity: number; sellingPrice: number; unitProfit: number | null; itemTotal: number }[] }) {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5">
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Parts &amp; Items</h2>

@@ -9,13 +9,15 @@ namespace MobmekApi.Controllers;
 [Produces("application/json")]
 public class JobItemsController(IJobItemService jobItemService) : ControllerBase
 {
+    private bool IsAdmin => User.IsInRole("Admin");
+
     /// <summary>Returns the items on a job.</summary>
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<JobItemDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<JobItemDto>>> GetAll(Guid jobId, CancellationToken cancellationToken)
     {
         var items = await jobItemService.GetAllAsync(jobId, cancellationToken);
-        return Ok(items);
+        return Ok(items.Redact(IsAdmin));
     }
 
     /// <summary>Returns a single item on a job.</summary>
@@ -25,7 +27,7 @@ public class JobItemsController(IJobItemService jobItemService) : ControllerBase
     public async Task<ActionResult<JobItemDto>> GetById(Guid jobId, Guid id, CancellationToken cancellationToken)
     {
         var item = await jobItemService.GetByIdAsync(jobId, id, cancellationToken);
-        return item is null ? NotFound() : Ok(item);
+        return item is null ? NotFound() : Ok(item.Redact(IsAdmin));
     }
 
     /// <summary>Adds an item to a job.</summary>
@@ -40,7 +42,7 @@ public class JobItemsController(IJobItemService jobItemService) : ControllerBase
             return Problem(detail: $"Job '{jobId}' does not exist.", statusCode: StatusCodes.Status404NotFound);
         }
 
-        return CreatedAtAction(nameof(GetById), new { jobId, id = created.Id }, created);
+        return CreatedAtAction(nameof(GetById), new { jobId, id = created.Id }, created.Redact(IsAdmin));
     }
 
     /// <summary>Updates an item on a job.</summary>
@@ -50,7 +52,7 @@ public class JobItemsController(IJobItemService jobItemService) : ControllerBase
     public async Task<ActionResult<JobItemDto>> Update(Guid jobId, Guid id, UpdateJobItemRequest request, CancellationToken cancellationToken)
     {
         var updated = await jobItemService.UpdateAsync(jobId, id, request, cancellationToken);
-        return updated is null ? NotFound() : Ok(updated);
+        return updated is null ? NotFound() : Ok(updated.Redact(IsAdmin));
     }
 
     /// <summary>Deletes an item from a job.</summary>
