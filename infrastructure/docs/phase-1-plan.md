@@ -52,13 +52,37 @@ Two deliberate choices in there:
 - **No SSM parameters exist yet.** The policy already grants read access to `/mobmek/*`, but the
   parameters themselves need creating: `POSTGRES_PASSWORD`, `RESEND_API_KEY`,
   `GOOGLE_CALENDAR_CREDENTIALS_JSON`, `GOOGLE_CALENDAR_ID`, `BOOTSTRAP_ADMIN_*`.
-- **No production migration tooling.** The deploy flow calls for running EF Core migrations as a
-  separate step, but the runtime image (`mcr.microsoft.com/dotnet/aspnet:10.0`) has no SDK and no
-  `dotnet-ef`, and `Program.cs` gates `Database.Migrate()` to Development only. Pick one of:
-  an idempotent SQL script (`dotnet ef migrations script --idempotent`, reviewable before it
-  runs — the best fit while this is still a test deployment), a migration bundle
-  (`dotnet ef migrations bundle`, a self-contained arm64 executable), or a one-shot SDK-image
-  Compose service.
+
+## Running migrations in production
+
+The runtime image (`mcr.microsoft.com/dotnet/aspnet:10.0`) has no SDK and no `dotnet-ef`, and
+`Program.cs` deliberately gates `Database.Migrate()` to Development only — so nothing on the box
+can apply a schema change on its own. This is **not** a reason to move to RDS: wherever Postgres
+runs, something still has to generate and run the migration SQL. RDS changes where the database
+lives, not how you apply a change to it.
+
+`scripts/generate-migration-script.sh` generates the SQL on your own machine (where the SDK
+already is) via `dotnet ef migrations script --idempotent`, which wraps every migration in a
+guard against `__EFMigrationsHistory` — safe to run against a database on any prior migration,
+not just the one you tested against. Verified by running the same generated script against both
+the current dev DB (no-op, exit 0) and a brand-new empty Postgres (reproduced the full schema —
+every table matched except `legacy_import_map`, which belongs to the separate MSSQL import tool,
+not EF).
+
+```bash
+./scripts/generate-migration-script.sh    # writes ./migrate.sql (gitignored — regenerate, don't commit)
+less migrate.sql                          # skim for anything beyond additive changes
+
+scp migrate.sql <box>:~/
+ssh <box>
+docker exec mobmek_db pg_dump -U postgres mobmek | gzip > "pre-migrate-$(date +%Y%m%d%H%M).sql.gz"
+docker compose exec -T db psql -U postgres -d mobmek -v ON_ERROR_STOP=1 < migrate.sql
+```
+
+The `pg_dump` line is the safety net until the nightly-backup-to-S3 and restore-drill checklist
+items above are done — an additive migration (new table, new nullable column) is low-risk, but
+anything that drops or rewrites data should wait for a tested restore path before it runs
+anywhere real.
 
 ## File storage configuration
 

@@ -159,8 +159,8 @@ it's a newly launched region. Revisit that option later; it may appear over time
 - [ ] A tested **restore** drill, not just a backup script — untested backups aren't backups
 - [ ] SSM Parameter Store entries for the secrets currently in `.env.example` (none created yet)
 - [ ] `ASPNETCORE_ENVIRONMENT=Production` set (dev auto-migrates + exposes Swagger; prod must not)
-- [ ] A way to *run* EF Core migrations in prod — the runtime image has no SDK or `dotnet-ef`, so
-      this needs an idempotent SQL script or a migration bundle (see `docs/phase-1-plan.md`)
+- [x] A way to *run* EF Core migrations in prod — `scripts/generate-migration-script.sh` (see
+      `docs/phase-1-plan.md` → "Running migrations in production")
 
 ## Deploy flow (Phase 1, manual — no CI/CD yet)
 
@@ -173,9 +173,9 @@ it's a newly launched region. Revisit that option later; it may appear over time
    `aws s3 sync ./uploads s3://mobmek-uploads-649058763120/` first, or existing photo/receipt rows
    will point at objects that don't exist.
 6. `docker compose up -d --build`.
-7. Run EF Core migrations as a separate step (production does not auto-migrate on startup).
-   The runtime image has no SDK, so this needs an idempotent SQL script or a migration bundle
-   built off-box — see `docs/phase-1-plan.md`.
+7. Run pending migrations as a separate step (production does not auto-migrate on startup):
+   `./scripts/generate-migration-script.sh` locally, then `scp` + `psql` on the box — see
+   `docs/phase-1-plan.md` → "Running migrations in production" for the exact commands.
 8. Verify `https://<domain>` loads, that Swagger is **not** reachable, and that uploading a job
    photo then reloading the page still shows it (proves the S3 path, not local disk, is live).
 
