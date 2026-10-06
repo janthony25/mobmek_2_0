@@ -148,8 +148,8 @@ it's a newly launched region. Revisit that option later; it may appear over time
 - [x] AWS account + AWS Budgets alert (~$25/mo threshold)
 - [x] Limited instance role (`mobmek-prod-ec2-role`: both S3 buckets + SSM read only)
 - [ ] IAM admin user with MFA (currently assuming `OrganizationAccountAccessRole` from `jun-dev`)
-- [ ] EC2 `t4g.small` in the default VPC, Docker + Compose plugin installed
-- [ ] Elastic IP attached to the instance
+- [x] EC2 `t4g.small` in the default VPC, Docker + Compose plugin installed
+- [x] Elastic IP attached to the instance (`3.102.246.171`)
 - [x] Security group: 22 (your IP only), 80, 443 — nothing else public
 - [ ] Route 53 hosted zone + A record → Elastic IP
 - [ ] TLS via Caddy or certbot

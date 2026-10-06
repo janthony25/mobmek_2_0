@@ -11,22 +11,45 @@ CLI profile for it is `mobmek`)
 
 ## Resources
 
-Everything except the EC2 instance and its Elastic IP is provisioned. Current monthly cost is
-**$0** — both S3 buckets are empty, and versioning, lifecycle rules and encryption are free.
+Everything is provisioned, including the instance. Billing has started (~$19–23/month).
 
 | # | Resource | Status | Detail |
 |---|---|---|---|
 | 1 | AWS Budgets alert | ✅ done | "My Monthly Cost Budget", $25/mo threshold — free |
-| 2 | SSH key pair | ✅ done | `mobmek-prod`, private key saved locally to `~/.ssh/mobmek-prod.pem` |
+| 2 | SSH key pair | ✅ done | `mobmek-prod`, ed25519, private key at `~/.ssh/mobmek-prod.pem`. Recreated once already — the original's private half was never saved anywhere, so the orphaned AWS key pair was deleted and replaced. If this file is ever lost again, the fix is the same: delete and recreate, there is no recovery path for a lost private key. |
 | 3 | Security group | ✅ done | `mobmek-prod-sg` — SSH (22) from `149.19.25.237/32` only (update if the admin IP changes — it already has once); HTTP/HTTPS (80/443) open to everyone |
 | 4 | IAM role for the instance | ✅ done | `mobmek-prod-ec2-role` (+ instance profile of the same name), granting `mobmek-prod-ec2-policy` — see the policy breakdown below |
 | 5 | S3 backups bucket | ✅ done | `mobmek-backups-649058763120`, versioned, all public access blocked, SSE-S3 + bucket keys, lifecycle → Glacier IR at 30d / noncurrent versions expire at 90d / incomplete multipart aborted at 7d |
 | 5b | S3 uploads bucket | ✅ done | `mobmek-uploads-649058763120`, same privacy and encryption settings, lifecycle → noncurrent versions expire at 30d / incomplete multipart aborted at 7d. **No Glacier transition** — photos are read interactively and need to stay in Standard |
-| 6 | EC2 instance | ❌ **not created** | `t4g.small`, Ubuntu 24.04 LTS (arm64), boots with Docker + Compose pre-installed via a startup script |
-| 7 | Elastic IP | ❌ **not created** | Allocated and attached to the instance |
+| 6 | EC2 instance | ✅ done | `i-0497048f747fdd563`, `t4g.small`, Ubuntu 24.04 LTS arm64 (official Canonical AMI, resolved via SSM public parameter, not hand-picked), `ap-southeast-6c`. IMDSv2 required (`HttpTokens=required`). 30GB gp3 root volume. Docker + Compose plugin installed and verified (`docker run hello-world` succeeded; `docker ps` works for the `ubuntu` user with no `sudo`). |
+| 7 | Elastic IP | ✅ done | `3.102.246.171`, associated with the instance |
 
-Cost once the instance is running: **~$19–23/month** (breakdown in `infrastructure/README.md`).
-Step 6 is what starts the meter.
+### A bug in the original user-data script, for the record
+
+The first boot's user-data bundled `awscli` into the same `apt-get install` line as the Docker
+packages. `awscli` has no installation candidate via apt on this image — Ubuntu's `apt-get
+install` fails the whole command if any package is unavailable, so **Docker silently never
+installed** on first boot; cloud-init's own status correctly showed `error`, which is what caught
+it. Fixed by SSHing in and re-running the install without `awscli` (which was never actually
+needed — the instance role already hands any AWS SDK or CLI call credentials automatically, so
+having the `aws` CLI binary itself on the box is a convenience, not a requirement). Worth knowing
+if this instance is ever rebuilt from the same user-data: either drop `awscli` from it, or expect
+to repeat this fix.
+
+## Next: actually deploying the app
+
+Nothing has been deployed onto the box yet — Docker is ready, the app isn't there. Still ahead:
+
+1. `git clone` this repo onto the box (now possible — everything is pushed to `origin/main`)
+2. Pull the SSM secrets into `.env` (all 6 exist — see the SSM section below)
+3. Set `FILE_STORAGE_PROVIDER=S3` / `FILE_STORAGE_S3_BUCKET=mobmek-uploads-649058763120` (not
+   the `-dev` bucket), `ASPNETCORE_ENVIRONMENT=Production`, `FRONTEND_BASE_URL`
+4. `docker compose up -d --build`
+5. Run `scripts/generate-migration-script.sh` locally and apply it on the box (this is a brand
+   new database — this step creates the *entire* schema, not just an incremental update)
+6. Verify `http://3.102.246.171` loads and Swagger is unreachable
+
+TLS, the backup cron, and a domain are still open — see `infrastructure/README.md`'s checklist.
 
 ### Instance role policy (`mobmek-prod-ec2-policy`, default version `v3`)
 
