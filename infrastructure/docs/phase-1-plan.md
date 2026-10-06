@@ -18,7 +18,7 @@ Everything except the EC2 instance and its Elastic IP is provisioned. Current mo
 |---|---|---|---|
 | 1 | AWS Budgets alert | ✅ done | "My Monthly Cost Budget", $25/mo threshold — free |
 | 2 | SSH key pair | ✅ done | `mobmek-prod`, private key saved locally to `~/.ssh/mobmek-prod.pem` |
-| 3 | Security group | ✅ done | `mobmek-prod-sg` — SSH (22) from `149.19.25.197/32` only (update if the admin IP changes); HTTP/HTTPS (80/443) open to everyone |
+| 3 | Security group | ✅ done | `mobmek-prod-sg` — SSH (22) from `149.19.25.237/32` only (update if the admin IP changes — it already has once); HTTP/HTTPS (80/443) open to everyone |
 | 4 | IAM role for the instance | ✅ done | `mobmek-prod-ec2-role` (+ instance profile of the same name), granting `mobmek-prod-ec2-policy` — see the policy breakdown below |
 | 5 | S3 backups bucket | ✅ done | `mobmek-backups-649058763120`, versioned, all public access blocked, SSE-S3 + bucket keys, lifecycle → Glacier IR at 30d / noncurrent versions expire at 90d / incomplete multipart aborted at 7d |
 | 5b | S3 uploads bucket | ✅ done | `mobmek-uploads-649058763120`, same privacy and encryption settings, lifecycle → noncurrent versions expire at 30d / incomplete multipart aborted at 7d. **No Glacier transition** — photos are read interactively and need to stay in Standard |
@@ -28,15 +28,16 @@ Everything except the EC2 instance and its Elastic IP is provisioned. Current mo
 Cost once the instance is running: **~$19–23/month** (breakdown in `infrastructure/README.md`).
 Step 6 is what starts the meter.
 
-### Instance role policy (`mobmek-prod-ec2-policy`, default version `v2`)
+### Instance role policy (`mobmek-prod-ec2-policy`, default version `v3`)
 
 | Sid | Grants | On |
 |---|---|---|
 | `BackupBucketAccess` | `s3:PutObject`, `s3:GetObject`, `s3:ListBucket` | `mobmek-backups-649058763120` |
 | `UploadsBucketAccess` | `s3:PutObject`, `s3:GetObject`, `s3:DeleteObject`, `s3:ListBucket` | `mobmek-uploads-649058763120` |
 | `SecretsReadAccess` | `ssm:GetParameter`, `ssm:GetParameters`, `ssm:GetParametersByPath` | `arn:aws:ssm:ap-southeast-6:649058763120:parameter/mobmek/*` |
+| `SecretsDecrypt` | `kms:Decrypt` | the account's default SSM key (`alias/aws/ssm`) |
 
-Two deliberate choices in there:
+Three deliberate choices in there:
 
 - **`DeleteObject` is granted on uploads but not on backups.** The app genuinely deletes uploads
   (`S3FileStorage.DeleteAsync`, when a photo or receipt is removed), but nothing should ever
@@ -46,12 +47,25 @@ Two deliberate choices in there:
   missing object when the caller holds `s3:ListBucket`; without it a missing key returns `403`,
   which `S3FileStorage.OpenReadAsync` cannot distinguish from a broken policy — so every file
   would read as an error. Verified with `aws iam simulate-principal-policy`.
+- **`SecretsDecrypt` is not optional.** `ssm:GetParameter --with-decryption` on a `SecureString`
+  needs `kms:Decrypt` on the key it was encrypted with, as a *separate* grant from the SSM
+  permissions above — without it, the parameter still "fetches" successfully but decryption
+  fails, which would only have surfaced mid-deploy. Caught via `simulate-principal-policy`
+  showing `implicitDeny` before launch, not after.
 
-### Still outstanding (not blocking the instance launch)
+### SSM parameters (all created, all under `/mobmek/*`)
 
-- **No SSM parameters exist yet.** The policy already grants read access to `/mobmek/*`, but the
-  parameters themselves need creating: `POSTGRES_PASSWORD`, `RESEND_API_KEY`,
-  `GOOGLE_CALENDAR_CREDENTIALS_JSON`, `GOOGLE_CALENDAR_ID`, `BOOTSTRAP_ADMIN_*`.
+| Name | Type | Source |
+|---|---|---|
+| `POSTGRES_PASSWORD` | SecureString | freshly generated — not the local dev placeholder |
+| `BOOTSTRAP_ADMIN_EMAIL` | String | `justforvalo25@gmail.com` |
+| `BOOTSTRAP_ADMIN_PASSWORD` | SecureString | freshly generated — not the local dev placeholder |
+| `RESEND_API_KEY` | SecureString | same key as local dev (same Resend account, same domain) |
+| `GOOGLE_CALENDAR_ID` | String | same calendar as local dev |
+| `GOOGLE_CALENDAR_CREDENTIALS_JSON` | SecureString | same service account as local dev |
+
+Verified end-to-end, not just that the policy looks right: `aws ssm get-parameter --with-decryption`
+against the real KMS key succeeded and returned the correct value.
 
 ## Running migrations in production
 
