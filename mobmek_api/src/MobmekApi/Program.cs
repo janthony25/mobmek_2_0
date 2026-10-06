@@ -8,6 +8,7 @@ using MobmekApi.Data;
 using MobmekApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 // Not `using MobmekApi.Entities` — MobmekApi.Entities.JobService clashes with
@@ -311,6 +312,24 @@ if (app.Environment.IsDevelopment())
 
 // --- HTTP pipeline ---
 app.UseExceptionHandler();
+
+// nginx sets X-Forwarded-Proto/-For (mobmek_frontend/nginx.conf), but nothing translated them
+// into Request.Scheme/RemoteIpAddress — so Kestrel always saw the proxy's internal plain-HTTP
+// hop, never the browser's real HTTPS connection. Two concrete consequences without this:
+// CookieSecurePolicy.SameAsRequest (below) would never add Secure to the auth cookie, and
+// UseHttpsRedirection() would try to redirect every already-HTTPS request. Must run before both.
+// KnownNetworks/KnownProxies are cleared (trust the immediate caller's header) rather than
+// pinned to the nginx container's IP, which is dynamic across deploys — safe because the API's
+// own port is never opened to the public internet (only 80/443 are, per the EC2 security group
+// in infrastructure/docs/phase-1-plan.md); nothing outside the box can reach Kestrel directly
+// to forge this header in the first place.
+var forwardedHeadersOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+};
+forwardedHeadersOptions.KnownIPNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeadersOptions);
 
 if (app.Environment.IsDevelopment())
 {
