@@ -36,20 +36,38 @@ having the `aws` CLI binary itself on the box is a convenience, not a requiremen
 if this instance is ever rebuilt from the same user-data: either drop `awscli` from it, or expect
 to repeat this fix.
 
-## Next: actually deploying the app
+## The app is deployed and live
 
-Nothing has been deployed onto the box yet — Docker is ready, the app isn't there. Still ahead:
+`http://3.102.246.171` — verified end-to-end from outside the box (not just "containers are
+up"): logged in as the real bootstrap Admin, got back the correct full permission set, hit an
+authenticated endpoint successfully, confirmed Swagger isn't reachable.
 
-1. `git clone` this repo onto the box (now possible — everything is pushed to `origin/main`)
-2. Pull the SSM secrets into `.env` (all 6 exist — see the SSM section below)
-3. Set `FILE_STORAGE_PROVIDER=S3` / `FILE_STORAGE_S3_BUCKET=mobmek-uploads-649058763120` (not
-   the `-dev` bucket), `ASPNETCORE_ENVIRONMENT=Production`, `FRONTEND_BASE_URL`
-4. `docker compose up -d --build`
-5. Run `scripts/generate-migration-script.sh` locally and apply it on the box (this is a brand
-   new database — this step creates the *entire* schema, not just an incremental update)
-6. Verify `http://3.102.246.171` loads and Swagger is unreachable
+What it took, including the parts that didn't work on the first try:
 
-TLS, the backup cron, and a domain are still open — see `infrastructure/README.md`'s checklist.
+1. `git clone` the repo onto the box (public on GitHub, no auth needed)
+2. **AWS CLI**, installed via the official installer (not apt — see the Docker note above; same
+   root cause nearly bit this too, caught before it did)
+3. Built `.env` on the box by pulling all 6 SSM secrets with the box's *own* role (not mine) —
+   proves the real deploy-time path works, not just that credentials exist somewhere
+4. `FILE_STORAGE_S3_BUCKET=mobmek-uploads-649058763120` (the real bucket, not `-dev`),
+   `ASPNETCORE_ENVIRONMENT=Production`, `FRONTEND_BASE_URL=http://3.102.246.171`
+5. `docker compose up -d --build` — **api crashed immediately**, exactly as expected:
+   `relation "AspNetRoles" does not exist`. This is why migration is a deliberate step, not
+   optional — `Production` correctly refuses to auto-migrate an empty database.
+6. Generated the idempotent script locally, `scp`'d it over, applied with `psql` — 48 tables
+   created, clean exit. Skipped the usual pre-migration `pg_dump` safety net *only* because the
+   database was seconds old and empty — nothing existed yet to lose. Recreated the `api`
+   container afterward and watched it boot clean: roles seeded, `RolePermissions` populated,
+   bootstrap Admin created, Kestrel listening.
+7. **Found during verification, not before:** the frontend was still bound to host port 3000
+   (the local-dev mapping in the base `docker-compose.yml`) — the security group only opens 80,
+   so nothing external could reach it at all. Fixed with a box-local
+   `docker-compose.override.yml` remapping `frontend` to `80:80` — same override mechanism
+   already used for local dev, gitignored, never touches the shared compose file.
+
+**Still open:** TLS (plain HTTP only right now — the `Secure` cookie fix from earlier this
+session stays dormant until there's a real HTTPS front door), the backup cron, and a domain. See
+`infrastructure/README.md`'s checklist.
 
 ### Instance role policy (`mobmek-prod-ec2-policy`, default version `v3`)
 

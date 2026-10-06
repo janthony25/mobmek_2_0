@@ -158,7 +158,7 @@ it's a newly launched region. Revisit that option later; it may appear over time
 - [ ] Nightly cron: `pg_dump` → upload to S3, via the instance role (scoped to that bucket only)
 - [ ] A tested **restore** drill, not just a backup script — untested backups aren't backups
 - [x] SSM Parameter Store entries for the secrets currently in `.env.example`
-- [ ] `ASPNETCORE_ENVIRONMENT=Production` set (dev auto-migrates + exposes Swagger; prod must not)
+- [x] `ASPNETCORE_ENVIRONMENT=Production` set (dev auto-migrates + exposes Swagger; prod must not)
 - [x] A way to *run* EF Core migrations in prod — `scripts/generate-migration-script.sh` (see
       `docs/phase-1-plan.md` → "Running migrations in production")
 
