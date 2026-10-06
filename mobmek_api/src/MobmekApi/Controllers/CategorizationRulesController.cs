@@ -8,7 +8,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/categorization-rules")]
 [Produces("application/json")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = Permissions.AccessCashFlow)]
 public class CategorizationRulesController(ICategorizationRuleService ruleService) : ControllerBase
 {
     /// <summary>All rules in evaluation order (priority, then name).</summary>

@@ -91,7 +91,7 @@ public class AuthController(
 
     /// <summary>The login audit trail (successes and failures), newest first.</summary>
     [HttpGet("login-attempts")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = Permissions.ManageAccounts)]
     [ProducesResponseType(typeof(LoginAttemptPageDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<LoginAttemptPageDto>> GetLoginAttempts(
         [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken cancellationToken = default)

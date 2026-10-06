@@ -8,7 +8,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/gst/report")]
 [Produces("application/json")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = Permissions.AccessCashFlow)]
 public class GstReportController(IGstReportService gstReportService) : ControllerBase
 {
     /// <summary>

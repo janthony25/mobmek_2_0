@@ -34,7 +34,7 @@ public class ReminderTemplatesController(IReminderTemplateService templateServic
     }
 
     /// <summary>Creates a new reminder template.</summary>
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = Permissions.ManageReminderTemplates)]
     [HttpPost]
     [ProducesResponseType(typeof(ReminderTemplateDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -45,7 +45,7 @@ public class ReminderTemplatesController(IReminderTemplateService templateServic
     }
 
     /// <summary>Updates an existing reminder template.</summary>
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = Permissions.ManageReminderTemplates)]
     [HttpPut("{id:guid}")]
     [ProducesResponseType(typeof(ReminderTemplateDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -57,7 +57,7 @@ public class ReminderTemplatesController(IReminderTemplateService templateServic
     }
 
     /// <summary>Deletes a reminder template.</summary>
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = Permissions.ManageReminderTemplates)]
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

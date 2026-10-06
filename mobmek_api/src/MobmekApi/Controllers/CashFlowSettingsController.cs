@@ -8,7 +8,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/cash-flow-settings")]
 [Produces("application/json")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = Permissions.AccessCashFlow)]
 public class CashFlowSettingsController(ICashFlowSettingsService settingsService) : ControllerBase
 {
     /// <summary>Returns the invoice-payment account routing.</summary>

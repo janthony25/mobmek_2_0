@@ -8,7 +8,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/transaction-categories")]
 [Produces("application/json")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = Permissions.AccessCashFlow)]
 public class TransactionCategoriesController(ITransactionCategoryService categoryService) : ControllerBase
 {
     /// <summary>Lists transaction categories, grouped for pickers; pass <c>?includeArchived=true</c> for archived ones too.</summary>

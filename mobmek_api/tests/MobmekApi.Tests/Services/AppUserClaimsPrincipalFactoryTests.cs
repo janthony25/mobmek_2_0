@@ -19,7 +19,8 @@ namespace MobmekApi.Tests.Services;
 /// </summary>
 public class AppUserClaimsPrincipalFactoryTests
 {
-    private static async Task<(IUserClaimsPrincipalFactory<ApplicationUser> Factory, ApplicationUser User)> SetupAsync(string role)
+    private static async Task<(IUserClaimsPrincipalFactory<ApplicationUser> Factory, ApplicationUser User)> SetupAsync(
+        string role, params string[] permissions)
     {
         var dbName = Guid.NewGuid().ToString();
         var services = new ServiceCollection();
@@ -37,7 +38,10 @@ public class AppUserClaimsPrincipalFactoryTests
         var userManager = provider.GetRequiredService<UserManager<ApplicationUser>>();
         var roleManager = provider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
 
-        await roleManager.CreateAsync(new IdentityRole<Guid>(role));
+        var roleEntity = new IdentityRole<Guid>(role);
+        await roleManager.CreateAsync(roleEntity);
+        db.RolePermissions.AddRange(permissions.Select(p => new RolePermission { RoleId = roleEntity.Id, Permission = p }));
+        await db.SaveChangesAsync();
 
         var title = await new EmployeeTitleService(db).CreateAsync(new CreateEmployeeTitleRequest("Mechanic"));
         var type = await new EmploymentTypeService(db).CreateAsync(new CreateEmploymentTypeRequest("Full-time"));
@@ -70,5 +74,26 @@ public class AppUserClaimsPrincipalFactoryTests
         var principal = await factory.CreateAsync(user);
 
         Assert.Equal("Jane Doe", principal.FindFirst(AppUserClaimsPrincipalFactory.FullNameClaimType)?.Value);
+    }
+
+    [Fact]
+    public async Task CreateAsync_IncludesOnePermissionClaimPerGrantOnTheUsersRole()
+    {
+        var (factory, user) = await SetupAsync("Admin", Permissions.ManageEmployees, Permissions.AccessCashFlow);
+
+        var principal = await factory.CreateAsync(user);
+
+        var granted = principal.FindAll(AppUserClaimsPrincipalFactory.PermissionClaimType).Select(c => c.Value).ToList();
+        Assert.Equal(["ManageEmployees", "AccessCashFlow"], granted);
+    }
+
+    [Fact]
+    public async Task CreateAsync_AddsNoPermissionClaimsWhenTheRoleHasNoGrants()
+    {
+        var (factory, user) = await SetupAsync("Employee");
+
+        var principal = await factory.CreateAsync(user);
+
+        Assert.Empty(principal.FindAll(AppUserClaimsPrincipalFactory.PermissionClaimType));
     }
 }

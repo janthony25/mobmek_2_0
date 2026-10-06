@@ -11,7 +11,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/calendarsync")]
 [Produces("application/json")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = Permissions.ManageCalendarSync)]
 public class CalendarSyncController(AppDbContext db, IGoogleCalendarClient calendarClient, CalendarSyncJob syncJob, CalendarSyncStatus status)
     : ControllerBase
 {

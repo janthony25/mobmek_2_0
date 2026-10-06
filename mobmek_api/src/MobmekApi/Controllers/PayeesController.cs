@@ -8,7 +8,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/payees")]
 [Produces("application/json")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = Permissions.AccessCashFlow)]
 public class PayeesController(IPayeeService payeeService) : ControllerBase
 {
     /// <summary>All payees ordered by name; pass includeArchived=true to see archived ones.</summary>

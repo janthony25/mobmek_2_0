@@ -52,7 +52,7 @@ public class JobRoleRedactionTests
     {
         var job = SampleJob();
 
-        var result = job.Redact(isAdmin: true);
+        var result = job.Redact(canViewMargins: true);
 
         Assert.Equal(job, result);
         Assert.Equal(123.45m, result.TotalJobProfit);
@@ -61,7 +61,7 @@ public class JobRoleRedactionTests
     [Fact]
     public void Redact_Job_HidesProfitFromNonAdmin()
     {
-        var result = SampleJob().Redact(isAdmin: false);
+        var result = SampleJob().Redact(canViewMargins: false);
 
         Assert.Null(result.TotalJobProfit);
     }
@@ -71,7 +71,7 @@ public class JobRoleRedactionTests
     {
         var job = SampleJob();
 
-        var result = job.Redact(isAdmin: false);
+        var result = job.Redact(canViewMargins: false);
 
         Assert.Equal(job.Id, result.Id);
         Assert.Equal(job.TotalJobPrice, result.TotalJobPrice);
@@ -83,7 +83,7 @@ public class JobRoleRedactionTests
     {
         IReadOnlyList<JobDto> jobs = [SampleJob(), SampleJob()];
 
-        var result = jobs.Redact(isAdmin: false);
+        var result = jobs.Redact(canViewMargins: false);
 
         Assert.All(result, j => Assert.Null(j.TotalJobProfit));
     }
@@ -93,7 +93,7 @@ public class JobRoleRedactionTests
     {
         var page = new PagedResult<JobDto>([SampleJob()], TotalCount: 42, Page: 2, PageSize: 15);
 
-        var result = page.Redact(isAdmin: false);
+        var result = page.Redact(canViewMargins: false);
 
         Assert.Null(result.Items[0].TotalJobProfit);
         Assert.Equal(42, result.TotalCount);
@@ -105,7 +105,7 @@ public class JobRoleRedactionTests
     {
         var item = SampleItem();
 
-        var result = item.Redact(isAdmin: true);
+        var result = item.Redact(canViewMargins: true);
 
         Assert.Equal(item, result);
     }
@@ -113,7 +113,7 @@ public class JobRoleRedactionTests
     [Fact]
     public void Redact_JobItem_HidesTradePriceMarkupAndUnitProfitFromNonAdmin()
     {
-        var result = SampleItem().Redact(isAdmin: false);
+        var result = SampleItem().Redact(canViewMargins: false);
 
         Assert.Null(result.TradePrice);
         Assert.Null(result.Markup);
@@ -125,7 +125,7 @@ public class JobRoleRedactionTests
     {
         var item = SampleItem();
 
-        var result = item.Redact(isAdmin: false);
+        var result = item.Redact(canViewMargins: false);
 
         // Retail/selling price are what the customer sees on the invoice — not a margin leak,
         // and a non-Admin tech still needs them to do the job.
@@ -139,7 +139,7 @@ public class JobRoleRedactionTests
     {
         IReadOnlyList<JobItemDto> items = [SampleItem(), SampleItem()];
 
-        var result = items.Redact(isAdmin: false);
+        var result = items.Redact(canViewMargins: false);
 
         Assert.All(result, i => Assert.Null(i.UnitProfit));
     }

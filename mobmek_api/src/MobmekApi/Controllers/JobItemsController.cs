@@ -9,7 +9,7 @@ namespace MobmekApi.Controllers;
 [Produces("application/json")]
 public class JobItemsController(IJobItemService jobItemService) : ControllerBase
 {
-    private bool IsAdmin => User.IsInRole("Admin");
+    private bool CanViewMargins => User.HasClaim(AppUserClaimsPrincipalFactory.PermissionClaimType, Permissions.ViewJobMargins);
 
     /// <summary>Returns the items on a job.</summary>
     [HttpGet]
@@ -17,7 +17,7 @@ public class JobItemsController(IJobItemService jobItemService) : ControllerBase
     public async Task<ActionResult<IReadOnlyList<JobItemDto>>> GetAll(Guid jobId, CancellationToken cancellationToken)
     {
         var items = await jobItemService.GetAllAsync(jobId, cancellationToken);
-        return Ok(items.Redact(IsAdmin));
+        return Ok(items.Redact(CanViewMargins));
     }
 
     /// <summary>Returns a single item on a job.</summary>
@@ -27,7 +27,7 @@ public class JobItemsController(IJobItemService jobItemService) : ControllerBase
     public async Task<ActionResult<JobItemDto>> GetById(Guid jobId, Guid id, CancellationToken cancellationToken)
     {
         var item = await jobItemService.GetByIdAsync(jobId, id, cancellationToken);
-        return item is null ? NotFound() : Ok(item.Redact(IsAdmin));
+        return item is null ? NotFound() : Ok(item.Redact(CanViewMargins));
     }
 
     /// <summary>Adds an item to a job.</summary>
@@ -42,7 +42,7 @@ public class JobItemsController(IJobItemService jobItemService) : ControllerBase
             return Problem(detail: $"Job '{jobId}' does not exist.", statusCode: StatusCodes.Status404NotFound);
         }
 
-        return CreatedAtAction(nameof(GetById), new { jobId, id = created.Id }, created.Redact(IsAdmin));
+        return CreatedAtAction(nameof(GetById), new { jobId, id = created.Id }, created.Redact(CanViewMargins));
     }
 
     /// <summary>Updates an item on a job.</summary>
@@ -52,7 +52,7 @@ public class JobItemsController(IJobItemService jobItemService) : ControllerBase
     public async Task<ActionResult<JobItemDto>> Update(Guid jobId, Guid id, UpdateJobItemRequest request, CancellationToken cancellationToken)
     {
         var updated = await jobItemService.UpdateAsync(jobId, id, request, cancellationToken);
-        return updated is null ? NotFound() : Ok(updated.Redact(IsAdmin));
+        return updated is null ? NotFound() : Ok(updated.Redact(CanViewMargins));
     }
 
     /// <summary>Deletes an item from a job.</summary>

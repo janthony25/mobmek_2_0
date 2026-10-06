@@ -8,7 +8,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/cash-flow-audit")]
 [Produces("application/json")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = Permissions.AccessCashFlow)]
 public class CashFlowAuditController(ICashFlowAuditService auditService) : ControllerBase
 {
     /// <summary>The audit trail, newest first; filter by entity type/id and time window.</summary>

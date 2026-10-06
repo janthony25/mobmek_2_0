@@ -8,7 +8,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/recurring-transactions")]
 [Produces("application/json")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = Permissions.AccessCashFlow)]
 public class RecurringTransactionsController(IRecurringTransactionService recurringService) : ControllerBase
 {
     /// <summary>Lists recurring schedules with computed next-occurrence and monthly-equivalent amount.</summary>

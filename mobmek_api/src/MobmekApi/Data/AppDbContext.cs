@@ -88,6 +88,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAc
 
     public DbSet<CalendarSyncItem> CalendarSyncItems => Set<CalendarSyncItem>();
 
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -732,6 +734,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAc
                 .HasFilter("\"Action\" = 'Upsert'");
 
             entity.HasIndex(c => c.NextAttemptUtc);
+        });
+
+        modelBuilder.Entity<RolePermission>(entity =>
+        {
+            entity.HasKey(rp => new { rp.RoleId, rp.Permission });
+            entity.Property(rp => rp.Permission).HasMaxLength(64);
         });
     }
 

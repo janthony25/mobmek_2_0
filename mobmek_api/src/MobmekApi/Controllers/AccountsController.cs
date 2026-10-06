@@ -13,7 +13,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/accounts")]
 [Produces("application/json")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = Permissions.ManageAccounts)]
 public class AccountsController(IAccountAdminService accountAdminService, UserManager<ApplicationUser> userManager) : ControllerBase
 {
     /// <summary>Every login account, with its linked employee, roles, and confirmed/active status.</summary>

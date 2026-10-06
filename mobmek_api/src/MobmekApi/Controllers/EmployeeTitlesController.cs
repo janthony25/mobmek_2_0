@@ -8,7 +8,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Produces("application/json")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = Permissions.ManageEmployees)]
 public class EmployeeTitlesController(IEmployeeTitleService titleService) : ControllerBase
 {
     /// <summary>Returns all employee titles.</summary>

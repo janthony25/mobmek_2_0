@@ -8,7 +8,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/planned-transactions")]
 [Produces("application/json")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = Permissions.AccessCashFlow)]
 public class PlannedTransactionsController(IPlannedTransactionService plannedService) : ControllerBase
 {
     [HttpGet]

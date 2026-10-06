@@ -8,7 +8,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/cashflow/forecast")]
 [Produces("application/json")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = Permissions.AccessCashFlow)]
 public class CashFlowForecastController(IForecastService forecastService) : ControllerBase
 {
     /// <summary>Projected daily balance series. <c>scenario</c> is "BestCase", "Expected" (default) or "WorstCase".</summary>

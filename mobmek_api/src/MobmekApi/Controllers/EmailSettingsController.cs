@@ -8,7 +8,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/emailsettings")]
 [Produces("application/json")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = Permissions.ManageBusinessSettings)]
 public class EmailSettingsController(IEmailSettingsService emailSettingsService, IOutboundEmailService outboundEmailService) : ControllerBase
 {
     /// <summary>Returns the current email settings (secrets excluded; see <c>ResendConfigured</c>).</summary>

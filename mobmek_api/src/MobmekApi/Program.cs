@@ -90,11 +90,23 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddAuthorization(options =>
 {
     // Secure by default: every endpoint requires a signed-in user unless it opts out
-    // with [AllowAnonymous] (only AuthController.Login does). Admin-only endpoints add
-    // [Authorize(Roles = "Admin")], which layers a role check on top of this.
+    // with [AllowAnonymous] (only AuthController.Login does). Endpoints needing more than
+    // "any signed-in user" add [Authorize(Policy = Permissions.X)], which layers one of the
+    // permission checks below on top of this.
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
         .Build();
+
+    // One policy per entry in the fixed Permissions catalog — satisfied by the matching claim
+    // AppUserClaimsPrincipalFactory stamps onto the auth cookie at sign-in, which in turn comes
+    // from whatever RolePermission grants exist for the user's role(s). Which roles hold which
+    // permissions is admin-editable data, not code — this loop is the only place new code is
+    // needed when a new permission is added to the catalog.
+    foreach (var permission in Permissions.All)
+    {
+        options.AddPolicy(permission, policy =>
+            policy.RequireClaim(AppUserClaimsPrincipalFactory.PermissionClaimType, permission));
+    }
 });
 
 // --- Application services ---

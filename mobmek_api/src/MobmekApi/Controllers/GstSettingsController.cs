@@ -8,7 +8,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/gst")]
 [Produces("application/json")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = Permissions.AccessCashFlow)]
 public class GstSettingsController(IGstSettingService gstSettingService) : ControllerBase
 {
     /// <summary>Returns the current GST setting (rate as a fraction, e.g. 0.15 = 15%).</summary>

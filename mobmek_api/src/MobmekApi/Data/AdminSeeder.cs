@@ -1,4 +1,5 @@
 using MobmekApi.Entities;
+using MobmekApi.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -28,6 +29,13 @@ public static class AdminSeeder
                 await roleManager.CreateAsync(new IdentityRole<Guid>(role));
             }
         }
+
+        // Runs on every startup, not just the first — unlike the Admin-account bootstrap below,
+        // which only matters once. Admin always holds every permission in the catalog; Employee
+        // holds none (matches the old Roles="Admin" behavior exactly, so nothing regresses).
+        // Self-healing: a permission added to Permissions.All later gets granted to Admin on the
+        // next startup with no extra migration or seeder change needed.
+        await EnsureAdminHasAllPermissionsAsync(db, roleManager, cancellationToken);
 
         if ((await userManager.GetUsersInRoleAsync("Admin")).Count > 0)
         {
@@ -84,5 +92,29 @@ public static class AdminSeeder
 
         await userManager.AddToRoleAsync(user, "Admin");
         logger.LogInformation("Created bootstrap Admin account for {Email}.", email);
+    }
+
+    private static async Task EnsureAdminHasAllPermissionsAsync(
+        AppDbContext db, RoleManager<IdentityRole<Guid>> roleManager, CancellationToken cancellationToken)
+    {
+        var adminRole = await roleManager.FindByNameAsync("Admin");
+        if (adminRole is null)
+        {
+            return;
+        }
+
+        var granted = await db.RolePermissions
+            .Where(rp => rp.RoleId == adminRole.Id)
+            .Select(rp => rp.Permission)
+            .ToListAsync(cancellationToken);
+
+        var missing = Permissions.All.Except(granted).ToList();
+        if (missing.Count == 0)
+        {
+            return;
+        }
+
+        db.RolePermissions.AddRange(missing.Select(p => new RolePermission { RoleId = adminRole.Id, Permission = p }));
+        await db.SaveChangesAsync(cancellationToken);
     }
 }
