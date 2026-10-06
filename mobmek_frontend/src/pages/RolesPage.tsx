@@ -20,8 +20,10 @@ export function RolesPage() {
   const [name, setName] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  const [busyKey, setBusyKey] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<Role | null>(null)
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null)
+  const [draftPermissions, setDraftPermissions] = useState<string[]>([])
+  const [savingEdit, setSavingEdit] = useState(false)
 
   if ((roles.loading && !roles.data) || (permissions.loading && !permissions.data)) {
     return <StateMessage title="Loading roles…" loading />
@@ -58,19 +60,31 @@ export function RolesPage() {
     }
   }
 
-  const togglePermission = async (role: Role, permission: string, checked: boolean) => {
-    const next = checked
-      ? [...role.permissions, permission]
-      : role.permissions.filter((p) => p !== permission)
+  const startEdit = (role: Role) => {
+    setEditingRoleId(role.id)
+    setDraftPermissions(role.permissions)
+  }
 
-    setBusyKey(`${role.id}:${permission}`)
+  const cancelEdit = () => {
+    setEditingRoleId(null)
+    setDraftPermissions([])
+  }
+
+  const toggleDraftPermission = (permission: string, checked: boolean) => {
+    setDraftPermissions((prev) => (checked ? [...prev, permission] : prev.filter((p) => p !== permission)))
+  }
+
+  const saveEdit = async (roleId: string) => {
+    setSavingEdit(true)
     try {
-      await setRolePermissions(role.id, { permissions: next })
+      await setRolePermissions(roleId, { permissions: draftPermissions })
+      toast.success('Permissions updated')
+      setEditingRoleId(null)
       roles.reload()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     } finally {
-      setBusyKey(null)
+      setSavingEdit(false)
     }
   }
 
@@ -102,61 +116,92 @@ export function RolesPage() {
       </div>
 
       <div className="mt-6 space-y-4">
-        {(roles.data ?? []).map((role) => (
-          <div key={role.id} className="rounded-lg border border-slate-200 bg-white p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-semibold text-slate-900">{role.name}</h2>
-                <p className="text-xs text-slate-500">
-                  {role.accountCount} {role.accountCount === 1 ? 'account' : 'accounts'}
-                  {role.isProtected && ' · protected — always has every permission'}
-                </p>
+        {(roles.data ?? []).map((role) => {
+          const editing = editingRoleId === role.id
+          return (
+            <div key={role.id} className="rounded-lg border border-slate-200 bg-white p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-semibold text-slate-900">{role.name}</h2>
+                  <p className="text-xs text-slate-500">
+                    {role.accountCount} {role.accountCount === 1 ? 'account' : 'accounts'}
+                    {role.isProtected && ' · protected — always has every permission'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {role.isProtected ? (
+                    <span className="text-xs text-slate-400" title="The Admin role can't be edited or deleted.">—</span>
+                  ) : editing ? (
+                    <>
+                      <Button variant="secondary" size="sm" onClick={cancelEdit} disabled={savingEdit}>
+                        Cancel
+                      </Button>
+                      <Button size="sm" onClick={() => saveEdit(role.id)} disabled={savingEdit}>
+                        {savingEdit ? 'Saving…' : 'Save'}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="secondary" size="sm" onClick={() => startEdit(role)}>
+                        Edit
+                      </Button>
+                      {role.accountCount > 0 ? (
+                        <span
+                          className="text-xs text-slate-400"
+                          title="This role is still assigned to one or more accounts — reassign them first."
+                        >
+                          —
+                        </span>
+                      ) : (
+                        <Button variant="danger" size="sm" onClick={() => setDeleting(role)}>
+                          Delete
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
-              {role.isProtected ? (
-                <span className="text-xs text-slate-400" title="The Admin role can't be deleted.">—</span>
-              ) : role.accountCount > 0 ? (
-                <span
-                  className="text-xs text-slate-400"
-                  title="This role is still assigned to one or more accounts — reassign them first."
-                >
-                  —
-                </span>
-              ) : (
-                <Button variant="danger" size="sm" onClick={() => setDeleting(role)}>
-                  Delete
-                </Button>
-              )}
-            </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {catalog.map((permission) => {
-                const info = PERMISSION_INFO[permission]
-                const checked = role.isProtected || role.permissions.includes(permission)
-                const busy = busyKey === `${role.id}:${permission}`
-                return (
-                  <label
-                    key={permission}
-                    className={`flex items-start gap-2 rounded-md border border-slate-200 p-2.5 text-sm ${
-                      role.isProtected || busy ? 'opacity-60' : 'cursor-pointer hover:bg-slate-50'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      className="mt-0.5"
-                      checked={checked}
-                      disabled={role.isProtected || busy}
-                      onChange={(e) => togglePermission(role, permission, e.target.checked)}
-                    />
-                    <span>
-                      <span className="block font-medium text-slate-900">{info?.label ?? permission}</span>
-                      {info?.description && <span className="block text-xs text-slate-500">{info.description}</span>}
-                    </span>
-                  </label>
-                )
-              })}
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {catalog.map((permission) => {
+                  const info = PERMISSION_INFO[permission]
+                  const granted = role.isProtected || (editing ? draftPermissions.includes(permission) : role.permissions.includes(permission))
+                  return editing ? (
+                    <label
+                      key={permission}
+                      className="flex cursor-pointer items-start gap-2 rounded-md border border-slate-200 p-2.5 text-sm hover:bg-slate-50"
+                    >
+                      <input
+                        type="checkbox"
+                        className="mt-0.5"
+                        checked={granted}
+                        disabled={savingEdit}
+                        onChange={(e) => toggleDraftPermission(permission, e.target.checked)}
+                      />
+                      <span>
+                        <span className="block font-medium text-slate-900">{info?.label ?? permission}</span>
+                        {info?.description && <span className="block text-xs text-slate-500">{info.description}</span>}
+                      </span>
+                    </label>
+                  ) : (
+                    <div
+                      key={permission}
+                      className={`flex items-start gap-2 rounded-md border border-slate-200 p-2.5 text-sm ${granted ? '' : 'opacity-50'}`}
+                    >
+                      <span className={`mt-0.5 ${granted ? 'text-green-600' : 'text-slate-300'}`} aria-hidden>
+                        {granted ? '✓' : '—'}
+                      </span>
+                      <span>
+                        <span className="block font-medium text-slate-900">{info?.label ?? permission}</span>
+                        {info?.description && <span className="block text-xs text-slate-500">{info.description}</span>}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
         {(roles.data ?? []).length === 0 && (
           <p className="rounded-lg border border-slate-200 bg-white px-4 py-6 text-center text-slate-400">
             No roles yet.
