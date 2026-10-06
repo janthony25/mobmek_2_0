@@ -22,12 +22,23 @@ public class AuthService(AppDbContext db, UserManager<ApplicationUser> userManag
 
         var roles = await userManager.GetRolesAsync(user);
 
+        // Queried fresh here (not read off the signed-in cookie's claims) so this always
+        // matches Roles above, which is also always fresh — same tradeoff that already existed
+        // for Roles before permissions existed: a role's permissions changing mid-session isn't
+        // reflected until the affected user's next login, same as AppUserClaimsPrincipalFactory.
+        var permissions = await db.Roles
+            .Where(r => roles.Contains(r.Name!))
+            .Join(db.RolePermissions, r => r.Id, rp => rp.RoleId, (r, rp) => rp.Permission)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
         return new CurrentUserDto(
             user.Id,
             user.Email!,
             user.EmployeeId,
             user.Employee.FirstName,
             user.Employee.LastName,
-            roles.ToArray());
+            roles.ToArray(),
+            permissions);
     }
 }

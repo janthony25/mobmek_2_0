@@ -1166,7 +1166,21 @@ export interface CurrentUser {
   firstName: string
   lastName: string
   roles: string[]
+  /** What to actually gate UI on — a role's permissions are admin-editable (see /roles), so
+   * "Admin" isn't a safe thing to branch on. See PERMISSIONS below for the fixed catalog. */
+  permissions: string[]
 }
+
+/** Mirrors the backend's fixed catalog (Services/Permissions.cs) — kept in sync manually. */
+export const PERMISSIONS = {
+  ManageEmployees: 'ManageEmployees',
+  ManageAccounts: 'ManageAccounts',
+  ManageBusinessSettings: 'ManageBusinessSettings',
+  ManageCalendarSync: 'ManageCalendarSync',
+  ManageReminderTemplates: 'ManageReminderTemplates',
+  AccessCashFlow: 'AccessCashFlow',
+  ViewJobMargins: 'ViewJobMargins',
+} as const
 
 // --- Account / role management (Admin only) -------------------------------------
 

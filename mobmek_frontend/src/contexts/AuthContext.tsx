@@ -8,7 +8,11 @@ interface AuthContextValue {
   user: CurrentUser | null
   /** True only while the initial session check (GET /auth/me) is in flight. */
   loading: boolean
+  /** Still literally "do they hold the Admin role" — fine for the few things that really mean
+   * that specifically (e.g. the "· Admin" badge). For gating a feature, use hasPermission
+   * instead: a role's permissions are admin-editable, so "Admin" alone isn't the right check. */
   isAdmin: boolean
+  hasPermission: (permission: string) => boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
 }
@@ -40,9 +44,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }, [])
 
+  const hasPermission = useCallback(
+    (permission: string) => user?.permissions.includes(permission) ?? false,
+    [user],
+  )
+
   const value = useMemo<AuthContextValue>(
-    () => ({ user, loading, isAdmin: user?.roles.includes('Admin') ?? false, login, logout }),
-    [user, loading, login, logout],
+    () => ({ user, loading, isAdmin: user?.roles.includes('Admin') ?? false, hasPermission, login, logout }),
+    [user, loading, hasPermission, login, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

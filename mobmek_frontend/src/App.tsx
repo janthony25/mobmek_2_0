@@ -2,7 +2,8 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useNumberInputWheelGuard } from '@/hooks/useNumberInputWheelGuard'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { RequireAuth } from '@/components/auth/RequireAuth'
-import { RequireAdmin } from '@/components/auth/RequireAdmin'
+import { RequirePermission } from '@/components/auth/RequirePermission'
+import { PERMISSIONS } from '@/types'
 import { LoginPage } from '@/pages/LoginPage'
 import { ConfirmAccountPage } from '@/pages/ConfirmAccountPage'
 import { AccountsPage } from '@/pages/AccountsPage'
@@ -68,13 +69,20 @@ function App() {
           <Route path="reminder-templates" element={<ReminderTemplatesPage />} />
           <Route path="profile" element={<ProfileSettingsPage />} />
 
-          {/* Admin-only: HR, settings, and financials — mirrors [Authorize(Roles = "Admin")] on the API. */}
-          <Route element={<RequireAdmin />}>
+          {/* Each group mirrors the matching [Authorize(Policy = Permissions.X)] on the API —
+              keep them in sync; see Services/Permissions.cs for the fixed catalog. */}
+          <Route element={<RequirePermission permission={PERMISSIONS.ManageAccounts} />}>
             <Route path="accounts" element={<AccountsPage />} />
             <Route path="roles" element={<RolesPage />} />
+          </Route>
+
+          <Route element={<RequirePermission permission={PERMISSIONS.ManageEmployees} />}>
             <Route path="employees" element={<EmployeesPage />} />
             <Route path="employee-titles" element={<EmployeeTitlesPage />} />
             <Route path="employment-types" element={<EmploymentTypesPage />} />
+          </Route>
+
+          <Route element={<RequirePermission permission={PERMISSIONS.AccessCashFlow} />}>
             <Route path="cash-flow" element={<CashFlowPage />} />
             <Route path="cash-accounts" element={<CashAccountsPage />} />
             <Route path="transaction-categories" element={<TransactionCategoriesPage />} />
@@ -84,8 +92,14 @@ function App() {
             <Route path="forecast" element={<ForecastPage />} />
             <Route path="gst-report" element={<GstReportPage />} />
             <Route path="tax" element={<TaxSettingsPage />} />
+          </Route>
+
+          <Route element={<RequirePermission permission={PERMISSIONS.ManageBusinessSettings} />}>
             <Route path="business-details" element={<BusinessDetailsSettingsPage />} />
             <Route path="email-settings" element={<EmailSettingsPage />} />
+          </Route>
+
+          <Route element={<RequirePermission permission={PERMISSIONS.ManageCalendarSync} />}>
             <Route path="calendar-sync" element={<CalendarSyncSettingsPage />} />
           </Route>
 

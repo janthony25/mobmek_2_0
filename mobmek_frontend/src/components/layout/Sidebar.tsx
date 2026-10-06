@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import { PERMISSIONS } from '@/types'
 
 interface NavItem {
   to: string
@@ -8,8 +9,9 @@ interface NavItem {
   icon: string
   /** Temporarily hidden from the sidebar (page still exists, just not linked here yet). */
   hidden?: boolean
-  /** Only shown to Admins — mirrors the route's RequireAdmin guard / the API's [Authorize(Roles = "Admin")]. */
-  adminOnly?: boolean
+  /** Only shown if the signed-in user holds this permission — mirrors the route's
+   * RequirePermission guard / the API's [Authorize(Policy = Permissions.X)]. */
+  permission?: string
 }
 
 interface NavGroup {
@@ -44,33 +46,33 @@ const NAV_GROUPS: NavGroup[] = [
     heading: 'Finance',
     hiddenNote: 'Enable to see pages',
     items: [
-      { to: '/cash-flow', label: 'Cash Flow', icon: '💵', hidden: true, adminOnly: true },
-      { to: '/recurring-planned', label: 'Recurring & Planned', icon: '🔁', hidden: true, adminOnly: true },
-      { to: '/forecast', label: 'Forecast', icon: '📈', hidden: true, adminOnly: true },
-      { to: '/gst-report', label: 'GST Report', icon: '🧮', hidden: true, adminOnly: true },
-      { to: '/cash-accounts', label: 'Cash Accounts', icon: '🏦', hidden: true, adminOnly: true },
-      { to: '/transaction-categories', label: 'Categories', icon: '🗂️', hidden: true, adminOnly: true },
-      { to: '/payees', label: 'Payees', icon: '🤝', hidden: true, adminOnly: true },
-      { to: '/categorization-rules', label: 'Rules', icon: '⚙️', hidden: true, adminOnly: true },
+      { to: '/cash-flow', label: 'Cash Flow', icon: '💵', hidden: true, permission: PERMISSIONS.AccessCashFlow },
+      { to: '/recurring-planned', label: 'Recurring & Planned', icon: '🔁', hidden: true, permission: PERMISSIONS.AccessCashFlow },
+      { to: '/forecast', label: 'Forecast', icon: '📈', hidden: true, permission: PERMISSIONS.AccessCashFlow },
+      { to: '/gst-report', label: 'GST Report', icon: '🧮', hidden: true, permission: PERMISSIONS.AccessCashFlow },
+      { to: '/cash-accounts', label: 'Cash Accounts', icon: '🏦', hidden: true, permission: PERMISSIONS.AccessCashFlow },
+      { to: '/transaction-categories', label: 'Categories', icon: '🗂️', hidden: true, permission: PERMISSIONS.AccessCashFlow },
+      { to: '/payees', label: 'Payees', icon: '🤝', hidden: true, permission: PERMISSIONS.AccessCashFlow },
+      { to: '/categorization-rules', label: 'Rules', icon: '⚙️', hidden: true, permission: PERMISSIONS.AccessCashFlow },
     ],
   },
   {
     heading: 'Staff',
     items: [
-      { to: '/accounts', label: 'Accounts & Roles', icon: '🔑', adminOnly: true },
-      { to: '/roles', label: 'Roles & Permissions', icon: '🛡️', adminOnly: true },
-      { to: '/employees', label: 'Employees', icon: '🧑‍🔧', adminOnly: true },
-      { to: '/employee-titles', label: 'Titles', icon: '🏷️', adminOnly: true },
-      { to: '/employment-types', label: 'Employment Types', icon: '📋', adminOnly: true },
+      { to: '/accounts', label: 'Accounts & Roles', icon: '🔑', permission: PERMISSIONS.ManageAccounts },
+      { to: '/roles', label: 'Roles & Permissions', icon: '🛡️', permission: PERMISSIONS.ManageAccounts },
+      { to: '/employees', label: 'Employees', icon: '🧑‍🔧', permission: PERMISSIONS.ManageEmployees },
+      { to: '/employee-titles', label: 'Titles', icon: '🏷️', permission: PERMISSIONS.ManageEmployees },
+      { to: '/employment-types', label: 'Employment Types', icon: '📋', permission: PERMISSIONS.ManageEmployees },
     ],
   },
   {
     heading: 'Settings',
     items: [
-      { to: '/tax', label: 'Tax (GST)', icon: '💰', adminOnly: true },
-      { to: '/business-details', label: 'Business Details', icon: '🏢', adminOnly: true },
-      { to: '/email-settings', label: 'Email', icon: '✉️', adminOnly: true },
-      { to: '/calendar-sync', label: 'Calendar Sync', icon: '📆', adminOnly: true },
+      { to: '/tax', label: 'Tax (GST)', icon: '💰', permission: PERMISSIONS.AccessCashFlow },
+      { to: '/business-details', label: 'Business Details', icon: '🏢', permission: PERMISSIONS.ManageBusinessSettings },
+      { to: '/email-settings', label: 'Email', icon: '✉️', permission: PERMISSIONS.ManageBusinessSettings },
+      { to: '/calendar-sync', label: 'Calendar Sync', icon: '📆', permission: PERMISSIONS.ManageCalendarSync },
     ],
   },
 ]
@@ -81,7 +83,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState<boolean>(
     () => localStorage.getItem(STORAGE_KEY) === 'true',
   )
-  const { user, isAdmin, logout } = useAuth()
+  const { user, isAdmin, hasPermission, logout } = useAuth()
 
   const toggle = () => {
     setCollapsed((prev) => {
@@ -134,7 +136,7 @@ export function Sidebar() {
 
       <nav className={['flex-1 py-4', collapsed ? 'px-2' : 'px-3'].join(' ')}>
         {NAV_GROUPS.map((group) => {
-          const visibleItems = group.items.filter((item) => !item.hidden && (!item.adminOnly || isAdmin))
+          const visibleItems = group.items.filter((item) => !item.hidden && (!item.permission || hasPermission(item.permission)))
           return (
             <div key={group.heading} className="mb-4">
               {!collapsed && (
