@@ -156,8 +156,11 @@ it's a newly launched region. Revisit that option later; it may appear over time
 - [x] TLS via Caddy — automatic Let's Encrypt cert, verified live with a real `Set-Cookie: ...; secure`
 - [x] S3 bucket (versioned, lifecycle → Glacier IR @ 30d, block public access) for DB backups
 - [x] S3 bucket for uploads (versioned, private, no Glacier transition) + `FileStorage:Provider=S3`
-- [ ] Nightly cron: `pg_dump` → upload to S3, via the instance role (scoped to that bucket only)
-- [ ] A tested **restore** drill, not just a backup script — untested backups aren't backups
+- [x] Nightly cron: `pg_dump` → upload to S3, via the instance role (`/etc/cron.d/mobmek-backup`,
+      13:00 UTC daily — see `scripts/backup-to-s3.sh`)
+- [x] A tested **restore** drill, not just a backup script — `scripts/restore-drill.sh`, run for
+      real against the first nightly backup: 48 tables, 1 account, restored into a disposable
+      scratch Postgres, not assumed from "the upload succeeded"
 - [x] SSM Parameter Store entries for the secrets currently in `.env.example`
 - [x] `ASPNETCORE_ENVIRONMENT=Production` set (dev auto-migrates + exposes Swagger; prod must not)
 - [x] A way to *run* EF Core migrations in prod — `scripts/generate-migration-script.sh` (see

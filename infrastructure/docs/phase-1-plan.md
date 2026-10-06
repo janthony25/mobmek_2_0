@@ -90,8 +90,28 @@ What it took, including the parts that didn't work on the first try:
    not crash-looping) — the moment the record propagated, it obtained the certificate on its own
    with no further action needed.
 
-**Still open:** the backup cron and a tested restore drill. See `infrastructure/README.md`'s
-checklist.
+## Backups — nightly, and actually proven to restore
+
+Set up deliberately before the real `.bak` data lands, not after — this way the whole mechanism
+(instance role permissions, the script itself, S3, the restore path) is already proven against
+the current small dataset by the time real customer data depends on it working.
+
+- `scripts/backup-to-s3.sh` — `pg_dump` → gzip → upload to `mobmek-backups-649058763120`, via
+  the instance role, no credentials of its own. Timestamped files (`nightly/mobmek-<UTC
+  timestamp>.sql.gz`), never overwritten, so a bad night's backup can never clobber a good one.
+- `/etc/cron.d/mobmek-backup` on the box — `13:00 UTC` daily (~2am NZDT currently; drifts an
+  hour outside daylight saving, not worth a timezone-aware schedule for a nightly batch job).
+  `cron` confirmed active and enabled (survives reboot).
+- The bucket's lifecycle policy was written earlier this session assuming a different retention
+  strategy (one key, overwritten nightly, history kept via S3 versioning) — corrected to match
+  what's actually deployed: `NoncurrentVersionExpiration` dropped (dead weight when nothing is
+  ever overwritten), the 30-day → Glacier IR `Transitions` rule kept (works correctly here, each
+  file ages from its own upload date). No `Expiration` rule — backups accumulate in Glacier IR
+  indefinitely; the cost at this scale is negligible even years in.
+- `scripts/restore-drill.sh` — downloads a real backup and restores it into a disposable scratch
+  Postgres container (never the real `db` service), then checks table count and account count.
+  **Run for real, not just written:** restored the very first nightly backup, got 48 tables and
+  1 account back — proof the backup is actually usable, not just a file sitting in S3.
 
 ### Instance role policy (`mobmek-prod-ec2-policy`, default version `v3`)
 
