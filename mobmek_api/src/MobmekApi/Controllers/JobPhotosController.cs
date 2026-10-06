@@ -9,7 +9,12 @@ namespace MobmekApi.Controllers;
 [Produces("application/json")]
 public class JobPhotosController(IJobPhotoService jobPhotoService) : ControllerBase
 {
-    private const long MaxPhotoBytes = 10 * 1024 * 1024;
+    // 25 MB covers a phone camera's JPEG mode on a detailed/low-light shot (plain HEIC is
+    // usually 2-4 MB, but "Most Compatible" JPEG can run 2-3x that) with real margin, while
+    // staying under Kestrel's default 30 MB request-body limit so no extra server config is
+    // needed. Raising this further requires raising client_max_body_size in nginx.conf too,
+    // or nginx rejects the upload before it ever reaches this check.
+    private const long MaxPhotoBytes = 25 * 1024 * 1024;
 
     /// <summary>Returns the photos on a job (metadata only).</summary>
     [HttpGet]
@@ -21,7 +26,7 @@ public class JobPhotosController(IJobPhotoService jobPhotoService) : ControllerB
     }
 
     /// <summary>
-    /// Uploads a photo (max 10 MB) onto a job. The same endpoint serves both "choose a file"
+    /// Uploads a photo (max 25 MB) onto a job. The same endpoint serves both "choose a file"
     /// and "take a photo" — the device camera hands the browser an ordinary image file.
     /// </summary>
     [HttpPost]
@@ -32,7 +37,7 @@ public class JobPhotosController(IJobPhotoService jobPhotoService) : ControllerB
     {
         if (file.Length == 0 || file.Length > MaxPhotoBytes)
         {
-            return BadRequest("The photo must be between 1 byte and 10 MB.");
+            return BadRequest("The photo must be between 1 byte and 25 MB.");
         }
 
         if (!file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))

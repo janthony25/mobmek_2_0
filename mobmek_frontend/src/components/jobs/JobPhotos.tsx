@@ -9,7 +9,7 @@ import type { PhotoDraft } from '@/lib/jobLineDrafts'
 
 /** Photos accepted for upload — kept in step with the API's image-only check. */
 const ACCEPT = 'image/*'
-const MAX_BYTES = 10 * 1024 * 1024
+const MAX_BYTES = 25 * 1024 * 1024
 
 /**
  * "Upload photo" always opens the file picker. "Take photo" opens a live camera via
@@ -130,7 +130,7 @@ export function JobPhotoDraftPicker({
   const add = (files: File[]) => {
     const tooBig = files.filter((f) => f.size > MAX_BYTES)
     if (tooBig.length > 0) {
-      toast.error(`${tooBig.map((f) => f.name).join(', ')}: each photo must be 10 MB or smaller.`)
+      toast.error(`${tooBig.map((f) => f.name).join(', ')}: each photo must be 25 MB or smaller.`)
     }
     const accepted = files.filter((f) => f.size <= MAX_BYTES && f.size > 0)
     if (accepted.length > 0) onAdd(accepted)
@@ -170,7 +170,7 @@ export function JobPhotosSection({ jobId }: { jobId: string }) {
     try {
       for (const file of files) {
         if (file.size === 0 || file.size > MAX_BYTES) {
-          toast.error(`${file.name}: each photo must be between 1 byte and 10 MB.`)
+          toast.error(`${file.name}: each photo must be between 1 byte and 25 MB.`)
           continue
         }
         await addJobPhoto(jobId, file)
