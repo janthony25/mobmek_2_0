@@ -103,10 +103,35 @@ services:
     depends_on:
       - api
     ports:
-      # nginx serves the built SPA on port 80 and proxies "/api" to the api service.
+      # nginx serves the built SPA on port 80 and proxies "/api" to the api service. Kept
+      # published even once Caddy is in front (below) — this is how local dev reaches the app
+      # directly with no TLS involved at all; Caddy reaches the same container internally over
+      # the Docker network regardless of this host mapping.
       - "3000:80"
+
+  # TLS termination for a real deployment (infrastructure/docs/phase-1-plan.md) — automatic
+  # Let's Encrypt cert for the domain in ./Caddyfile, HTTP->HTTPS redirect, zero manual steps.
+  # Not started by a plain `docker compose up`: there's no TLS story in local dev (no domain to
+  # issue a cert for), so this only runs when explicitly asked for, same pattern as `legacy`.
+  #   docker compose --profile tls up -d
+  caddy:
+    image: caddy:2-alpine
+    container_name: mobmek_caddy
+    restart: unless-stopped
+    profiles: ["tls"]
+    depends_on:
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
 
 volumes:
   mobmek_pgdata:
   mobmek_dataprotection_keys:
   mobmek_uploads:
+  caddy_data:
+  caddy_config:

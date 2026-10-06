@@ -1,0 +1,8 @@
+# TLS termination for the Phase 1 deployment (infrastructure/docs/phase-1-plan.md). Caddy
+# automatically obtains and renews a Let's Encrypt certificate for this domain and handles the
+# HTTP->HTTPS redirect — no manual cert/certbot steps. Requires DNS for the domain to actually
+# resolve to this box, and port 80 reachable, before the first certificate can be issued (the
+# ACME HTTP-01 challenge runs over plain HTTP).
+workshop.mobmekauto.co.nz {
+	reverse_proxy frontend:80
+}
