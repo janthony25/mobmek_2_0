@@ -7,8 +7,13 @@ namespace MobmekApi.Services;
 /// </summary>
 public interface IFileStorage
 {
-    /// <summary>Stores the content and returns the storage key used to read/delete it later.</summary>
-    Task<string> SaveAsync(Stream content, string fileName, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Stores the content and returns the storage key used to read/delete it later.
+    /// <paramref name="contentType"/> is recorded on the stored object where the backend supports
+    /// it; callers keep their own copy in the database either way, so passing it is optional.
+    /// </summary>
+    Task<string> SaveAsync(
+        Stream content, string fileName, string? contentType = null, CancellationToken cancellationToken = default);
 
     /// <summary>Opens the stored content for reading, or returns <c>null</c> when the key doesn't exist.</summary>
     Task<Stream?> OpenReadAsync(string storageKey, CancellationToken cancellationToken = default);

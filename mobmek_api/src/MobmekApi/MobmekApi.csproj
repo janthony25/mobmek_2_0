@@ -8,6 +8,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" Version="4.0.103" />
+    <!-- Needed only to *assume a role*, which is how a developer's local AWS profile reaches
+         S3. Production doesn't use it: the EC2 instance role comes from instance metadata, not
+         STS. The AWS SDK loads this assembly by reflection, so a missing reference is not a
+         compile error — it surfaces at runtime on the first upload as "Assembly
+         AWSSDK.SecurityToken could not be found or loaded". -->
+    <PackageReference Include="AWSSDK.SecurityToken" Version="4.0.101.1" />
     <PackageReference Include="Google.Apis.Calendar.v3" Version="1.75.0.4206" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />

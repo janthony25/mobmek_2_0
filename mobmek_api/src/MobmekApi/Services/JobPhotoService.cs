@@ -26,7 +26,7 @@ public class JobPhotoService(AppDbContext db, IFileStorage fileStorage) : IJobPh
             return null;
         }
 
-        var storageKey = await fileStorage.SaveAsync(content, fileName, cancellationToken);
+        var storageKey = await fileStorage.SaveAsync(content, fileName, contentType, cancellationToken);
         var photo = new JobPhoto
         {
             JobId = jobId,

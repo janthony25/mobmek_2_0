@@ -73,7 +73,8 @@ flowchart TB
         Cron --> DB
     end
 
-    Cron -->|"upload via IAM<br/>instance role"| S3[("S3 bucket<br/>nightly backups only")]
+    Cron -->|"upload via IAM<br/>instance role"| S3[("S3 — nightly<br/>DB backups")]
+    API -->|"job photos, receipts,<br/>logo (IFileStorage)"| S3U[("S3 — uploads")]
     SSM["SSM Parameter Store<br/>(secrets)"] -.->|"pulled into .env<br/>at deploy time"| EC2
 
     style DB fill:#2d3748,stroke:#718096,color:#fff
@@ -96,6 +97,7 @@ just hit the domain in a browser).
 | DNS | **Route 53** hosted zone | A record → Elastic IP. |
 | TLS | **Caddy** (reverse-proxied in front of the existing nginx container) or **certbot** | Free Let's Encrypt certs, no ACM/ALB needed for a single box. |
 | Backups | **S3** bucket, versioned, lifecycle → Glacier Instant Retrieval after 30 days | Nightly `pg_dump` from a cron job on the box. This is the fix for the "no backup/DR" gap flagged as highest-priority in `docs/industry-readiness-gap-analysis.md` §6.1 — do this first, before anything else here. |
+| Uploads | **S3** bucket, versioned, private, no Glacier transition | Job photos, transaction receipts, business logo via `IFileStorage`. Separate from backups so the instance role can delete uploads without being able to delete backups. See "File storage" below. |
 | Secrets | **SSM Parameter Store** (Standard tier, free) | Holds `RESEND_API_KEY`, `GOOGLE_CALENDAR_CREDENTIALS_JSON`, `POSTGRES_PASSWORD`, etc. Pulled into `.env` at deploy time instead of hand-copied. |
 | IAM | One instance role (S3 backup bucket + SSM read only), one admin IAM user with MFA | Never use root account keys day-to-day. |
 | Monitoring | **CloudWatch** basic EC2 metrics (CPU/disk/status checks) | Free tier alarms. Skip CloudWatch Logs agent for now — `docker compose logs` is enough at one shop's traffic, and log ingestion is billed per GB. |
@@ -143,19 +145,22 @@ it's a newly launched region. Revisit that option later; it may appear over time
 
 ## Services checklist (Phase 1)
 
-- [ ] AWS account + AWS Budgets alert (~$25/mo threshold)
-- [ ] IAM admin user (MFA) + limited instance role (S3 backup bucket + SSM read only)
+- [x] AWS account + AWS Budgets alert (~$25/mo threshold)
+- [x] Limited instance role (`mobmek-prod-ec2-role`: both S3 buckets + SSM read only)
+- [ ] IAM admin user with MFA (currently assuming `OrganizationAccountAccessRole` from `jun-dev`)
 - [ ] EC2 `t4g.small` in the default VPC, Docker + Compose plugin installed
 - [ ] Elastic IP attached to the instance
-- [ ] Security group: 22 (your IP only), 80, 443 — nothing else public
+- [x] Security group: 22 (your IP only), 80, 443 — nothing else public
 - [ ] Route 53 hosted zone + A record → Elastic IP
 - [ ] TLS via Caddy or certbot
-- [ ] S3 bucket (versioned, lifecycle → Glacier IR @ 30d, block public access) for DB backups
+- [x] S3 bucket (versioned, lifecycle → Glacier IR @ 30d, block public access) for DB backups
+- [x] S3 bucket for uploads (versioned, private, no Glacier transition) + `FileStorage:Provider=S3`
 - [ ] Nightly cron: `pg_dump` → upload to S3, via the instance role (scoped to that bucket only)
 - [ ] A tested **restore** drill, not just a backup script — untested backups aren't backups
-- [ ] SSM Parameter Store entries for the secrets currently in `.env.example`
+- [ ] SSM Parameter Store entries for the secrets currently in `.env.example` (none created yet)
 - [ ] `ASPNETCORE_ENVIRONMENT=Production` set (dev auto-migrates + exposes Swagger; prod must not)
-- [ ] EF Core migrations run as a deliberate separate step post-deploy (see `mobmek_api/CLAUDE.md`)
+- [ ] A way to *run* EF Core migrations in prod — the runtime image has no SDK or `dotnet-ef`, so
+      this needs an idempotent SQL script or a migration bundle (see `docs/phase-1-plan.md`)
 
 ## Deploy flow (Phase 1, manual — no CI/CD yet)
 
@@ -164,24 +169,45 @@ it's a newly launched region. Revisit that option later; it may appear over time
 3. Pull secrets from SSM into `.env` (or hand-maintain `.env`, root-only permissions — acceptable
    at this scale as long as it's never committed).
 4. Set `ASPNETCORE_ENVIRONMENT=Production` and `FRONTEND_BASE_URL` to the real domain.
-5. `docker compose up -d --build`.
-6. Run EF Core migrations as a separate step (production does not auto-migrate on startup).
-7. Verify `https://<domain>` loads and that Swagger is not reachable in prod.
+5. Set `FILE_STORAGE_PROVIDER=S3` and `FILE_STORAGE_S3_BUCKET` — on the **first** deploy, also
+   `aws s3 sync ./uploads s3://mobmek-uploads-649058763120/` first, or existing photo/receipt rows
+   will point at objects that don't exist.
+6. `docker compose up -d --build`.
+7. Run EF Core migrations as a separate step (production does not auto-migrate on startup).
+   The runtime image has no SDK, so this needs an idempotent SQL script or a migration bundle
+   built off-box — see `docs/phase-1-plan.md`.
+8. Verify `https://<domain>` loads, that Swagger is **not** reachable, and that uploading a job
+   photo then reloading the page still shows it (proves the S3 path, not local disk, is live).
 
 ---
 
-## File storage / S3 for uploads (not backups) — when it's actually needed
+## File storage / S3 for uploads (not backups)
 
-There's no attachment/photo feature on `Job`/`JobItem` yet (tracked as gap 2.1 in
-`docs/industry-readiness-gap-analysis.md` — DVI photos). The API already has this abstracted:
-`IFileStorage` (`mobmek_api/src/MobmekApi/Services/IFileStorage.cs`) with a local-disk
-implementation (`LocalFileStorage.cs`) whose storage keys (`yyyy/MM/{guid}{ext}`) are already
-shaped to drop straight into S3 object keys.
+This is now live, not deferred — the job-photos feature shipped (migration `AddJobPhotos`,
+closing gap 2.1 in `docs/industry-readiness-gap-analysis.md`), and `IFileStorage` has two
+implementations: `LocalFileStorage` (development default) and `S3FileStorage` (production). Both
+derive keys from the same `StorageKeys` helper, so a key stored in the database is valid against
+either backend and switching provider rewrites nothing.
 
-**Until that feature exists, S3 in this deployment is backup storage only** — don't provision an
-uploads bucket ahead of the feature that needs it. When DVI photos (or any file upload) land, add
-an `S3FileStorage : IFileStorage` implementation and a second bucket (private, not public-read;
-serve via signed URLs or through the API) — no other code changes required, by design.
+**This deployment therefore uses two buckets, not one:**
+
+| Bucket | Holds | Lifecycle |
+|---|---|---|
+| `mobmek-backups-649058763120` | nightly `pg_dump` output | → Glacier IR at 30d; noncurrent versions expire at 90d |
+| `mobmek-uploads-649058763120` | job photos, transaction receipts, business logo | stays in Standard (read interactively); noncurrent versions expire at 30d |
+
+Both are private with all four public-access blocks on, versioned, and SSE-S3 encrypted. Uploads
+are served **through the API** (`JobPhotosController` streams the bytes), not via public-read
+objects or pre-signed URLs — so authorization is enforced on every read. Pre-signed URLs would
+take load off the box but weaken access control to "whoever holds the link"; worth revisiting
+only if a single page ever loads dozens of photos.
+
+Three things beyond provisioning the bucket are required, and all three are done — see
+[`infrastructure/docs/phase-1-plan.md`](docs/phase-1-plan.md) for exact values:
+
+1. `FileStorage:Provider=S3` plus the bucket name in config (the API refuses to boot otherwise)
+2. `s3:DeleteObject` **and** `s3:ListBucket` on the uploads bucket in the instance role
+3. An `aws s3 sync` of any pre-existing local uploads, before the provider is switched
 
 ---
 

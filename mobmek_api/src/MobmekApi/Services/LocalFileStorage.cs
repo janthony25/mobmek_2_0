@@ -1,22 +1,18 @@
 namespace MobmekApi.Services;
 
 /// <summary>
-/// <see cref="IFileStorage"/> backed by a directory on local disk. Keys are
-/// "yyyy/MM/{guid}{ext}" relative paths, so they translate directly to S3 object keys
-/// when storage moves to the cloud.
+/// <see cref="IFileStorage"/> backed by a directory on local disk — the development default,
+/// so nothing local needs AWS credentials. Keys come from <see cref="StorageKeys"/>, so they
+/// are byte-for-byte the object keys <see cref="S3FileStorage"/> uses in production.
 /// </summary>
 public class LocalFileStorage(string rootPath) : IFileStorage
 {
-    public async Task<string> SaveAsync(Stream content, string fileName, CancellationToken cancellationToken = default)
+    // contentType is ignored: a file on disk carries no content-type metadata, and callers keep
+    // their own copy in the database. S3FileStorage does record it on the object.
+    public async Task<string> SaveAsync(
+        Stream content, string fileName, string? contentType = null, CancellationToken cancellationToken = default)
     {
-        // Only the extension of the original name is trusted; the key itself is generated.
-        var extension = Path.GetExtension(fileName);
-        if (extension.Length > 10 || extension.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
-        {
-            extension = string.Empty;
-        }
-
-        var key = $"{DateTime.UtcNow:yyyy/MM}/{Guid.NewGuid():N}{extension}";
+        var key = StorageKeys.Create(fileName);
         var fullPath = ResolveSafe(key);
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
 

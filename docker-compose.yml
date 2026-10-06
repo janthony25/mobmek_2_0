@@ -52,8 +52,18 @@ services:
       # Base URL of the deployed frontend, used to build absolute links in emails (e.g. the
       # new-account activation link) — override in .env for a real deployment.
       Frontend__BaseUrl: ${FRONTEND_BASE_URL:-http://localhost:3000}
+      # Where uploaded files go (job photos, receipts, business logo). Local disk by default;
+      # set FILE_STORAGE_PROVIDER=S3 plus the bucket for a real deployment (see .env.example).
+      # On EC2 the instance role supplies credentials — no access keys needed here.
+      FileStorage__Provider: ${FILE_STORAGE_PROVIDER:-Local}
+      FileStorage__S3__BucketName: ${FILE_STORAGE_S3_BUCKET:-}
+      FileStorage__S3__Region: ${FILE_STORAGE_S3_REGION:-}
     volumes:
       - mobmek_dataprotection_keys:/keys
+      # Uploaded files live on a volume, not the container filesystem — otherwise every
+      # `up --build` wipes them while their database rows survive, leaving broken images.
+      # Unused when FileStorage__Provider=S3, which is the real fix for a deployment.
+      - mobmek_uploads:/app/uploads
     ports:
       - "8080:8080"
 
@@ -99,3 +109,4 @@ services:
 volumes:
   mobmek_pgdata:
   mobmek_dataprotection_keys:
+  mobmek_uploads:

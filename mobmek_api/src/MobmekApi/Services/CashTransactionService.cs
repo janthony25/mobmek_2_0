@@ -520,7 +520,7 @@ public class CashTransactionService(AppDbContext db, IFileStorage fileStorage, I
             return null;
         }
 
-        var storageKey = await fileStorage.SaveAsync(content, fileName, cancellationToken);
+        var storageKey = await fileStorage.SaveAsync(content, fileName, contentType, cancellationToken);
         var attachment = new TransactionAttachment
         {
             CashTransactionId = transactionId,

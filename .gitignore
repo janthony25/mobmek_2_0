@@ -5,3 +5,7 @@
 # See docs/legacy-import-design.md §1.1.
 legacy-backup/
 legacy-import-report-*.md
+
+# Local-only compose overrides (e.g. mounting ~/.aws so the api container can reach S3).
+# Per-developer, never deployed — see infrastructure/docs/phase-1-plan.md.
+docker-compose.override.yml

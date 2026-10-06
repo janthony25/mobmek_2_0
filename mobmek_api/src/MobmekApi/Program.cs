@@ -1,4 +1,6 @@
 using System.Threading.RateLimiting;
+using Amazon;
+using Amazon.S3;
 // Program.cs is top-level statements, so it compiles into the global namespace and doesn't
 // pick up MobmekApi.* by enclosing-namespace lookup the way the controllers do.
 using MobmekApi;
@@ -160,10 +162,47 @@ builder.Services.AddHostedService<OutboundStatusPollJob>();
 builder.Services.AddHostedService<AccountPurgeJob>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<CalendarSyncJob>());
 
-// Transaction receipts land on local disk for now; swap this registration for an
-// S3-backed IFileStorage when file storage moves to the cloud.
-builder.Services.AddSingleton<IFileStorage>(new LocalFileStorage(
-    Path.Combine(builder.Environment.ContentRootPath, builder.Configuration["FileStorage:RootPath"] ?? "uploads")));
+// Uploaded files — job photos, transaction receipts, the business logo — all live behind
+// IFileStorage. Local disk is the development default so nothing here needs AWS credentials;
+// a real deployment sets FileStorage:Provider=S3, because a container's filesystem is thrown
+// away on every rebuild while the database rows pointing into it survive, which would show up
+// as a list of files that all fail to load.
+var fileStorageProvider = builder.Configuration["FileStorage:Provider"] ?? "Local";
+switch (fileStorageProvider.ToLowerInvariant())
+{
+    case "s3":
+        var bucketName = builder.Configuration["FileStorage:S3:BucketName"];
+        if (string.IsNullOrWhiteSpace(bucketName))
+        {
+            // Refuse to start rather than fail per-upload: without this the app comes up
+            // looking healthy and every attachment dies on an opaque S3 error instead.
+            throw new InvalidOperationException(
+                "FileStorage:Provider is 'S3' but FileStorage:S3:BucketName is empty. Set it "
+                + "(FILE_STORAGE_S3_BUCKET in .env) or switch the provider back to 'Local'.");
+        }
+
+        // No credentials are configured on purpose: the AWS SDK's default chain resolves the
+        // EC2 instance role in production and a local profile in development, so no access
+        // keys ever need to live in config. Region is resolved from the instance when unset.
+        var region = builder.Configuration["FileStorage:S3:Region"];
+        builder.Services.AddSingleton<IAmazonS3>(string.IsNullOrWhiteSpace(region)
+            ? new AmazonS3Client()
+            : new AmazonS3Client(RegionEndpoint.GetBySystemName(region)));
+        builder.Services.AddSingleton<IFileStorage>(sp =>
+            new S3FileStorage(sp.GetRequiredService<IAmazonS3>(), bucketName));
+        break;
+
+    case "local":
+        builder.Services.AddSingleton<IFileStorage>(new LocalFileStorage(
+            Path.Combine(builder.Environment.ContentRootPath, builder.Configuration["FileStorage:RootPath"] ?? "uploads")));
+        break;
+
+    default:
+        // A typo must not silently degrade to local disk — in production that means uploads
+        // quietly landing on a filesystem that the next deploy deletes.
+        throw new InvalidOperationException(
+            $"FileStorage:Provider '{fileStorageProvider}' is not recognised. Use 'Local' or 'S3'.");
+}
 
 // --- Public marketing site (anonymous booking endpoints) ---
 // The booking page is served from a different origin than this API, so it needs an explicit

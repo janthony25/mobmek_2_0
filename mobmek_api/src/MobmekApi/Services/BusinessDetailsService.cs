@@ -33,7 +33,7 @@ public class BusinessDetailsService(AppDbContext db, IFileStorage fileStorage) :
             await fileStorage.DeleteAsync(details.LogoStorageKey, cancellationToken);
         }
 
-        details.LogoStorageKey = await fileStorage.SaveAsync(content, fileName, cancellationToken);
+        details.LogoStorageKey = await fileStorage.SaveAsync(content, fileName, contentType, cancellationToken);
         details.LogoFileName = fileName;
         details.LogoContentType = contentType;
         await db.SaveChangesAsync(cancellationToken);
