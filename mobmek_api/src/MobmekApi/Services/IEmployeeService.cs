@@ -15,6 +15,10 @@ public interface IEmployeeService
 {
     Task<IReadOnlyList<EmployeeDto>> GetAllAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Name-only list for pickers — open to any signed-in staff member, not just
+    /// <see cref="Permissions.ManageEmployees"/>. See <see cref="DTOs.EmployeeSummaryDto"/>.</summary>
+    Task<IReadOnlyList<EmployeeSummaryDto>> GetSummariesAsync(CancellationToken cancellationToken = default);
+
     Task<EmployeeDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<(EmployeeDto? Employee, EmployeeWriteError Error)> CreateAsync(CreateEmployeeRequest request, CancellationToken cancellationToken = default);

@@ -8,12 +8,14 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/business-details")]
 [Produces("application/json")]
-[Authorize(Policy = Permissions.ManageBusinessSettings)]
 public class BusinessDetailsController(IBusinessDetailsService businessDetailsService) : ControllerBase
 {
     private const long MaxLogoBytes = 5 * 1024 * 1024;
 
-    /// <summary>Returns the workshop's current letterhead details.</summary>
+    /// <summary>Returns the workshop's current letterhead details. Open to any signed-in staff
+    /// member, not just ManageBusinessSettings — every invoice print needs this (name, GST
+    /// number, bank details, logo), and none of it is more sensitive than what's already on
+    /// every invoice a customer receives. Only changing it is gated.</summary>
     [HttpGet]
     [ProducesResponseType(typeof(BusinessDetailsDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<BusinessDetailsDto>> Get(CancellationToken cancellationToken)
@@ -24,6 +26,7 @@ public class BusinessDetailsController(IBusinessDetailsService businessDetailsSe
 
     /// <summary>Updates the workshop's letterhead details.</summary>
     [HttpPut]
+    [Authorize(Policy = Permissions.ManageBusinessSettings)]
     [ProducesResponseType(typeof(BusinessDetailsDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<BusinessDetailsDto>> Update(UpdateBusinessDetailsRequest request, CancellationToken cancellationToken)
@@ -34,6 +37,7 @@ public class BusinessDetailsController(IBusinessDetailsService businessDetailsSe
 
     /// <summary>Uploads (replacing any existing) logo image shown on the invoice letterhead.</summary>
     [HttpPost("logo")]
+    [Authorize(Policy = Permissions.ManageBusinessSettings)]
     [ProducesResponseType(typeof(BusinessDetailsDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<BusinessDetailsDto>> UploadLogo(IFormFile file, CancellationToken cancellationToken)
@@ -53,7 +57,8 @@ public class BusinessDetailsController(IBusinessDetailsService businessDetailsSe
         return Ok(details);
     }
 
-    /// <summary>Downloads the current logo image.</summary>
+    /// <summary>Downloads the current logo image. Open to any signed-in staff member — same
+    /// reasoning as <see cref="Get"/>, invoice printing needs it.</summary>
     [HttpGet("logo")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -71,6 +76,7 @@ public class BusinessDetailsController(IBusinessDetailsService businessDetailsSe
 
     /// <summary>Removes the current logo image, if any.</summary>
     [HttpDelete("logo")]
+    [Authorize(Policy = Permissions.ManageBusinessSettings)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteLogo(CancellationToken cancellationToken)

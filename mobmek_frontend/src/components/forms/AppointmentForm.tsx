@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react'
 import { getCustomersPaged } from '@/api/customers'
 import { getCars } from '@/api/cars'
 import { getJobs, getJobsPaged } from '@/api/jobs'
-import { getEmployees } from '@/api/employees'
+import { getEmployeeSummaries } from '@/api/employees'
 import { Button } from '@/components/ui/Button'
 import { AsyncCombobox } from './AsyncCombobox'
 import { Field, controlClass } from './controls'
 import { PhoneInput } from './PhoneInput'
 import { APPOINTMENT_STATUS_LABELS, AppointmentStatus, JOB_STATUS_LABELS } from '@/types'
-import type { Appointment, Car, CreateAppointmentRequest, Employee, Job } from '@/types'
+import type { Appointment, Car, CreateAppointmentRequest, EmployeeSummary, Job } from '@/types'
 
 /** Number of results shown in the customer search picker. */
 const PICKER_PAGE_SIZE = 8
@@ -60,7 +60,7 @@ export function AppointmentForm({ initial, initialSlot, initialJob, onSubmit, on
 
   const [cars, setCars] = useState<Car[]>([])
   const [jobs, setJobs] = useState<Job[]>([])
-  const [employees, setEmployees] = useState<Employee[]>([])
+  const [employees, setEmployees] = useState<EmployeeSummary[]>([])
 
   const [customerId, setCustomerId] = useState(initial?.customerId ?? initialJob?.customerId ?? '')
   const [carId, setCarId] = useState(initial?.carId ?? initialJob?.carId ?? '')
@@ -90,7 +90,7 @@ export function AppointmentForm({ initial, initialSlot, initialJob, onSubmit, on
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    getEmployees().then(setEmployees).catch(() => setEmployees([]))
+    getEmployeeSummaries().then(setEmployees).catch(() => setEmployees([]))
   }, [])
 
   // The selected customer scopes both the car list and the linkable jobs (cascade).

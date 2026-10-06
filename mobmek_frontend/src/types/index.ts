@@ -533,6 +533,15 @@ export interface ProductRequest {
 
 // --- Employees & lookups -----------------------------------------------------
 
+/** Name only — for pickers (job mechanics, appointment assignment). Any signed-in staff member
+ * can fetch this (GET /employees/summary); the full Employee record below (contact/address) is
+ * ManageEmployees-gated. */
+export interface EmployeeSummary {
+  id: string
+  firstName: string
+  lastName: string
+}
+
 export interface Employee {
   id: string
   firstName: string

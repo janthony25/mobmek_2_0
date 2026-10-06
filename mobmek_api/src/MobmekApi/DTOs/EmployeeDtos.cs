@@ -2,6 +2,11 @@ using System.ComponentModel.DataAnnotations;
 
 namespace MobmekApi.DTOs;
 
+/// <summary>Name only — for pickers (job mechanics, appointment assignment) that any signed-in
+/// staff member needs for core workflows, without exposing contact/address details that
+/// <see cref="EmployeeDto"/> carries. See <c>GET /api/employees/summary</c>.</summary>
+public record EmployeeSummaryDto(Guid Id, string FirstName, string LastName);
+
 /// <summary>Shape returned to API clients. Includes the resolved title/type names for convenience.</summary>
 public record EmployeeDto(
     Guid Id,

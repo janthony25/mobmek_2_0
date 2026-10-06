@@ -3,7 +3,7 @@ import type { RefObject } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getCustomers } from '@/api/customers'
 import { getCars } from '@/api/cars'
-import { getEmployees } from '@/api/employees'
+import { getEmployeeSummaries } from '@/api/employees'
 import { getJobServices } from '@/api/jobServices'
 import { addJobMechanic, createJob } from '@/api/jobs'
 import { toAppointmentRequest, updateAppointment } from '@/api/appointments'
@@ -44,7 +44,7 @@ import {
   type Car,
   type CreateJobRequest,
   type Customer,
-  type Employee,
+  type EmployeeSummary,
   type JobService,
   type MarkupSolution,
 } from '@/types'
@@ -70,7 +70,7 @@ export function NewJobPage() {
 
   const [customers, setCustomers] = useState<Customer[]>([])
   const [cars, setCars] = useState<Car[]>([])
-  const [employees, setEmployees] = useState<Employee[]>([])
+  const [employees, setEmployees] = useState<EmployeeSummary[]>([])
   const [services, setServices] = useState<JobService[]>([])
   const [gstRate, setGstRate] = useState<number | null>(null)
 
@@ -106,7 +106,7 @@ export function NewJobPage() {
 
   useEffect(() => {
     getCustomers().then(setCustomers).catch(() => setCustomers([]))
-    getEmployees().then(setEmployees).catch(() => setEmployees([]))
+    getEmployeeSummaries().then(setEmployees).catch(() => setEmployees([]))
     getJobServices()
       .then((s) => setServices(s.filter((x) => x.isActive)))
       .catch(() => setServices([]))

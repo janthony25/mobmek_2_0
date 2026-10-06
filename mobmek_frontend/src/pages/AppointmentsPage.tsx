@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { appointmentsStreamUrl, getAppointments, createAppointment } from '@/api/appointments'
-import { getEmployees } from '@/api/employees'
+import { getEmployeeSummaries } from '@/api/employees'
 import { useAsync } from '@/hooks/useAsync'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -204,7 +204,7 @@ export function AppointmentsPage() {
     return { from, to: addDays(from, 42) }
   }, [view, anchor])
 
-  const { data: employees } = useAsync(getEmployees, [])
+  const { data: employees } = useAsync(getEmployeeSummaries, [])
   const { data: appointments, loading, error, reload } = useAsync(
     () =>
       getAppointments({

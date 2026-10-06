@@ -28,6 +28,16 @@ public class EmployeeService(AppDbContext db) : IEmployeeService
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<EmployeeSummaryDto>> GetSummariesAsync(CancellationToken cancellationToken = default)
+    {
+        return await db.Employees
+            .AsNoTracking()
+            .OrderBy(e => e.LastName)
+            .ThenBy(e => e.FirstName)
+            .Select(e => new EmployeeSummaryDto(e.Id, e.FirstName, e.LastName))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<EmployeeDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await db.Employees

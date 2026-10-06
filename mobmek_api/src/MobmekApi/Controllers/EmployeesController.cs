@@ -8,11 +8,12 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Produces("application/json")]
-[Authorize(Policy = Permissions.ManageEmployees)]
 public class EmployeesController(IEmployeeService employeeService) : ControllerBase
 {
-    /// <summary>Returns all employees.</summary>
+    /// <summary>Returns all employees, including contact/address details — gated separately
+    /// from <see cref="GetSummaries"/> since those are genuinely private, not just internal.</summary>
     [HttpGet]
+    [Authorize(Policy = Permissions.ManageEmployees)]
     [ProducesResponseType(typeof(IReadOnlyList<EmployeeDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<EmployeeDto>>> GetAll(CancellationToken cancellationToken)
     {
@@ -20,8 +21,18 @@ public class EmployeesController(IEmployeeService employeeService) : ControllerB
         return Ok(employees);
     }
 
+    /// <summary>Name-only list for pickers (job mechanics, appointment assignment) — any signed-in
+    /// staff member needs this for core workflows, so it isn't behind ManageEmployees.</summary>
+    [HttpGet("summary")]
+    [ProducesResponseType(typeof(IReadOnlyList<EmployeeSummaryDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<EmployeeSummaryDto>>> GetSummaries(CancellationToken cancellationToken)
+    {
+        return Ok(await employeeService.GetSummariesAsync(cancellationToken));
+    }
+
     /// <summary>Returns a single employee by id.</summary>
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = Permissions.ManageEmployees)]
     [ProducesResponseType(typeof(EmployeeDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<EmployeeDto>> GetById(Guid id, CancellationToken cancellationToken)
@@ -32,6 +43,7 @@ public class EmployeesController(IEmployeeService employeeService) : ControllerB
 
     /// <summary>Creates a new employee. The referenced title and employment type must exist.</summary>
     [HttpPost]
+    [Authorize(Policy = Permissions.ManageEmployees)]
     [ProducesResponseType(typeof(EmployeeDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<EmployeeDto>> Create(CreateEmployeeRequest request, CancellationToken cancellationToken)
@@ -47,6 +59,7 @@ public class EmployeesController(IEmployeeService employeeService) : ControllerB
 
     /// <summary>Updates an existing employee.</summary>
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = Permissions.ManageEmployees)]
     [ProducesResponseType(typeof(EmployeeDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -63,6 +76,7 @@ public class EmployeesController(IEmployeeService employeeService) : ControllerB
 
     /// <summary>Deletes an employee.</summary>
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = Permissions.ManageEmployees)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)

@@ -145,4 +145,21 @@ public class EmployeeServiceTests
 
         Assert.False(await service.DeleteAsync(Guid.NewGuid()));
     }
+
+    [Fact]
+    public async Task GetSummariesAsync_ReturnsNameOnly_NotContactOrAddressDetails()
+    {
+        await using var db = CreateContext();
+        var (titleId, typeId) = await SeedLookupsAsync(db);
+        var service = new EmployeeService(db);
+        await service.CreateAsync(NewEmployee(titleId, typeId, "Jane", "Doe"));
+        await service.CreateAsync(NewEmployee(titleId, typeId, "Alan", "Smith"));
+
+        var summaries = await service.GetSummariesAsync();
+
+        Assert.Equal(2, summaries.Count);
+        // Ordered by last name, then first — Doe before Smith.
+        Assert.Equal(("Jane", "Doe"), (summaries[0].FirstName, summaries[0].LastName));
+        Assert.Equal(("Alan", "Smith"), (summaries[1].FirstName, summaries[1].LastName));
+    }
 }

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { getAppointments } from '@/api/appointments'
 import { getCars } from '@/api/cars'
-import { getEmployees } from '@/api/employees'
+import { getEmployeeSummaries } from '@/api/employees'
 import { addJobMechanic, getJob, removeJobMechanic, updateJob } from '@/api/jobs'
 import { createJobItem, deleteJobItem, getJobItems, updateJobItem } from '@/api/jobItems'
 import { createLabour, deleteLabour, getLabour, updateLabour } from '@/api/labour'
@@ -62,7 +62,7 @@ export function JobDetailPage() {
   const labourQuery = useAsync(() => getLabour(id), [id])
   const linesQuery = useAsync(() => getJobServiceLines(id), [id])
   const servicesQuery = useAsync(() => getJobServices(), [])
-  const employeesQuery = useAsync(getEmployees, [])
+  const employeesQuery = useAsync(getEmployeeSummaries, [])
   const carsQuery = useAsync(() => (job ? getCars(job.customerId) : Promise.resolve([])), [job?.customerId])
   const appointmentQuery = useAsync(() => getAppointments({ jobId: id }), [id])
   // A job should only ever have one linked appointment, but nothing enforces that at the
