@@ -151,8 +151,9 @@ it's a newly launched region. Revisit that option later; it may appear over time
 - [x] EC2 `t4g.small` in the default VPC, Docker + Compose plugin installed
 - [x] Elastic IP attached to the instance (`3.102.246.171`)
 - [x] Security group: 22 (your IP only), 80, 443 — nothing else public
-- [ ] Route 53 hosted zone + A record → Elastic IP
-- [ ] TLS via Caddy or certbot
+- [x] DNS A record → Elastic IP (`workshop.mobmekauto.co.nz`, via GoDaddy's own DNS — not Route 53;
+      the domain's nameservers were already GoDaddy's, no reason to move them)
+- [x] TLS via Caddy — automatic Let's Encrypt cert, verified live with a real `Set-Cookie: ...; secure`
 - [x] S3 bucket (versioned, lifecycle → Glacier IR @ 30d, block public access) for DB backups
 - [x] S3 bucket for uploads (versioned, private, no Glacier transition) + `FileStorage:Provider=S3`
 - [ ] Nightly cron: `pg_dump` → upload to S3, via the instance role (scoped to that bucket only)
@@ -344,7 +345,8 @@ still adopted independently, per its own trigger above.
 
 ## Open questions
 
-- Domain name to register/point (Route 53 or existing registrar + Route 53 as DNS, likely as a
-  subdomain like `app.<yourdomain>` so the existing website is untouched).
+~~Domain name to register/point~~ Resolved — `workshop.mobmekauto.co.nz`, DNS hosted directly on
+GoDaddy (the domain's existing nameservers), no Route 53 involved. The main site stays on Netlify
+behind the apex/`www`, untouched by this.
 - ~~Any NZ data-residency requirement for customer PII?~~ Resolved — deploying in `ap-southeast-6`
   (Auckland) keeps everything in-country.

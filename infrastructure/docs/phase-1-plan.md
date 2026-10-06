@@ -36,11 +36,22 @@ having the `aws` CLI binary itself on the box is a convenience, not a requiremen
 if this instance is ever rebuilt from the same user-data: either drop `awscli` from it, or expect
 to repeat this fix.
 
-## The app is deployed and live
+## The app is deployed and live, with real TLS
 
-`http://3.102.246.171` — verified end-to-end from outside the box (not just "containers are
-up"): logged in as the real bootstrap Admin, got back the correct full permission set, hit an
-authenticated endpoint successfully, confirmed Swagger isn't reachable.
+**https://workshop.mobmekauto.co.nz** — verified end-to-end from outside the box (not just
+"containers are up"): logged in as the real bootstrap Admin, got back the correct full
+permission set, hit an authenticated endpoint successfully, confirmed Swagger isn't reachable.
+Real Let's Encrypt certificate (`CN=workshop.mobmekauto.co.nz`, issuer Let's Encrypt), HTTP
+redirects to HTTPS (308), and the auth cookie now actually carries `secure` — confirmed by
+reading the raw `Set-Cookie` header on a real login over the real domain, not assumed from the
+code being correct.
+
+The domain took a detour to get right: it's `mobmekauto.co.nz`, not `mobmek.co.nz` — the latter
+was an assumption carried through several turns of this session (including the earlier Resend
+`FromAddress` work) before being caught by actually looking at the GoDaddy account rather than
+continuing to trust the assumed name. `mobmek.co.nz` was never owned by this business at all;
+`dig`/DNS-over-HTTPS correctly returned `NXDOMAIN` for it the whole time because there was
+nothing wrong with DNS, just the domain being asked about.
 
 What it took, including the parts that didn't work on the first try:
 
@@ -50,7 +61,7 @@ What it took, including the parts that didn't work on the first try:
 3. Built `.env` on the box by pulling all 6 SSM secrets with the box's *own* role (not mine) —
    proves the real deploy-time path works, not just that credentials exist somewhere
 4. `FILE_STORAGE_S3_BUCKET=mobmek-uploads-649058763120` (the real bucket, not `-dev`),
-   `ASPNETCORE_ENVIRONMENT=Production`, `FRONTEND_BASE_URL=http://3.102.246.171`
+   `ASPNETCORE_ENVIRONMENT=Production`, `FRONTEND_BASE_URL=https://workshop.mobmekauto.co.nz`
 5. `docker compose up -d --build` — **api crashed immediately**, exactly as expected:
    `relation "AspNetRoles" does not exist`. This is why migration is a deliberate step, not
    optional — `Production` correctly refuses to auto-migrate an empty database.
@@ -61,13 +72,26 @@ What it took, including the parts that didn't work on the first try:
    bootstrap Admin created, Kestrel listening.
 7. **Found during verification, not before:** the frontend was still bound to host port 3000
    (the local-dev mapping in the base `docker-compose.yml`) — the security group only opens 80,
-   so nothing external could reach it at all. Fixed with a box-local
-   `docker-compose.override.yml` remapping `frontend` to `80:80` — same override mechanism
-   already used for local dev, gitignored, never touches the shared compose file.
+   so nothing external could reach it at all. Fixed temporarily with a box-local
+   `docker-compose.override.yml` remapping `frontend` to `80:80`, later removed once Caddy (step
+   8) took over host ports 80/443 properly.
+8. **Added Caddy** (`docker-compose.yml`, `profile: tls` — not started by a plain
+   `docker compose up`, since local dev has no domain to issue a cert for) for automatic TLS:
+   obtains and renews the Let's Encrypt certificate, redirects HTTP to HTTPS, reverse-proxies to
+   `frontend:80` over the Docker network. This surfaced one more real bug before it could bite:
+   `nginx.conf` hardcoded `X-Forwarded-Proto` to nginx's own `$scheme`, which is always `http` on
+   the Caddy-to-nginx hop (plain HTTP internally, even though the real client is on HTTPS) — left
+   as-is, the `Secure` cookie flag would never have activated, the exact bug already fixed once
+   at the client-to-nginx hop, one hop further in. Fixed with an nginx `map` that passes through
+   whatever Caddy already determined, falling back to `$scheme` only when nothing set the header
+   (local dev, no proxy in front at all).
+9. DNS: added an A record for `workshop` → `3.102.246.171` in GoDaddy. Caddy was already running
+   and retrying the ACME challenge before this (correctly failing with `NXDOMAIN` in its logs,
+   not crash-looping) — the moment the record propagated, it obtained the certificate on its own
+   with no further action needed.
 
-**Still open:** TLS (plain HTTP only right now — the `Secure` cookie fix from earlier this
-session stays dormant until there's a real HTTPS front door), the backup cron, and a domain. See
-`infrastructure/README.md`'s checklist.
+**Still open:** the backup cron and a tested restore drill. See `infrastructure/README.md`'s
+checklist.
 
 ### Instance role policy (`mobmek-prod-ec2-policy`, default version `v3`)
 
