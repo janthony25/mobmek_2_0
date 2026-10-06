@@ -1,19 +1,22 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getInvoicesPaged, rejectInvoice } from '@/api/invoices'
+import { getInvoice, getInvoicesPaged, rejectInvoice } from '@/api/invoices'
 import type { InvoicePagedFilters } from '@/api/invoices'
+import { ApiError } from '@/api/client'
 import { CrudSection } from '@/components/crud/CrudSection'
 import { Badge } from '@/components/ui/Badge'
 import { DateRangeFilter } from '@/components/ui/DateRangeFilter'
 import { DropdownMenu } from '@/components/ui/DropdownMenu'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Spinner } from '@/components/ui/Spinner'
 import { useToast } from '@/components/ui/toast'
 import { MarkPaidForm } from './MarkPaidForm'
 import { AcceptQuotationForm } from './AcceptQuotationForm'
+import { EmailComposeModal } from '@/components/email/EmailComposeModal'
 import { currency, date, orDash } from '@/lib/format'
 import { invoiceStatusLabel, invoiceStatusTone, quotationStatusLabel, quotationStatusTone } from '@/lib/badges'
-import type { InvoiceListItem } from '@/types'
+import type { Invoice, InvoiceListItem } from '@/types'
 
 interface DocumentListPageProps {
   documentType: 'Invoice' | 'Quotation'
@@ -37,6 +40,9 @@ export function DocumentListPage({ documentType }: DocumentListPageProps) {
   const [rejecting, setRejecting] = useState<InvoiceListItem | null>(null)
   const [paying, setPaying] = useState<InvoiceListItem | null>(null)
   const [accepting, setAccepting] = useState<InvoiceListItem | null>(null)
+  const [emailingItem, setEmailingItem] = useState<InvoiceListItem | null>(null)
+  const [emailingInvoice, setEmailingInvoice] = useState<Invoice | null>(null)
+  const [emailLoading, setEmailLoading] = useState(false)
 
   const [sortBy, setSortBy] = useState<NonNullable<InvoicePagedFilters['sortBy']>>('newest')
   // Quotation statuses: Active/Accepted/Rejected. Invoice statuses shown to users are
@@ -70,6 +76,24 @@ export function DocumentListPage({ documentType }: DocumentListPageProps) {
     toast.success(`${documentType} rejected`)
     setRejecting(null)
     setReloadKey((k) => k + 1)
+  }
+
+  const openEmail = async (item: InvoiceListItem) => {
+    setEmailingItem(item)
+    setEmailLoading(true)
+    try {
+      setEmailingInvoice(await getInvoice(item.jobId, item.id))
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : `Failed to load ${documentType.toLowerCase()}`)
+      setEmailingItem(null)
+    } finally {
+      setEmailLoading(false)
+    }
+  }
+
+  const closeEmail = () => {
+    setEmailingItem(null)
+    setEmailingInvoice(null)
   }
 
   return (
@@ -176,7 +200,7 @@ export function DocumentListPage({ documentType }: DocumentListPageProps) {
                     ...(isQuotation
                       ? [{ label: 'Accept', disabled: !active, onClick: () => setAccepting(i) }]
                       : [{ label: 'Mark as Paid', disabled: !active || i.isPaid, onClick: () => setPaying(i) }]),
-                    { label: 'Send Email', disabled: true, hint: 'Coming soon' },
+                    { label: 'Send Email', onClick: () => openEmail(i) },
                     { label: 'Reject', disabled: !active, tone: 'danger' as const, onClick: () => setRejecting(i) },
                   ]}
                 />
@@ -224,6 +248,25 @@ export function DocumentListPage({ documentType }: DocumentListPageProps) {
         onConfirm={handleReject}
         onCancel={() => setRejecting(null)}
       />
+
+      <Modal open={emailingItem !== null} title={`Email ${documentType}`} onClose={closeEmail} maxWidth="max-w-xl">
+        {emailLoading && (
+          <p className="flex items-center gap-2 text-sm text-slate-500">
+            <Spinner className="h-3.5 w-3.5" /> Loading…
+          </p>
+        )}
+        {emailingInvoice && (
+          <EmailComposeModal
+            jobId={emailingInvoice.jobId}
+            invoice={emailingInvoice}
+            onSent={() => setReloadKey((k) => k + 1)}
+            onClose={() => {
+              closeEmail()
+              setReloadKey((k) => k + 1)
+            }}
+          />
+        )}
+      </Modal>
     </>
   )
 }

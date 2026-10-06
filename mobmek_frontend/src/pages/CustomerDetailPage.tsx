@@ -32,6 +32,7 @@ import { controlClass } from '@/components/forms/controls'
 import { ResourceForm } from '@/components/crud/ResourceForm'
 import { AcceptQuotationForm } from '@/components/invoices/AcceptQuotationForm'
 import { MarkPaidForm } from '@/components/invoices/MarkPaidForm'
+import { EmailComposeModal } from '@/components/email/EmailComposeModal'
 import { useAsync } from '@/hooks/useAsync'
 import {
   JOB_STATUS_TONE,
@@ -160,6 +161,8 @@ export function CustomerDetailPage() {
   const [rejectingInvoice, setRejectingInvoice] = useState<Invoice | null>(null)
   const [acceptingQuotation, setAcceptingQuotation] = useState<Invoice | null>(null)
   const [rejectingQuotation, setRejectingQuotation] = useState<Invoice | null>(null)
+  const [emailingInvoice, setEmailingInvoice] = useState<Invoice | null>(null)
+  const [emailingQuotation, setEmailingQuotation] = useState<Invoice | null>(null)
 
   if (customerState.loading && !customerState.data) return <StateMessage title="Loading customer…" loading />
   if (customerState.error) return <StateMessage title="Could not load customer" description={customerState.error.message} />
@@ -401,6 +404,7 @@ export function CustomerDetailPage() {
                     onViewJob={() => navigate(`/jobs/${invoice.jobId}`, { state: backState })}
                     onPay={() => setPayingInvoice(invoice)}
                     onReject={() => setRejectingInvoice(invoice)}
+                    onEmail={() => setEmailingInvoice(invoice)}
                   />
                 )}
               />
@@ -457,6 +461,7 @@ export function CustomerDetailPage() {
                     onViewJob={() => navigate(`/jobs/${quotation.jobId}`, { state: backState })}
                     onAccept={() => setAcceptingQuotation(quotation)}
                     onReject={() => setRejectingQuotation(quotation)}
+                    onEmail={() => setEmailingQuotation(quotation)}
                   />
                 )}
               />
@@ -557,6 +562,34 @@ export function CustomerDetailPage() {
         onConfirm={handleRejectQuotation}
         onCancel={() => setRejectingQuotation(null)}
       />
+
+      <Modal open={emailingInvoice !== null} title="Email Invoice" onClose={() => setEmailingInvoice(null)} maxWidth="max-w-xl">
+        {emailingInvoice && (
+          <EmailComposeModal
+            jobId={emailingInvoice.jobId}
+            invoice={emailingInvoice}
+            onSent={() => invoicesState.reload()}
+            onClose={() => {
+              setEmailingInvoice(null)
+              invoicesState.reload()
+            }}
+          />
+        )}
+      </Modal>
+
+      <Modal open={emailingQuotation !== null} title="Email Quotation" onClose={() => setEmailingQuotation(null)} maxWidth="max-w-xl">
+        {emailingQuotation && (
+          <EmailComposeModal
+            jobId={emailingQuotation.jobId}
+            invoice={emailingQuotation}
+            onSent={() => invoicesState.reload()}
+            onClose={() => {
+              setEmailingQuotation(null)
+              invoicesState.reload()
+            }}
+          />
+        )}
+      </Modal>
     </div>
   )
 }
@@ -718,9 +751,10 @@ interface InvoiceRowProps {
   onViewJob: () => void
   onPay: () => void
   onReject: () => void
+  onEmail: () => void
 }
 
-function InvoiceRow({ invoice, onViewJob, onPay, onReject }: InvoiceRowProps) {
+function InvoiceRow({ invoice, onViewJob, onPay, onReject, onEmail }: InvoiceRowProps) {
   const active = invoice.status === 'Active'
   const pdfUrl = `/jobs/${invoice.jobId}/invoices/${invoice.id}/pdf`
 
@@ -742,7 +776,7 @@ function InvoiceRow({ invoice, onViewJob, onPay, onReject }: InvoiceRowProps) {
             { label: 'View Invoice (PDF)', onClick: () => window.open(pdfUrl, '_blank') },
             { label: 'Download Invoice (PDF)', onClick: () => window.open(`${pdfUrl}?autoprint=1`, '_blank') },
             { label: 'Mark as Paid', disabled: !active || invoice.isPaid, onClick: onPay },
-            { label: 'Send Email', disabled: true, hint: 'Coming soon' },
+            { label: 'Send Email', onClick: onEmail },
             { label: 'Reject', disabled: !active, tone: 'danger', onClick: onReject },
           ]}
         />
@@ -756,9 +790,10 @@ interface QuotationRowProps {
   onViewJob: () => void
   onAccept: () => void
   onReject: () => void
+  onEmail: () => void
 }
 
-function QuotationRow({ quotation, onViewJob, onAccept, onReject }: QuotationRowProps) {
+function QuotationRow({ quotation, onViewJob, onAccept, onReject, onEmail }: QuotationRowProps) {
   const active = quotation.status === 'Active'
   const pdfUrl = `/jobs/${quotation.jobId}/invoices/${quotation.id}/pdf`
 
@@ -780,7 +815,7 @@ function QuotationRow({ quotation, onViewJob, onAccept, onReject }: QuotationRow
             { label: 'View Quotation (PDF)', onClick: () => window.open(pdfUrl, '_blank') },
             { label: 'Download Quotation (PDF)', onClick: () => window.open(`${pdfUrl}?autoprint=1`, '_blank') },
             { label: 'Accept', disabled: !active, onClick: onAccept },
-            { label: 'Send Email', disabled: true, hint: 'Coming soon' },
+            { label: 'Send Email', onClick: onEmail },
             { label: 'Reject', disabled: !active, tone: 'danger', onClick: onReject },
           ]}
         />
