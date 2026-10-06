@@ -81,6 +81,15 @@ public class AccountAdminServiceTests
         FakeEmailSender sender, bool configured = true)
     {
         var config = CreateConfig(configured);
+        // ResendConfigured requires a real FromAddress too, not just the API key (see
+        // EmailSettingsService.ToDto) — seed one directly so GetOrCreateAsync finds this row
+        // instead of creating its own blank default.
+        if (configured && !db.EmailSettings.Any())
+        {
+            db.EmailSettings.Add(new EmailSettings { FromAddress = "shop@example.com" });
+            db.SaveChanges();
+        }
+
         return new(db, userManager, roleManager, sender, new EmailSettingsService(db, config), config);
     }
 

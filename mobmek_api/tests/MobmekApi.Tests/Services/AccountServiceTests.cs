@@ -52,8 +52,19 @@ public class AccountServiceTests
     }
 
     private static AccountService BuildService(
-        AppDbContext db, UserManager<ApplicationUser> userManager, FakeEmailSender sender, bool configured = true) =>
-        new(db, userManager, sender, new EmailSettingsService(db, CreateConfig(configured)));
+        AppDbContext db, UserManager<ApplicationUser> userManager, FakeEmailSender sender, bool configured = true)
+    {
+        // ResendConfigured requires a real FromAddress too, not just the API key (see
+        // EmailSettingsService.ToDto) — seed one directly so GetOrCreateAsync finds this row
+        // instead of creating its own blank default.
+        if (configured && !db.EmailSettings.Any())
+        {
+            db.EmailSettings.Add(new EmailSettings { FromAddress = "shop@example.com" });
+            db.SaveChanges();
+        }
+
+        return new(db, userManager, sender, new EmailSettingsService(db, CreateConfig(configured)));
+    }
 
     [Fact]
     public async Task GetProfileAsync_ReturnsContactInfo_AndLoginEmail()

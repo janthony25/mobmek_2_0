@@ -63,14 +63,39 @@ public class EmailSettingsServiceTests
     }
 
     [Fact]
-    public async Task ResendConfigured_ReflectsConfigurationPresence()
+    public async Task ResendConfigured_IsFalseWithoutAnApiKey_EvenWithAFromAddressSet()
     {
         await using var db = CreateContext();
+        var service = new EmailSettingsService(db, CreateConfig());
+        await service.UpdateAsync(new UpdateEmailSettingsRequest("Shop", "shop@example.com", null, true));
 
-        var withoutKey = await new EmailSettingsService(db, CreateConfig()).GetCurrentAsync();
-        Assert.False(withoutKey.ResendConfigured);
+        var settings = await service.GetCurrentAsync();
 
-        var withKey = await new EmailSettingsService(db, CreateConfig("re_test_key")).GetCurrentAsync();
-        Assert.True(withKey.ResendConfigured);
+        Assert.False(settings.ResendConfigured);
+    }
+
+    [Fact]
+    public async Task ResendConfigured_IsFalseWithAnApiKeyButNoFromAddress()
+    {
+        // GetCurrentAsync on a fresh db auto-creates a default row (FromAddress = "") —
+        // nobody has actually saved settings through UpdateAsync's validation yet.
+        await using var db = CreateContext();
+
+        var settings = await new EmailSettingsService(db, CreateConfig("re_test_key")).GetCurrentAsync();
+
+        Assert.Equal("", settings.FromAddress);
+        Assert.False(settings.ResendConfigured);
+    }
+
+    [Fact]
+    public async Task ResendConfigured_IsTrueOnlyWhenBothTheApiKeyAndFromAddressAreSet()
+    {
+        await using var db = CreateContext();
+        var service = new EmailSettingsService(db, CreateConfig("re_test_key"));
+        await service.UpdateAsync(new UpdateEmailSettingsRequest("Shop", "shop@example.com", null, true));
+
+        var settings = await service.GetCurrentAsync();
+
+        Assert.True(settings.ResendConfigured);
     }
 }

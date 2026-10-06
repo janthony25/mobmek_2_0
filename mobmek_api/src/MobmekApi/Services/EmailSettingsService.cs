@@ -36,6 +36,13 @@ public class EmailSettingsService(AppDbContext db, IConfiguration configuration)
 
     private EmailSettingsDto ToDto(EmailSettings s) => new(
         s.Id, s.FromName, s.FromAddress, s.ReplyToAddress, s.BccSelf,
-        ResendConfigured: !string.IsNullOrWhiteSpace(configuration["Email:Resend:ApiKey"]),
+        // Both halves matter: the API key alone lets a request reach Resend, but FromAddress
+        // defaults to "" (GetOrCreateAsync seeds a blank row, bypassing UpdateAsync's
+        // [Required, EmailAddress] validation) until an Admin actually saves real settings —
+        // sending with it blank builds a "Name <>" From header, which Resend rejects with a
+        // 422. Checking only the API key here previously left this reading "Configured" while
+        // every real send (e.g. a new account's confirmation email) failed.
+        ResendConfigured: !string.IsNullOrWhiteSpace(configuration["Email:Resend:ApiKey"])
+            && !string.IsNullOrWhiteSpace(s.FromAddress),
         s.CreatedAtUtc, s.UpdatedAtUtc, s.UpdatedByName);
 }

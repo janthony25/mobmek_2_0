@@ -93,7 +93,9 @@ export function EmailSettingsPage() {
           {data?.resendConfigured ? (
             <Badge tone="green">Configured</Badge>
           ) : (
-            <Badge tone="amber">Not configured — set Email:Resend:ApiKey</Badge>
+            <Badge tone="amber">
+              Not fully set up — needs a Resend API key (Email:Resend:ApiKey) and a From address below
+            </Badge>
           )}
         </div>
 

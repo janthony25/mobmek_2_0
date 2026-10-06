@@ -2,8 +2,9 @@ using System.ComponentModel.DataAnnotations;
 
 namespace MobmekApi.DTOs;
 
-/// <summary>The current email settings. <c>ResendConfigured</c> is computed from configuration
-/// presence, never persisted — the API key itself is never exposed.</summary>
+/// <summary>The current email settings. <c>ResendConfigured</c> means "a send would actually
+/// work right now" — the API key is present AND FromAddress is set — not just API-key presence;
+/// never persisted, and the key itself is never exposed.</summary>
 public record EmailSettingsDto(
     Guid Id,
     string FromName,
