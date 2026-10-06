@@ -6,6 +6,7 @@ import { RequireAdmin } from '@/components/auth/RequireAdmin'
 import { LoginPage } from '@/pages/LoginPage'
 import { ConfirmAccountPage } from '@/pages/ConfirmAccountPage'
 import { AccountsPage } from '@/pages/AccountsPage'
+import { RolesPage } from '@/pages/RolesPage'
 import { CustomersPage } from '@/pages/CustomersPage'
 import { CustomerDetailPage } from '@/pages/CustomerDetailPage'
 import { CarDetailPage } from '@/pages/CarDetailPage'
@@ -70,6 +71,7 @@ function App() {
           {/* Admin-only: HR, settings, and financials — mirrors [Authorize(Roles = "Admin")] on the API. */}
           <Route element={<RequireAdmin />}>
             <Route path="accounts" element={<AccountsPage />} />
+            <Route path="roles" element={<RolesPage />} />
             <Route path="employees" element={<EmployeesPage />} />
             <Route path="employee-titles" element={<EmployeeTitlesPage />} />
             <Route path="employment-types" element={<EmploymentTypesPage />} />

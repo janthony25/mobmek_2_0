@@ -58,6 +58,7 @@ const NAV_GROUPS: NavGroup[] = [
     heading: 'Staff',
     items: [
       { to: '/accounts', label: 'Accounts & Roles', icon: '🔑', adminOnly: true },
+      { to: '/roles', label: 'Roles & Permissions', icon: '🛡️', adminOnly: true },
       { to: '/employees', label: 'Employees', icon: '🧑‍🔧', adminOnly: true },
       { to: '/employee-titles', label: 'Titles', icon: '🏷️', adminOnly: true },
       { to: '/employment-types', label: 'Employment Types', icon: '📋', adminOnly: true },

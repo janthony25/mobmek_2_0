@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { createAccount, deactivateAccount, getAccounts, reactivateAccount, updateAccountRole } from '@/api/accounts'
 import { getEmployees } from '@/api/employees'
+import { getRoles } from '@/api/roles'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Modal } from '@/components/ui/Modal'
@@ -13,7 +14,6 @@ import { useAsync } from '@/hooks/useAsync'
 import { date } from '@/lib/format'
 import type { AccountListItem, AccountRole } from '@/types'
 
-const ROLES: AccountRole[] = ['Admin', 'Employee']
 const DELETION_GRACE_PERIOD_DAYS = 30
 
 const daysUntilDeletion = (deactivatedAtUtc: string): number => {
@@ -26,31 +26,41 @@ export function AccountsPage() {
   const { user } = useAuth()
   const accounts = useAsync(getAccounts, [])
   const employees = useAsync(getEmployees, [])
+  const roles = useAsync(getRoles, [])
   const [addOpen, setAddOpen] = useState(false)
   const [employeeId, setEmployeeId] = useState('')
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState<AccountRole>('Employee')
+  const [role, setRole] = useState<AccountRole>('')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [roleBusyUserId, setRoleBusyUserId] = useState<string | null>(null)
   const [actionBusyUserId, setActionBusyUserId] = useState<string | null>(null)
   const [deactivating, setDeactivating] = useState<AccountListItem | null>(null)
 
-  if ((accounts.loading && !accounts.data) || (employees.loading && !employees.data)) {
+  if ((accounts.loading && !accounts.data) || (employees.loading && !employees.data) || (roles.loading && !roles.data)) {
     return <StateMessage title="Loading accounts…" loading />
   }
-  if (accounts.error || employees.error) {
-    return <StateMessage title="Could not load accounts" description={(accounts.error ?? employees.error)?.message} />
+  if (accounts.error || employees.error || roles.error) {
+    return (
+      <StateMessage
+        title="Could not load accounts"
+        description={(accounts.error ?? employees.error ?? roles.error)?.message}
+      />
+    )
   }
 
   const linkedEmployeeIds = new Set((accounts.data ?? []).map((a) => a.employeeId))
   const availableEmployees = (employees.data ?? []).filter((e) => !linkedEmployeeIds.has(e.id))
+  const availableRoles = roles.data ?? []
+  // Default to the first non-Admin role so a new account isn't accidentally granted full
+  // access by default; fall back to whatever exists if no custom role has been created yet.
+  const defaultRole = availableRoles.find((r) => !r.isProtected)?.name ?? availableRoles[0]?.name ?? ''
 
   const openAdd = () => {
     const first = availableEmployees[0]
     setEmployeeId(first?.id ?? '')
     setEmail(first?.emailAddress ?? '')
-    setRole('Employee')
+    setRole(defaultRole)
     setFormError(null)
     setAddOpen(true)
   }
@@ -155,14 +165,14 @@ export function AccountsPage() {
                     </span>
                   ) : (
                     <select
-                      value={account.roles[0] ?? 'Employee'}
+                      value={account.roles[0] ?? defaultRole}
                       disabled={roleBusyUserId === account.userId}
                       onChange={(e) => handleRoleChange(account.userId, e.target.value as AccountRole)}
                       className="rounded-md border border-slate-300 px-2 py-1 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 disabled:opacity-50"
                     >
-                      {ROLES.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
+                      {availableRoles.map((r) => (
+                        <option key={r.id} value={r.name}>
+                          {r.name}
                         </option>
                       ))}
                     </select>
@@ -246,9 +256,9 @@ export function AccountsPage() {
           </Field>
           <Field label="Role" required>
             <select value={role} onChange={(e) => setRole(e.target.value as AccountRole)} className={controlClass}>
-              {ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {r}
+              {availableRoles.map((r) => (
+                <option key={r.id} value={r.name}>
+                  {r.name}
                 </option>
               ))}
             </select>

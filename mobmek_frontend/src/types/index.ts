@@ -1170,8 +1170,8 @@ export interface CurrentUser {
 
 // --- Account / role management (Admin only) -------------------------------------
 
-/** The only two roles seeded today (see AdminSeeder) — kept in sync manually. */
-export type AccountRole = 'Admin' | 'Employee'
+/** A role name — dynamic now (see /roles), not a fixed set. "Admin" is always one of them. */
+export type AccountRole = string
 
 export interface AccountListItem {
   userId: string
@@ -1205,6 +1205,37 @@ export interface AccountInvitePreview {
   email: string
   firstName: string
   lastName: string
+}
+
+// --- Roles & permissions (Admin only, /roles) -------------------------------------
+
+export interface Role {
+  id: string
+  name: string
+  /** The "Admin" role — can't be edited or deleted, so there's always one role that can manage everything. */
+  isProtected: boolean
+  accountCount: number
+  permissions: string[]
+}
+
+export interface CreateRoleRequest {
+  name: string
+}
+
+export interface SetRolePermissionsRequest {
+  permissions: string[]
+}
+
+/** Display name + one-line description per entry in the fixed permission catalog
+ * (GET /api/roles/permissions) — kept in sync manually with Services/Permissions.cs. */
+export const PERMISSION_INFO: Record<string, { label: string; description: string }> = {
+  ManageEmployees: { label: 'Manage employees', description: 'Create, edit, and view employee HR records, titles, and employment types.' },
+  ManageAccounts: { label: 'Manage accounts & roles', description: 'Create login accounts, change roles, deactivate accounts, and manage roles/permissions.' },
+  ManageBusinessSettings: { label: 'Manage business settings', description: 'Business details, logo, and outbound email settings.' },
+  ManageCalendarSync: { label: 'Manage calendar sync', description: 'View and control the Google Calendar sync status and retries.' },
+  ManageReminderTemplates: { label: 'Manage reminder templates', description: 'Create and edit recurring reminder templates (e.g. WOF, service).' },
+  AccessCashFlow: { label: 'Access cash flow & finance', description: 'Cash accounts, transactions, forecasting, GST, and related settings.' },
+  ViewJobMargins: { label: 'View job cost & margins', description: 'See trade price, markup, and profit on jobs and job items — hidden otherwise.' },
 }
 
 export interface LoginRequest {
