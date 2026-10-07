@@ -10,17 +10,18 @@ namespace MobmekApi.Controllers;
 [Produces("application/json")]
 public class OutboundEmailsController(IOutboundEmailService outboundEmailService) : ControllerBase
 {
-    /// <summary>The outbound send history, newest first; filter by customer/invoice/status/kind.</summary>
+    /// <summary>The outbound send history, newest first; filter by customer/invoice/reminder/appointment/status/kind.</summary>
     [HttpGet]
     [ProducesResponseType(typeof(OutboundEmailPageDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<OutboundEmailPageDto>> GetPaged(
         [FromQuery] Guid? customerId, [FromQuery] Guid? invoiceId,
+        [FromQuery] Guid? reminderId, [FromQuery] Guid? appointmentId,
         [FromQuery] OutboundEmailStatus? status, [FromQuery] OutboundEmailKind? kind,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
         var result = await outboundEmailService.GetPagedAsync(
-            new OutboundEmailFilter(customerId, invoiceId, status, kind, page, pageSize), cancellationToken);
+            new OutboundEmailFilter(customerId, invoiceId, reminderId, appointmentId, status, kind, page, pageSize), cancellationToken);
         return Ok(result);
     }
 

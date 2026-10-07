@@ -4,5 +4,7 @@ namespace MobmekApi.Entities;
 public enum OutboundEmailKind
 {
     Invoice,
+    Reminder,
+    Appointment,
     Test,
 }

@@ -25,6 +25,7 @@ public class AppointmentService(
             a.VehicleDescription,
             a.CustomerId,
             a.Customer != null ? a.Customer.FirstName + " " + a.Customer.LastName : null,
+            a.Customer != null ? a.Customer.EmailAddress : null,
             a.CarId,
             a.Car != null
                 ? a.Car.CarMake!.Name + " " + a.Car.CarModel!.Name + " (" + a.Car.Rego + ")"

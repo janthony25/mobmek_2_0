@@ -39,7 +39,7 @@ public class OutboundEmailServiceTests
 
         var businessDetails = new BusinessDetailsService(db, CreateStorage());
         return new(db,
-            new EmailComposeService(db, businessDetails),
+            new EmailComposeService(db, businessDetails, new EmailTemplateService(db)),
             new InvoicePdfService(db, businessDetails),
             sender,
             new EmailSettingsService(db, CreateConfig(configured)));
@@ -217,6 +217,38 @@ public class OutboundEmailServiceTests
     }
 
     [Fact]
+    public async Task ApplyStatusByProviderMessageIdAsync_Delivered_AppliesToMatchingRow()
+    {
+        await using var db = CreateContext();
+        var (jobId, invoiceId) = await SeedInvoiceAsync(db);
+        var sender = new FakeEmailSender();
+        sender.EnqueueSendResult(new EmailSendResult(true, "provider-xyz", null));
+        var service = BuildService(db, sender);
+        await service.SendInvoiceEmailAsync(jobId, invoiceId, DefaultRequest());
+
+        await service.ApplyStatusByProviderMessageIdAsync("provider-xyz", OutboundEmailStatus.Delivered, null, DateTime.UtcNow);
+
+        var row = await db.OutboundEmails.SingleAsync();
+        Assert.Equal(OutboundEmailStatus.Delivered, row.Status);
+    }
+
+    [Fact]
+    public async Task ApplyStatusByProviderMessageIdAsync_UnknownProviderId_DoesNothing()
+    {
+        await using var db = CreateContext();
+        var (jobId, invoiceId) = await SeedInvoiceAsync(db);
+        var sender = new FakeEmailSender();
+        sender.EnqueueSendResult(new EmailSendResult(true, "provider-xyz", null));
+        var service = BuildService(db, sender);
+        await service.SendInvoiceEmailAsync(jobId, invoiceId, DefaultRequest());
+
+        await service.ApplyStatusByProviderMessageIdAsync("some-other-id", OutboundEmailStatus.Delivered, null, DateTime.UtcNow);
+
+        var row = await db.OutboundEmails.SingleAsync();
+        Assert.Equal(OutboundEmailStatus.Sent, row.Status);
+    }
+
+    [Fact]
     public async Task RetryAsync_OnlyAllowed_FromFailedOrBounced()
     {
         await using var db = CreateContext();
@@ -308,7 +340,7 @@ public class OutboundEmailServiceTests
         await service.SendInvoiceEmailAsync(jobId, invoiceId, DefaultRequest());
         await service.SendInvoiceEmailAsync(jobId, otherInvoiceId, DefaultRequest("other@example.com"));
 
-        var page = await service.GetPagedAsync(new OutboundEmailFilter(null, invoiceId, null, null));
+        var page = await service.GetPagedAsync(new OutboundEmailFilter(null, invoiceId, null, null, null, null));
 
         Assert.Equal(1, page.TotalCount);
         Assert.Equal(invoiceId, page.Items[0].InvoiceId);
@@ -343,5 +375,79 @@ public class OutboundEmailServiceTests
         Assert.Null(email.InvoiceId);
         Assert.Null(email.CustomerId);
         Assert.Null(Assert.Single(sender.SentMessages).Attachments); // no invoice to attach a PDF for
+    }
+
+    [Fact]
+    public async Task SendReminderEmailAsync_Success_SetsKindAndReminderId()
+    {
+        await using var db = CreateContext();
+        var customer = await new CustomerService(db).CreateAsync(
+            new CreateCustomerRequest("Jane", "Doe", "0", "jane@example.com", null, null));
+        var reminder = new Reminder { CustomerId = customer.Id, Title = "WOF due", DueDate = DateOnly.FromDateTime(DateTime.UtcNow) };
+        db.Reminders.Add(reminder);
+        await db.SaveChangesAsync();
+        var sender = new FakeEmailSender();
+        sender.EnqueueSendResult(new EmailSendResult(true, "provider-r1", null));
+        var service = BuildService(db, sender);
+
+        var (email, error) = await service.SendReminderEmailAsync(
+            reminder.Id, new SendReminderEmailRequest("jane@example.com", "Jane Doe", null, "Reminder", null));
+
+        Assert.Equal(EmailWriteError.None, error);
+        Assert.Equal(OutboundEmailKind.Reminder, email!.Kind);
+        Assert.Equal(reminder.Id, email.ReminderId);
+        Assert.Equal(customer.Id, email.CustomerId);
+    }
+
+    [Fact]
+    public async Task SendReminderEmailAsync_ReminderMissing_ReturnsReminderNotFound()
+    {
+        await using var db = CreateContext();
+        var sender = new FakeEmailSender();
+        var service = BuildService(db, sender);
+
+        var (email, error) = await service.SendReminderEmailAsync(
+            Guid.NewGuid(), new SendReminderEmailRequest("x@example.com", null, null, "Reminder", null));
+
+        Assert.Null(email);
+        Assert.Equal(EmailWriteError.ReminderNotFound, error);
+    }
+
+    [Fact]
+    public async Task SendAppointmentEmailAsync_Success_SetsKindAndAppointmentId()
+    {
+        await using var db = CreateContext();
+        var customer = await new CustomerService(db).CreateAsync(
+            new CreateCustomerRequest("Jane", "Doe", "0", "jane@example.com", null, null));
+        var appointment = new Appointment
+        {
+            Title = "Brake check", StartUtc = DateTime.UtcNow, EndUtc = DateTime.UtcNow.AddHours(1), CustomerId = customer.Id,
+        };
+        db.Appointments.Add(appointment);
+        await db.SaveChangesAsync();
+        var sender = new FakeEmailSender();
+        sender.EnqueueSendResult(new EmailSendResult(true, "provider-a1", null));
+        var service = BuildService(db, sender);
+
+        var (email, error) = await service.SendAppointmentEmailAsync(
+            appointment.Id, new SendAppointmentEmailRequest("jane@example.com", "Jane Doe", null, "Appointment", null));
+
+        Assert.Equal(EmailWriteError.None, error);
+        Assert.Equal(OutboundEmailKind.Appointment, email!.Kind);
+        Assert.Equal(appointment.Id, email.AppointmentId);
+    }
+
+    [Fact]
+    public async Task SendAppointmentEmailAsync_AppointmentMissing_ReturnsAppointmentNotFound()
+    {
+        await using var db = CreateContext();
+        var sender = new FakeEmailSender();
+        var service = BuildService(db, sender);
+
+        var (email, error) = await service.SendAppointmentEmailAsync(
+            Guid.NewGuid(), new SendAppointmentEmailRequest("x@example.com", null, null, "Appt", null));
+
+        Assert.Null(email);
+        Assert.Equal(EmailWriteError.AppointmentNotFound, error);
     }
 }

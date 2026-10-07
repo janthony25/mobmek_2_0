@@ -5,6 +5,8 @@ import type {
   CreateAppointmentRequest,
   CreateCarRequest,
   CustomerRequest,
+  OutboundEmail,
+  SendAppointmentEmailRequest,
   UpdateAppointmentRequest,
 } from '@/types'
 
@@ -77,3 +79,6 @@ export const convertAppointmentToCustomer = (id: string, body: CustomerRequest) 
  * atomically links it to the appointment in one request. */
 export const convertAppointmentToCar = (id: string, body: CreateCarRequest) =>
   apiPost<Appointment>(`/appointments/${id}/convert-to-car`, body)
+
+export const sendAppointmentEmail = (id: string, body: SendAppointmentEmailRequest) =>
+  apiPost<OutboundEmail>(`/appointments/${id}/email`, body)

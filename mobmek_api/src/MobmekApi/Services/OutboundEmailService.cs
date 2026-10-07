@@ -27,14 +27,42 @@ public class OutboundEmailService(
 
         return await SendAsync(
             request.To, request.ToName, request.Cc, request.Subject, draft.BodyHtml,
-            OutboundEmailKind.Invoice, draft.CustomerId, invoiceId, attachment, cancellationToken);
+            OutboundEmailKind.Invoice, draft.CustomerId, invoiceId, null, null, attachment, cancellationToken);
+    }
+
+    public async Task<(OutboundEmailDto? Email, EmailWriteError Error)> SendReminderEmailAsync(
+        Guid reminderId, SendReminderEmailRequest request, CancellationToken cancellationToken = default)
+    {
+        var draft = await composeService.ComposeReminderEmailAsync(reminderId, request.Intro, cancellationToken);
+        if (draft is null)
+        {
+            return (null, EmailWriteError.ReminderNotFound);
+        }
+
+        return await SendAsync(
+            request.To, request.ToName, request.Cc, request.Subject, draft.BodyHtml,
+            OutboundEmailKind.Reminder, draft.CustomerId, null, reminderId, null, null, cancellationToken);
+    }
+
+    public async Task<(OutboundEmailDto? Email, EmailWriteError Error)> SendAppointmentEmailAsync(
+        Guid appointmentId, SendAppointmentEmailRequest request, CancellationToken cancellationToken = default)
+    {
+        var draft = await composeService.ComposeAppointmentEmailAsync(appointmentId, request.Intro, cancellationToken);
+        if (draft is null)
+        {
+            return (null, EmailWriteError.AppointmentNotFound);
+        }
+
+        return await SendAsync(
+            request.To, request.ToName, request.Cc, request.Subject, draft.BodyHtml,
+            OutboundEmailKind.Appointment, draft.CustomerId, null, null, appointmentId, null, cancellationToken);
     }
 
     public Task<(OutboundEmailDto? Email, EmailWriteError Error)> SendTestEmailAsync(
         string toAddress, CancellationToken cancellationToken = default)
     {
         const string html = "<p>This is a test email from Mobmek — if you're reading this, outbound email is configured correctly.</p>";
-        return SendAsync(toAddress, null, null, "Mobmek test email", html, OutboundEmailKind.Test, null, null, null, cancellationToken);
+        return SendAsync(toAddress, null, null, "Mobmek test email", html, OutboundEmailKind.Test, null, null, null, null, null, cancellationToken);
     }
 
     /// <summary>Renders the invoice/quotation PDF and wraps it as an attachment; null (no
@@ -53,6 +81,8 @@ public class OutboundEmailService(
 
         if (filter.CustomerId is not null) query = query.Where(e => e.CustomerId == filter.CustomerId);
         if (filter.InvoiceId is not null) query = query.Where(e => e.InvoiceId == filter.InvoiceId);
+        if (filter.ReminderId is not null) query = query.Where(e => e.ReminderId == filter.ReminderId);
+        if (filter.AppointmentId is not null) query = query.Where(e => e.AppointmentId == filter.AppointmentId);
         if (filter.Status is not null) query = query.Where(e => e.Status == filter.Status);
         if (filter.Kind is not null) query = query.Where(e => e.Kind == filter.Kind);
 
@@ -100,7 +130,7 @@ public class OutboundEmailService(
 
         return await SendAsync(
             original.ToAddress, original.ToName, original.CcAddresses, original.Subject, original.BodyHtml,
-            original.Kind, original.CustomerId, original.InvoiceId, attachment, cancellationToken);
+            original.Kind, original.CustomerId, original.InvoiceId, original.ReminderId, original.AppointmentId, attachment, cancellationToken);
     }
 
     public Task<string?> GetPreviewHtmlAsync(Guid id, CancellationToken cancellationToken = default) =>
@@ -118,6 +148,17 @@ public class OutboundEmailService(
     public async Task ApplyStatusAsync(Guid id, OutboundEmailStatus newStatus, string? reason, DateTime eventAtUtc, CancellationToken cancellationToken = default)
     {
         var email = await db.OutboundEmails.FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+        await ApplyStatusAsync(email, newStatus, reason, eventAtUtc, cancellationToken);
+    }
+
+    public async Task ApplyStatusByProviderMessageIdAsync(string providerMessageId, OutboundEmailStatus newStatus, string? reason, DateTime eventAtUtc, CancellationToken cancellationToken = default)
+    {
+        var email = await db.OutboundEmails.FirstOrDefaultAsync(e => e.ProviderMessageId == providerMessageId, cancellationToken);
+        await ApplyStatusAsync(email, newStatus, reason, eventAtUtc, cancellationToken);
+    }
+
+    private async Task ApplyStatusAsync(OutboundEmail? email, OutboundEmailStatus newStatus, string? reason, DateTime eventAtUtc, CancellationToken cancellationToken)
+    {
         if (email is null || Rank(newStatus) <= Rank(email.Status))
         {
             return;
@@ -148,7 +189,8 @@ public class OutboundEmailService(
 
     private async Task<(OutboundEmailDto? Email, EmailWriteError Error)> SendAsync(
         string to, string? toName, string? cc, string subject, string bodyHtml,
-        OutboundEmailKind kind, Guid? customerId, Guid? invoiceId, EmailAttachment? attachment, CancellationToken cancellationToken)
+        OutboundEmailKind kind, Guid? customerId, Guid? invoiceId, Guid? reminderId, Guid? appointmentId,
+        EmailAttachment? attachment, CancellationToken cancellationToken)
     {
         var settings = await emailSettingsService.GetCurrentAsync(cancellationToken);
         if (!settings.ResendConfigured)
@@ -168,6 +210,8 @@ public class OutboundEmailService(
             Kind = kind,
             CustomerId = customerId,
             InvoiceId = invoiceId,
+            ReminderId = reminderId,
+            AppointmentId = appointmentId,
         };
         db.OutboundEmails.Add(email);
         await db.SaveChangesAsync(cancellationToken);
@@ -204,5 +248,5 @@ public class OutboundEmailService(
 
     private static OutboundEmailDto ToDto(OutboundEmail e) => new(
         e.Id, e.ToAddress, e.ToName, e.CcAddresses, e.Subject, e.Status, e.ErrorMessage, e.Kind,
-        e.CustomerId, e.InvoiceId, e.SentAtUtc, e.DeliveredAtUtc, e.FailedAtUtc, e.CreatedAtUtc);
+        e.CustomerId, e.InvoiceId, e.ReminderId, e.AppointmentId, e.SentAtUtc, e.DeliveredAtUtc, e.FailedAtUtc, e.CreatedAtUtc);
 }

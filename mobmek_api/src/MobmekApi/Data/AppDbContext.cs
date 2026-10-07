@@ -80,6 +80,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAc
 
     public DbSet<EmailSettings> EmailSettings => Set<EmailSettings>();
 
+    public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
+
     public DbSet<OutboundEmail> OutboundEmails => Set<OutboundEmail>();
 
     public DbSet<PasswordChangeCode> PasswordChangeCodes => Set<PasswordChangeCode>();
@@ -691,6 +693,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAc
             entity.Property(s => s.ReplyToAddress).HasMaxLength(255);
         });
 
+        modelBuilder.Entity<EmailTemplate>(entity =>
+        {
+            entity.Property(t => t.Key).IsRequired().HasMaxLength(50);
+            entity.Property(t => t.Name).IsRequired().HasMaxLength(200);
+            entity.Property(t => t.SubjectTemplate).IsRequired().HasMaxLength(500);
+            entity.Property(t => t.BodyIntroTemplate).IsRequired().HasMaxLength(4000);
+            entity.HasIndex(t => t.Key).IsUnique();
+        });
+
         modelBuilder.Entity<OutboundEmail>(entity =>
         {
             entity.Property(e => e.ToAddress).IsRequired().HasMaxLength(255);
@@ -703,10 +714,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAc
             entity.Property(e => e.ErrorMessage).HasMaxLength(2000);
             entity.HasIndex(e => e.Status);
             entity.HasIndex(e => e.InvoiceId);
+            entity.HasIndex(e => e.ReminderId);
+            entity.HasIndex(e => e.AppointmentId);
             entity.HasIndex(e => e.CustomerId);
 
-            // Both links are optional; SetNull so deleting a customer keeps the send history
-            // (invoices are never deleted in this app, but SetNull is still the safe default).
+            // All links are optional; SetNull so deleting the linked row keeps the send history
+            // (invoices/reminders/appointments are rarely hard-deleted in this app, but SetNull
+            // is still the safe default).
             entity.HasOne(e => e.Customer)
                 .WithMany()
                 .HasForeignKey(e => e.CustomerId)
@@ -715,6 +729,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAc
             entity.HasOne(e => e.Invoice)
                 .WithMany()
                 .HasForeignKey(e => e.InvoiceId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.Reminder)
+                .WithMany()
+                .HasForeignKey(e => e.ReminderId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.Appointment)
+                .WithMany()
+                .HasForeignKey(e => e.AppointmentId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 

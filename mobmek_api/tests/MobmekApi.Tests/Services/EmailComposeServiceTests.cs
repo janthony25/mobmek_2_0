@@ -36,7 +36,7 @@ public class EmailComposeServiceTests
         var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()));
         var invoice = await invoices.GenerateAsync(job.Id, new CreateInvoiceRequest(new DateOnly(2026, 8, 1)));
 
-        var compose = new EmailComposeService(db, new BusinessDetailsService(db, CreateStorage()));
+        var compose = new EmailComposeService(db, new BusinessDetailsService(db, CreateStorage()), new EmailTemplateService(db));
         return (compose, job.Id, invoice!.Id);
     }
 
@@ -44,7 +44,7 @@ public class EmailComposeServiceTests
     public async Task ComposeInvoiceEmailAsync_ReturnsNull_WhenInvoiceMissing()
     {
         await using var db = CreateContext();
-        var compose = new EmailComposeService(db, new BusinessDetailsService(db, CreateStorage()));
+        var compose = new EmailComposeService(db, new BusinessDetailsService(db, CreateStorage()), new EmailTemplateService(db));
 
         var draft = await compose.ComposeInvoiceEmailAsync(Guid.NewGuid(), Guid.NewGuid(), null);
 
@@ -101,7 +101,7 @@ public class EmailComposeServiceTests
         var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()));
         var invoice = await invoices.GenerateAsync(job.Id, new CreateInvoiceRequest(null));
 
-        var compose = new EmailComposeService(db, businessDetails);
+        var compose = new EmailComposeService(db, businessDetails, new EmailTemplateService(db));
         var draft = await compose.ComposeInvoiceEmailAsync(job.Id, invoice!.Id, "Thanks for your business!");
 
         Assert.NotNull(draft);
@@ -127,5 +127,116 @@ public class EmailComposeServiceTests
 
         Assert.Contains("INV-", draft!.Subject);
         Assert.Contains("Mobmek Workshop", draft.Subject);
+    }
+
+    [Fact]
+    public async Task ComposeReminderEmailAsync_ReturnsNull_WhenReminderMissing()
+    {
+        await using var db = CreateContext();
+        var compose = new EmailComposeService(db, new BusinessDetailsService(db, CreateStorage()), new EmailTemplateService(db));
+
+        var draft = await compose.ComposeReminderEmailAsync(Guid.NewGuid(), null);
+
+        Assert.Null(draft);
+    }
+
+    [Fact]
+    public async Task ComposeReminderEmailAsync_DefaultsRecipient_AndRendersTemplateIntro()
+    {
+        await using var db = CreateContext();
+        var customer = await new CustomerService(db).CreateAsync(
+            new CreateCustomerRequest("Jane", "Doe", "0", "jane@example.com", null, null));
+        var reminder = new Reminder { CustomerId = customer.Id, Title = "WOF due", DueDate = new DateOnly(2026, 11, 1) };
+        db.Reminders.Add(reminder);
+        await db.SaveChangesAsync();
+
+        var compose = new EmailComposeService(db, new BusinessDetailsService(db, CreateStorage()), new EmailTemplateService(db));
+        var draft = await compose.ComposeReminderEmailAsync(reminder.Id, null);
+
+        Assert.NotNull(draft);
+        Assert.Equal("jane@example.com", draft!.DefaultToAddress);
+        Assert.Equal("Jane Doe", draft.DefaultToName);
+        Assert.Contains("WOF due", draft.Subject);
+        Assert.Contains("Jane Doe", draft.BodyHtml);
+        Assert.Contains("WOF due", draft.BodyHtml);
+    }
+
+    [Fact]
+    public async Task ComposeReminderEmailAsync_CustomIntro_OverridesTemplateDefault()
+    {
+        await using var db = CreateContext();
+        var customer = await new CustomerService(db).CreateAsync(
+            new CreateCustomerRequest("Jane", "Doe", "0", "jane@example.com", null, null));
+        var reminder = new Reminder { CustomerId = customer.Id, Title = "WOF due", DueDate = new DateOnly(2026, 11, 1) };
+        db.Reminders.Add(reminder);
+        await db.SaveChangesAsync();
+
+        var compose = new EmailComposeService(db, new BusinessDetailsService(db, CreateStorage()), new EmailTemplateService(db));
+        var draft = await compose.ComposeReminderEmailAsync(reminder.Id, "Please call us to book.");
+
+        Assert.Contains("Please call us to book.", draft!.BodyHtml);
+    }
+
+    [Fact]
+    public async Task ComposeAppointmentEmailAsync_ReturnsNull_WhenAppointmentMissing()
+    {
+        await using var db = CreateContext();
+        var compose = new EmailComposeService(db, new BusinessDetailsService(db, CreateStorage()), new EmailTemplateService(db));
+
+        var draft = await compose.ComposeAppointmentEmailAsync(Guid.NewGuid(), null);
+
+        Assert.Null(draft);
+    }
+
+    [Fact]
+    public async Task ComposeAppointmentEmailAsync_DefaultsRecipient_FromLinkedCustomer()
+    {
+        await using var db = CreateContext();
+        var customer = await new CustomerService(db).CreateAsync(
+            new CreateCustomerRequest("Jane", "Doe", "0", "jane@example.com", null, null));
+        var startUtc = new DateTime(2026, 11, 1, 22, 0, 0, DateTimeKind.Utc);
+        var appointment = new Appointment
+        {
+            Title = "Brake check",
+            StartUtc = startUtc,
+            EndUtc = startUtc.AddHours(1),
+            CustomerId = customer.Id,
+        };
+        db.Appointments.Add(appointment);
+        await db.SaveChangesAsync();
+
+        var compose = new EmailComposeService(db, new BusinessDetailsService(db, CreateStorage()), new EmailTemplateService(db));
+        var draft = await compose.ComposeAppointmentEmailAsync(appointment.Id, null);
+
+        Assert.NotNull(draft);
+        Assert.Equal("jane@example.com", draft!.DefaultToAddress);
+        Assert.Equal("Jane Doe", draft.DefaultToName);
+        Assert.Contains("Brake check", draft.BodyHtml);
+        Assert.Contains(NzTime.FromUtc(startUtc).ToString("h:mm tt"), draft.BodyHtml);
+    }
+
+    [Fact]
+    public async Task ComposeAppointmentEmailAsync_FallsBackToContactEmail_WhenNotYetConverted()
+    {
+        await using var db = CreateContext();
+        var appointment = new Appointment
+        {
+            Title = "Brake check",
+            StartUtc = DateTime.UtcNow,
+            EndUtc = DateTime.UtcNow.AddHours(1),
+            ContactName = "Walk-in Caller",
+            ContactPhone = "021000000",
+            ContactEmail = "caller@example.com",
+        };
+        db.Appointments.Add(appointment);
+        await db.SaveChangesAsync();
+
+        var compose = new EmailComposeService(db, new BusinessDetailsService(db, CreateStorage()), new EmailTemplateService(db));
+        var draft = await compose.ComposeAppointmentEmailAsync(appointment.Id, null);
+
+        Assert.NotNull(draft);
+        Assert.Equal("caller@example.com", draft!.DefaultToAddress);
+        Assert.Equal("Walk-in Caller", draft.DefaultToName);
+        Assert.Null(draft.CustomerId);
     }
 }

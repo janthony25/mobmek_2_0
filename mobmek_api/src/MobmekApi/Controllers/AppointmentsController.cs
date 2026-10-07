@@ -11,7 +11,7 @@ namespace MobmekApi.Controllers;
 [Route("api/[controller]")]
 [Produces("application/json")]
 public class AppointmentsController(
-    IAppointmentService appointmentService, IAppointmentChangeNotifier changeNotifier)
+    IAppointmentService appointmentService, IAppointmentChangeNotifier changeNotifier, IOutboundEmailService outboundEmailService)
     : ControllerBase
 {
     /// <summary>
@@ -147,6 +147,27 @@ public class AppointmentsController(
     {
         var (appointment, error) = await appointmentService.ConvertToCarAsync(id, request, cancellationToken);
         return error == AppointmentConvertError.None ? Ok(appointment) : MapConvertError(error);
+    }
+
+    /// <summary>Emails an appointment confirmation to a recipient (defaults to the linked
+    /// customer, falling back to the phone-call contact email for a not-yet-converted
+    /// appointment) and records the send attempt for delivery-status tracking.</summary>
+    [HttpPost("{id:guid}/email")]
+    [ProducesResponseType(typeof(OutboundEmailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<OutboundEmailDto>> SendEmail(Guid id, SendAppointmentEmailRequest request, CancellationToken cancellationToken)
+    {
+        var (email, error) = await outboundEmailService.SendAppointmentEmailAsync(id, request, cancellationToken);
+        return error switch
+        {
+            EmailWriteError.None => Ok(email),
+            EmailWriteError.AppointmentNotFound => NotFound(),
+            EmailWriteError.NotConfigured => Problem(
+                detail: "Email sending isn't configured yet — ask an admin to set it up under Settings → Email.",
+                statusCode: StatusCodes.Status400BadRequest),
+            _ => Problem(statusCode: StatusCodes.Status500InternalServerError),
+        };
     }
 
     /// <summary>Deletes an appointment.</summary>

@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/toast'
+import { AppointmentEmailModal } from './AppointmentEmailModal'
 import { AppointmentForm } from '@/components/forms/AppointmentForm'
 import { CarForm } from '@/components/forms/CarForm'
 import { Field, controlClass } from '@/components/forms/controls'
@@ -46,6 +47,7 @@ export function AppointmentDetailModal({
   const navigate = useNavigate()
 
   const [editing, setEditing] = useState(false)
+  const [emailing, setEmailing] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [convertStep, setConvertStep] = useState<'customer' | 'car' | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState(false)
@@ -130,6 +132,14 @@ export function AppointmentDetailModal({
           </p>
         )}
         <CarForm initial={null} onSubmit={handleCarCreated} onCancel={() => setConvertStep(null)} />
+      </Modal>
+    )
+  }
+
+  if (emailing) {
+    return (
+      <Modal open title="Email confirmation" onClose={() => setEmailing(false)} maxWidth="max-w-2xl">
+        <AppointmentEmailModal appointment={a} onSent={() => setEmailing(false)} onClose={() => setEmailing(false)} />
       </Modal>
     )
   }
@@ -281,6 +291,9 @@ export function AppointmentDetailModal({
               )}
               <Button variant="secondary" onClick={onClose}>
                 Close
+              </Button>
+              <Button variant="secondary" onClick={() => setEmailing(true)}>
+                Email
               </Button>
               <Button onClick={() => setEditing(true)}>Edit</Button>
             </div>

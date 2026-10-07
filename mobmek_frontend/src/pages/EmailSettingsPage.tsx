@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getEmailSettings, sendTestEmail, updateEmailSettings } from '@/api/emailSettings'
+import { getEmailTemplates, previewEmailTemplate, updateEmailTemplate } from '@/api/emailTemplates'
 import { ApiError } from '@/api/client'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -7,6 +8,7 @@ import { StateMessage } from '@/components/ui/StateMessage'
 import { UpdatedByTag } from '@/components/ui/UpdatedByTag'
 import { useToast } from '@/components/ui/toast'
 import { useAsync } from '@/hooks/useAsync'
+import type { EmailTemplate } from '@/types'
 
 const inputClass =
   'w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500'
@@ -153,6 +155,96 @@ export function EmailSettingsPage() {
           </Button>
         </div>
       </div>
+
+      <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
+        <h2 className="text-sm font-medium text-slate-700">Email wording</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          The subject and intro paragraph used for each kind of outbound email. Use{' '}
+          <code className="rounded bg-slate-100 px-1">{'{{Token}}'}</code> placeholders — an unknown token renders
+          blank rather than erroring.
+        </p>
+        <EmailTemplatesEditor />
+      </div>
     </section>
+  )
+}
+
+function EmailTemplatesEditor() {
+  const { data, loading, error, reload } = useAsync(getEmailTemplates, [])
+
+  if (loading && !data) return <p className="mt-4 text-sm text-slate-400">Loading templates…</p>
+  if (error) return <p className="mt-4 text-sm text-red-600">Could not load email templates.</p>
+
+  return (
+    <div className="mt-4 space-y-4 divide-y divide-slate-100">
+      {data?.map((template) => <EmailTemplateRow key={template.key} template={template} onSaved={reload} />)}
+    </div>
+  )
+}
+
+function EmailTemplateRow({ template, onSaved }: { template: EmailTemplate; onSaved: () => void }) {
+  const toast = useToast()
+  const [subject, setSubject] = useState(template.subjectTemplate)
+  const [intro, setIntro] = useState(template.bodyIntroTemplate)
+  const [saving, setSaving] = useState(false)
+  const [previewing, setPreviewing] = useState(false)
+  const [preview, setPreview] = useState<{ subject: string; bodyIntro: string } | null>(null)
+
+  const dirty = subject !== template.subjectTemplate || intro !== template.bodyIntroTemplate
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      await updateEmailTemplate(template.key, { subjectTemplate: subject, bodyIntroTemplate: intro })
+      toast.success(`${template.name} updated`)
+      onSaved()
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to save template.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const showPreview = async () => {
+    setPreviewing(true)
+    try {
+      setPreview(await previewEmailTemplate(template.key))
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to render preview.')
+    } finally {
+      setPreviewing(false)
+    }
+  }
+
+  return (
+    <div className="pt-4 first:pt-0">
+      <h3 className="text-sm font-semibold text-slate-800">{template.name}</h3>
+      <div className="mt-2 space-y-3">
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-slate-600">Subject</span>
+          <input value={subject} onChange={(e) => setSubject(e.target.value)} className={inputClass} />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-slate-600">Intro paragraph</span>
+          <textarea rows={2} value={intro} onChange={(e) => setIntro(e.target.value)} className={inputClass} />
+        </label>
+      </div>
+
+      {preview && (
+        <div className="mt-2 rounded-md bg-slate-50 p-3 text-xs text-slate-600">
+          <p className="font-medium text-slate-700">{preview.subject}</p>
+          <p className="mt-1">{preview.bodyIntro}</p>
+        </div>
+      )}
+
+      <div className="mt-2 flex items-center gap-2">
+        <Button type="button" size="sm" onClick={save} disabled={saving || !dirty}>
+          {saving ? 'Saving…' : 'Save'}
+        </Button>
+        <Button type="button" size="sm" variant="secondary" onClick={showPreview} disabled={previewing}>
+          {previewing ? 'Rendering…' : 'Preview'}
+        </Button>
+      </div>
+    </div>
   )
 }

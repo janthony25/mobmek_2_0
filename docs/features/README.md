@@ -29,7 +29,7 @@ Baseline audit performed 2026-10-07 by reading the actual backend (`mobmek_api/s
 | Invoices, Quotes & Public Booking | [invoices-quotes-public-booking.md](invoices-quotes-public-booking.md) | Invoicing/GST/payment-ledger/PDF/sequence-numbering all solid; public booking API built but deliberately has no consuming UI yet |
 | Appointments & Google Calendar Sync | [appointments-calendar-sync.md](appointments-calendar-sync.md) | One-way push to Google via service account works well; convert-on-arrival now fully atomic; no OAuth, no pull-back, no appointment reminders |
 | Cash Flow & GST Reporting | [cash-flow-gst.md](cash-flow-gst.md) | Well-tested manual ledger, payees, rules, recurring auto-post, 4-source forecast; bank import/reconciliation/budgets/tax-obligations all unbuilt |
-| Email Module | [email-module.md](email-module.md) | Outbound invoice email (Resend + PDF + status polling) works; inbox mirror/IMAP, templates, reminder/appointment email all unbuilt |
+| Email Module | [email-module.md](email-module.md) | Outbound send (invoice/reminder/appointment), webhook, and templates all working; inbox mirror/IMAP and customer email timeline still unbuilt |
 | Business Settings | [business-settings.md](business-settings.md) | Company profile/logo/bank-details plus configurable invoice/quote number prefix all working |
 | Legacy Data Import | [legacy-data-import.md](legacy-data-import.md) | CLI importer verified idempotent against live DB; docs stale vs an undocumented real run; Phase 6 cutover not done |
 | Infrastructure & Deployment | [infrastructure-deployment.md](infrastructure-deployment.md) | TLS live, nightly backup + real restore drill both verified; deploy is manual-SSH (no CI/CD); no monitoring/alerting/error-tracking |

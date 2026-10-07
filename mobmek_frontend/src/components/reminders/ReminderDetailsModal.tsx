@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/toast'
 import { useAsync } from '@/hooks/useAsync'
 import { todayISO } from '@/lib/dueDate'
 import { date, orDash } from '@/lib/format'
+import { ReminderEmailModal } from './ReminderEmailModal'
 import { ReminderForm } from './ReminderForm'
 import type { SelectOption } from '@/components/crud/types'
 import type { Car, Reminder, ReminderTemplate, UpdateReminderRequest } from '@/types'
@@ -29,6 +30,7 @@ interface ReminderDetailsModalProps {
 export function ReminderDetailsModal({ reminder, onClose, onSaved }: ReminderDetailsModalProps) {
   const toast = useToast()
   const [editing, setEditing] = useState(false)
+  const [emailing, setEmailing] = useState(false)
   const customerId = reminder?.customerId ?? null
 
   const templates = useAsync<ReminderTemplate[]>(
@@ -47,6 +49,7 @@ export function ReminderDetailsModal({ reminder, onClose, onSaved }: ReminderDet
 
   const close = () => {
     setEditing(false)
+    setEmailing(false)
     onClose()
   }
 
@@ -61,8 +64,15 @@ export function ReminderDetailsModal({ reminder, onClose, onSaved }: ReminderDet
   const overdue = reminder !== null && !reminder.isDone && reminder.dueDate < todayISO()
 
   return (
-    <Modal open={reminder !== null} title={editing ? 'Edit reminder' : 'Reminder'} onClose={close}>
-      {reminder && !editing && (
+    <Modal
+      open={reminder !== null}
+      title={editing ? 'Edit reminder' : emailing ? 'Email reminder' : 'Reminder'}
+      onClose={close}
+    >
+      {reminder && emailing && (
+        <ReminderEmailModal reminder={reminder} onSent={() => setEmailing(false)} onClose={() => setEmailing(false)} />
+      )}
+      {reminder && !editing && !emailing && (
         <div className="space-y-3">
           <div>
             <h3 className={`text-base font-semibold text-slate-900 ${reminder.isDone ? 'line-through' : ''}`}>
@@ -89,6 +99,9 @@ export function ReminderDetailsModal({ reminder, onClose, onSaved }: ReminderDet
             )}
           </div>
           <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+            <Button variant="secondary" onClick={() => setEmailing(true)}>
+              Email
+            </Button>
             <Button onClick={() => setEditing(true)}>Edit</Button>
           </div>
         </div>

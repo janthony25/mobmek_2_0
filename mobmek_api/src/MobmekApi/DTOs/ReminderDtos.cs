@@ -10,6 +10,7 @@ public record ReminderDto(
     Guid Id,
     Guid CustomerId,
     string CustomerName,
+    string? CustomerEmail,
     Guid? CarId,
     string? CarLabel,
     Guid? ReminderTemplateId,

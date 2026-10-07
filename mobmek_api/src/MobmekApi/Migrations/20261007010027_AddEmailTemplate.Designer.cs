@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MobmekApi.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MobmekApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261007010027_AddEmailTemplate")]
+    partial class AddEmailTemplate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1749,9 +1752,6 @@ namespace MobmekApi.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("AppointmentId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("BodyHtml")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1788,9 +1788,6 @@ namespace MobmekApi.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<Guid?>("ReminderId")
-                        .HasColumnType("uuid");
-
                     b.Property<DateTime?>("SentAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -1824,13 +1821,9 @@ namespace MobmekApi.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AppointmentId");
-
                     b.HasIndex("CustomerId");
 
                     b.HasIndex("InvoiceId");
-
-                    b.HasIndex("ReminderId");
 
                     b.HasIndex("Status");
 
@@ -2644,11 +2637,6 @@ namespace MobmekApi.Migrations
 
             modelBuilder.Entity("MobmekApi.Entities.OutboundEmail", b =>
                 {
-                    b.HasOne("MobmekApi.Entities.Appointment", "Appointment")
-                        .WithMany()
-                        .HasForeignKey("AppointmentId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("MobmekApi.Entities.Customer", "Customer")
                         .WithMany()
                         .HasForeignKey("CustomerId")
@@ -2659,18 +2647,9 @@ namespace MobmekApi.Migrations
                         .HasForeignKey("InvoiceId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("MobmekApi.Entities.Reminder", "Reminder")
-                        .WithMany()
-                        .HasForeignKey("ReminderId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Appointment");
-
                     b.Navigation("Customer");
 
                     b.Navigation("Invoice");
-
-                    b.Navigation("Reminder");
                 });
 
             modelBuilder.Entity("MobmekApi.Entities.Payee", b =>

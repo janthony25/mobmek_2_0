@@ -14,6 +14,7 @@ public class ReminderService(AppDbContext db) : IReminderService
             r.Id,
             r.CustomerId,
             r.Customer!.FirstName + " " + r.Customer.LastName,
+            r.Customer.EmailAddress,
             r.CarId,
             r.Car == null ? null : r.Car.CarMake!.Name + " " + r.Car.CarModel!.Name + " (" + r.Car.Rego + ")",
             r.ReminderTemplateId,

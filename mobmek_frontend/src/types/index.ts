@@ -260,6 +260,7 @@ export interface Appointment {
   vehicleDescription: string | null
   customerId: string | null
   customerName: string | null
+  customerEmail: string | null
   carId: string | null
   carDescription: string | null
   jobId: string | null
@@ -658,6 +659,7 @@ export interface Reminder {
   id: string
   customerId: string
   customerName: string
+  customerEmail: string | null
   carId: string | null
   carLabel: string | null
   reminderTemplateId: string | null
@@ -1316,7 +1318,7 @@ export interface UpdateEmailSettingsRequest {
 }
 
 export type OutboundEmailStatus = 'Queued' | 'Sent' | 'Delivered' | 'Bounced' | 'Complained' | 'Failed'
-export type OutboundEmailKind = 'Invoice' | 'Test'
+export type OutboundEmailKind = 'Invoice' | 'Reminder' | 'Appointment' | 'Test'
 
 export interface OutboundEmail {
   id: string
@@ -1329,6 +1331,8 @@ export interface OutboundEmail {
   kind: OutboundEmailKind
   customerId: string | null
   invoiceId: string | null
+  reminderId: string | null
+  appointmentId: string | null
   sentAtUtc: string | null
   deliveredAtUtc: string | null
   failedAtUtc: string | null
@@ -1345,6 +1349,8 @@ export interface OutboundEmailPage {
 export interface OutboundEmailFilters {
   customerId?: string
   invoiceId?: string
+  reminderId?: string
+  appointmentId?: string
   status?: OutboundEmailStatus
   kind?: OutboundEmailKind
   page?: number
@@ -1357,6 +1363,46 @@ export interface SendInvoiceEmailRequest {
   cc: string | null
   subject: string
   intro: string | null
+}
+
+export interface SendReminderEmailRequest {
+  to: string
+  toName: string | null
+  cc: string | null
+  subject: string
+  intro: string | null
+}
+
+export interface SendAppointmentEmailRequest {
+  to: string
+  toName: string | null
+  cc: string | null
+  subject: string
+  intro: string | null
+}
+
+// --- Email templates -----------------------------------------------------------
+
+export interface EmailTemplate {
+  id: string
+  key: string
+  name: string
+  subjectTemplate: string
+  bodyIntroTemplate: string
+  isSystem: boolean
+  createdAtUtc: string
+  updatedAtUtc: string | null
+  updatedByName: string | null
+}
+
+export interface UpdateEmailTemplateRequest {
+  subjectTemplate: string
+  bodyIntroTemplate: string
+}
+
+export interface EmailTemplatePreview {
+  subject: string
+  bodyIntro: string
 }
 
 // --- Account (self-service profile + password) ---------------------------------

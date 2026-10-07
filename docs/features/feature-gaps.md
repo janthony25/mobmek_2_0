@@ -67,12 +67,12 @@ Checkbox = unresolved. Strike-through + `(fixed <date>)` when closed — keep cl
 ## Email Module
 *(detail: [email-module.md](email-module.md))*
 
-- [ ] No Resend delivery webhook — status tracking is polling-only; the webhook half of the original Phase 1 scope was skipped.
-- [ ] No email templates — wording is hardcoded in C#, not editable.
-- [ ] No reminder/appointment email triggers (no routes, no `OutboundEmailKind` values for them).
-- [ ] No inbox mirror / IMAP at all — 0% built, not even scaffolded (no entities, no dependency, no job, no UI).
-- [ ] No merged customer email timeline (sent + received in one view) — only per-document compose modals exist.
-- [ ] `docs/email-module-todo.md` header still says "Status: Not started" — stale, should be corrected regardless of what else gets fixed.
+- [x] ~~No Resend delivery webhook~~ (fixed 2026-10-07) — `ResendWebhookController` + Svix-style signature verification (`ResendWebhookVerifier`), feeds the same no-regress status state machine as the poll job.
+- [x] ~~No email templates~~ (fixed 2026-10-07) — `EmailTemplate` entity (3 seeded keys), `{{Token}}` substitution, editor on the Email Settings page. Invoice send now uses it; reminder/appointment sends (below) use it too.
+- [x] ~~No reminder/appointment email triggers~~ (fixed 2026-10-07) — `POST api/reminders/{id}/email` and `POST api/appointments/{id}/email`, new `OutboundEmailKind.Reminder`/`Appointment`, compose modals wired into `ReminderDetailsModal`/`AppointmentDetailModal`.
+- [skip] No inbox mirror / IMAP at all — 0% built, not even scaffolded (no entities, no dependency, no job, no UI). (Decided 2026-10-07: needs the `MailKit` dependency signed off first and is large enough to warrant its own session — explicitly out of scope for this round.)
+- [ ] No merged customer email timeline (sent + received in one view) — only per-document compose modals exist. The sent half is now buildable (`OutboundEmail.CustomerId` already exists) but wasn't in this round's scope; the received half still needs the inbox mirror.
+- [ ] `docs/email-module-todo.md` header still says "Status: Not started" — stale, should be corrected regardless of what else gets fixed. (Left as-is this round — low-priority prose fix, not behavior.)
 
 ## Business Settings
 *(detail: [business-settings.md](business-settings.md))*

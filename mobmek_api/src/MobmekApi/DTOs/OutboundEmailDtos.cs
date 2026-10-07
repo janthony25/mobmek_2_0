@@ -16,6 +16,8 @@ public record OutboundEmailDto(
     OutboundEmailKind Kind,
     Guid? CustomerId,
     Guid? InvoiceId,
+    Guid? ReminderId,
+    Guid? AppointmentId,
     DateTime? SentAtUtc,
     DateTime? DeliveredAtUtc,
     DateTime? FailedAtUtc,
@@ -31,6 +33,8 @@ public record OutboundEmailPageDto(
 public record OutboundEmailFilter(
     Guid? CustomerId,
     Guid? InvoiceId,
+    Guid? ReminderId,
+    Guid? AppointmentId,
     OutboundEmailStatus? Status,
     OutboundEmailKind? Kind,
     int Page = 1,
@@ -46,12 +50,30 @@ public record SendInvoiceEmailRequest(
     [Required, MaxLength(500)] string Subject,
     string? Intro);
 
+/// <summary>Payload for emailing a reminder — same shape as <see cref="SendInvoiceEmailRequest"/>.</summary>
+public record SendReminderEmailRequest(
+    [Required, EmailAddress] string To,
+    string? ToName,
+    [EmailAddress] string? Cc,
+    [Required, MaxLength(500)] string Subject,
+    string? Intro);
+
+/// <summary>Payload for emailing an appointment confirmation — same shape as <see cref="SendInvoiceEmailRequest"/>.</summary>
+public record SendAppointmentEmailRequest(
+    [Required, EmailAddress] string To,
+    string? ToName,
+    [EmailAddress] string? Cc,
+    [Required, MaxLength(500)] string Subject,
+    string? Intro);
+
 /// <summary>Outcome of a send attempt that depends on state outside the request body
-/// (missing invoice, unconfigured provider, non-retryable row).</summary>
+/// (missing invoice/reminder/appointment, unconfigured provider, non-retryable row).</summary>
 public enum EmailWriteError
 {
     None,
     InvoiceNotFound,
+    ReminderNotFound,
+    AppointmentNotFound,
     MissingRecipient,
     NotConfigured,
     NotFound,

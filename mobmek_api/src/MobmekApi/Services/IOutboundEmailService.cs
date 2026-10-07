@@ -18,6 +18,12 @@ public interface IOutboundEmailService
     Task<(OutboundEmailDto? Email, EmailWriteError Error)> SendInvoiceEmailAsync(
         Guid jobId, Guid invoiceId, SendInvoiceEmailRequest request, CancellationToken cancellationToken = default);
 
+    Task<(OutboundEmailDto? Email, EmailWriteError Error)> SendReminderEmailAsync(
+        Guid reminderId, SendReminderEmailRequest request, CancellationToken cancellationToken = default);
+
+    Task<(OutboundEmailDto? Email, EmailWriteError Error)> SendAppointmentEmailAsync(
+        Guid appointmentId, SendAppointmentEmailRequest request, CancellationToken cancellationToken = default);
+
     Task<(OutboundEmailDto? Email, EmailWriteError Error)> SendTestEmailAsync(
         string toAddress, CancellationToken cancellationToken = default);
 
@@ -36,4 +42,9 @@ public interface IOutboundEmailService
     /// state machine (Queued &lt; Sent &lt; terminal). A late/duplicate event that would regress
     /// an already-terminal row is silently ignored.</summary>
     Task ApplyStatusAsync(Guid id, OutboundEmailStatus newStatus, string? reason, DateTime eventAtUtc, CancellationToken cancellationToken = default);
+
+    /// <summary>Same as <see cref="ApplyStatusAsync"/>, looked up by the provider's own message id
+    /// (how the Resend webhook identifies the row) rather than our row id. A no-op when no row
+    /// matches — an unknown/stale provider id is not an error.</summary>
+    Task ApplyStatusByProviderMessageIdAsync(string providerMessageId, OutboundEmailStatus newStatus, string? reason, DateTime eventAtUtc, CancellationToken cancellationToken = default);
 }

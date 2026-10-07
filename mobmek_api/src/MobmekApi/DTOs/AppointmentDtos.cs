@@ -20,6 +20,7 @@ public record AppointmentDto(
     string? VehicleDescription,
     Guid? CustomerId,
     string? CustomerName,
+    string? CustomerEmail,
     Guid? CarId,
     string? CarDescription,
     Guid? JobId,

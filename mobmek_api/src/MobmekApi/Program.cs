@@ -156,6 +156,7 @@ builder.Services.AddScoped<ICashFlowAuditService, CashFlowAuditService>();
 builder.Services.AddScoped<IPayeeService, PayeeService>();
 builder.Services.AddScoped<ICategorizationRuleService, CategorizationRuleService>();
 builder.Services.AddScoped<IEmailSettingsService, EmailSettingsService>();
+builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
 builder.Services.AddScoped<IEmailComposeService, EmailComposeService>();
 builder.Services.AddScoped<IOutboundEmailService, OutboundEmailService>();
 builder.Services.AddHttpClient<IEmailSender, ResendEmailSender>(client =>

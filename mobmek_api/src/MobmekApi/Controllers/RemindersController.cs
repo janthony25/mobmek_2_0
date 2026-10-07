@@ -7,7 +7,7 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Produces("application/json")]
-public class RemindersController(IReminderService reminderService) : ControllerBase
+public class RemindersController(IReminderService reminderService, IOutboundEmailService outboundEmailService) : ControllerBase
 {
     /// <summary>
     /// Returns reminders (outstanding first, soonest due), optionally filtered by
@@ -74,6 +74,26 @@ public class RemindersController(IReminderService reminderService) : ControllerB
     {
         var deleted = await reminderService.DeleteAsync(id, cancellationToken);
         return deleted ? NoContent() : NotFound();
+    }
+
+    /// <summary>Emails the reminder to a recipient (defaults to the customer on file) and records
+    /// the send attempt for delivery-status tracking.</summary>
+    [HttpPost("{id:guid}/email")]
+    [ProducesResponseType(typeof(OutboundEmailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<OutboundEmailDto>> SendEmail(Guid id, SendReminderEmailRequest request, CancellationToken cancellationToken)
+    {
+        var (email, error) = await outboundEmailService.SendReminderEmailAsync(id, request, cancellationToken);
+        return error switch
+        {
+            EmailWriteError.None => Ok(email),
+            EmailWriteError.ReminderNotFound => NotFound(),
+            EmailWriteError.NotConfigured => Problem(
+                detail: "Email sending isn't configured yet — ask an admin to set it up under Settings → Email.",
+                statusCode: StatusCodes.Status400BadRequest),
+            _ => Problem(statusCode: StatusCodes.Status500InternalServerError),
+        };
     }
 
     private ActionResult MapError(ReminderWriteError error) => error switch

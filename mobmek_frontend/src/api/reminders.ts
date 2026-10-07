@@ -1,5 +1,5 @@
 import { apiDelete, apiGet, apiPost, apiPut } from './client'
-import type { CreateReminderRequest, Reminder, UpdateReminderRequest } from '@/types'
+import type { CreateReminderRequest, OutboundEmail, Reminder, SendReminderEmailRequest, UpdateReminderRequest } from '@/types'
 
 interface ReminderQuery {
   customerId?: string
@@ -20,3 +20,6 @@ export const createReminder = (body: CreateReminderRequest) => apiPost<Reminder>
 export const updateReminder = (id: string, body: UpdateReminderRequest) =>
   apiPut<Reminder>(`/reminders/${id}`, body)
 export const deleteReminder = (id: string) => apiDelete(`/reminders/${id}`)
+
+export const sendReminderEmail = (id: string, body: SendReminderEmailRequest) =>
+  apiPost<OutboundEmail>(`/reminders/${id}/email`, body)

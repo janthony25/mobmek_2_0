@@ -43,4 +43,12 @@ public class OutboundEmail : BaseEntity
     public Guid? InvoiceId { get; set; }
 
     public Invoice? Invoice { get; set; }
+
+    public Guid? ReminderId { get; set; }
+
+    public Reminder? Reminder { get; set; }
+
+    public Guid? AppointmentId { get; set; }
+
+    public Appointment? Appointment { get; set; }
 }
