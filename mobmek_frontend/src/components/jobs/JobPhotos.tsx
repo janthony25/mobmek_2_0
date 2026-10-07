@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { addJobPhoto, deleteJobPhoto, getJobPhotos, jobPhotoUrl } from '@/api/jobPhotos'
 import { Button } from '@/components/ui/Button'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/toast'
 import { CameraCaptureModal } from '@/components/ui/CameraCaptureModal'
 import { useAsync } from '@/hooks/useAsync'
 import { cameraSupported } from '@/lib/camera'
 import type { PhotoDraft } from '@/lib/jobLineDrafts'
+import type { JobPhoto } from '@/types'
 
 /** Photos accepted for upload — kept in step with the API's image-only check. */
 const ACCEPT = 'image/*'
@@ -162,6 +164,7 @@ export function JobPhotoDraftPicker({
 export function JobPhotosSection({ jobId }: { jobId: string }) {
   const toast = useToast()
   const [busy, setBusy] = useState(false)
+  const [deleting, setDeleting] = useState<JobPhoto | null>(null)
   const { data, loading, error, reload } = useAsync(() => getJobPhotos(jobId), [jobId])
 
   const upload = async (files: File[]) => {
@@ -184,16 +187,18 @@ export function JobPhotosSection({ jobId }: { jobId: string }) {
     }
   }
 
-  const remove = async (photoId: string) => {
+  const handleDelete = async () => {
+    if (!deleting) return
     setBusy(true)
     try {
-      await deleteJobPhoto(jobId, photoId)
+      await deleteJobPhoto(jobId, deleting.id)
       reload()
       toast.success('Photo removed')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     } finally {
       setBusy(false)
+      setDeleting(null)
     }
   }
 
@@ -213,11 +218,19 @@ export function JobPhotosSection({ jobId }: { jobId: string }) {
               href={jobPhotoUrl(jobId, p.id)}
               label={p.fileName}
               disabled={busy}
-              onRemove={() => void remove(p.id)}
+              onRemove={() => setDeleting(p)}
             />
           ))}
         </ul>
       )}
+      <ConfirmDialog
+        open={deleting !== null}
+        title="Remove photo"
+        message={deleting ? `Remove "${deleting.fileName}"? This can't be undone.` : ''}
+        confirmLabel="Remove"
+        onConfirm={handleDelete}
+        onCancel={() => setDeleting(null)}
+      />
     </section>
   )
 }

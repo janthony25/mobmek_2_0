@@ -26,6 +26,8 @@ This is the largest feature area. `docs/cash-flow-module-design.md`/`-todo.md` (
 ### Ledger core — Working
 Full CRUD on accounts/transactions, derived balances, transfers, splits (with group IDs), bulk ops (set category/status/delete with per-row skip reasons), CSV export, attachments (10MB cap), running balance in filtered views. Guard precedence is exactly as documented: not-found → invoice-linked → transfer-leg → reconciled → period-locked → validation. Period lock (`CashFlowSettings.LockDate`) and audit logging are wired into every mutating call. 26+8 tests.
 
+**Bug fixed 2026-10-07:** a transaction's attachment "Remove" button (in `TransactionDetailModal`, `CashFlowPage.tsx`) called `deleteTransactionAttachment` straight from `onClick` with no confirmation. Found via an app-wide audit triggered by a user-reported instant-delete bug on job photos (see `jobs-workshop-floor.md`); the transaction delete itself was already correctly gated by `ConfirmDialog`, just not the attachment delete. Now routes through its own `ConfirmDialog` (`deletingAttachmentId` state). Not live-verified on a real device this session — type-checked and linted clean.
+
 ### Payees & categorization rules — Working
 Full CRUD, archive-not-delete, spend-history summary (Payees); suggest + apply-to-existing with a commit flag (Categorization Rules). 6+7 tests.
 

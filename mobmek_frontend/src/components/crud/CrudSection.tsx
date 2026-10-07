@@ -210,8 +210,8 @@ export function CrudSection<T>({
 
   return (
     <section>
-      <div className={`flex items-end justify-between gap-4 ${collapsed ? '' : 'mb-4'}`}>
-        <div>
+      <div className={`flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4 ${collapsed ? '' : 'mb-4'}`}>
+        <div className="min-w-0">
           {collapsible ? (
             <button
               type="button"
@@ -245,7 +245,7 @@ export function CrudSection<T>({
           )}
           {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {serverMode && (
             <div className="flex items-center gap-1.5">
               <div className="relative">

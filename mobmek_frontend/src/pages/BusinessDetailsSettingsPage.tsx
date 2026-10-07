@@ -32,6 +32,7 @@ export function BusinessDetailsSettingsPage() {
   const [quotePrefix, setQuotePrefix] = useState('')
   const [logoBusy, setLogoBusy] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [confirmingLogoRemove, setConfirmingLogoRemove] = useState(false)
 
   useEffect(() => {
     if (!data) return
@@ -111,6 +112,7 @@ export function BusinessDetailsSettingsPage() {
       toast.error(err instanceof Error ? err.message : String(err))
     } finally {
       setLogoBusy(false)
+      setConfirmingLogoRemove(false)
     }
   }
 
@@ -223,7 +225,7 @@ export function BusinessDetailsSettingsPage() {
             {data?.logoUrl && (
               <button
                 type="button"
-                onClick={removeLogo}
+                onClick={() => setConfirmingLogoRemove(true)}
                 disabled={logoBusy}
                 className="text-sm font-medium text-red-600 hover:text-red-800"
               >
@@ -246,6 +248,15 @@ export function BusinessDetailsSettingsPage() {
         confirmLabel="Save"
         onConfirm={confirmSave}
         onCancel={() => setConfirming(false)}
+      />
+
+      <ConfirmDialog
+        open={confirmingLogoRemove}
+        title="Remove logo"
+        message="Remove the business logo? It will no longer appear on invoice and quotation PDFs."
+        confirmLabel="Remove"
+        onConfirm={removeLogo}
+        onCancel={() => setConfirmingLogoRemove(false)}
       />
     </section>
   )

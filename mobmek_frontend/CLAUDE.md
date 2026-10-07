@@ -164,3 +164,27 @@ Routes are flat under a single `AppLayout` (sidebar shell). Detail pages embed `
   and pages use it instead of any data library. Re-runs on dependency change; `reload()` re-fetches.
 - `components/ui/` — `Modal`, `Button`, `ConfirmDialog`, `StateMessage`, `PageHeader`, and `ToastProvider`/`useToast`.
 - `lib/format.ts` — `currency`, `date`, `percent`, `orDash` formatters (dashes for null/empty). Use these for all display formatting.
+
+### Rule: any irreversible delete goes through `ConfirmDialog` — no exceptions
+If a button's `onClick` calls a `delete*`/`remove*` API function (or anything else that destroys
+data the user can't get back by re-navigating), it must never fire straight from that `onClick`.
+Gate it behind the shared `components/ui/ConfirmDialog`: clicking the button only sets a
+"pending" piece of state (e.g. `const [deleting, setDeleting] = useState<T | null>(null)`), and
+the actual API call lives in an `onConfirm` handler wired to a `<ConfirmDialog>` the user has to
+explicitly confirm. `CrudSection`'s built-in delete flow and most page-level deletes
+(`CustomerDetailPage`, `CarDetailPage`, `RolesPage`, `NotesPanel`, `AppointmentDetailModal`, etc.)
+already follow this — copy that pattern (see `CrudSection.tsx:428` or `RolesPage.tsx` for a
+reference) rather than inventing a new shape.
+
+This does **not** apply to removing a row from in-memory draft state that hasn't been persisted
+yet and won't be until the user hits an explicit "Save"/"Create" button — e.g. `LabourEditor`/
+`PartsEditor`/`DiscountEditor` on `JobDetailPage`/`NewJobPage`, or `JobPhotoDraftPicker` on
+`NewJobPage`. Those are more like removing a line from a cart before checkout: nothing is
+destroyed yet, so instant removal is correct UX, not a gap.
+
+Found and fixed 2026-10-07 after a user report that job photos deleted instantly with zero
+warning on click: the same bug existed in three places (`JobPhotos.tsx`'s `JobPhotosSection`,
+the business-logo "Remove" button in `BusinessDetailsSettingsPage.tsx`, and the cash-transaction
+attachment "Remove" button in `CashFlowPage.tsx`) — all three called their delete function
+directly from `onClick` with no confirmation step. All three now follow the pattern above. See `docs/features/jobs-workshop-floor.md`,
+`business-settings.md`, and `cash-flow-gst.md` for the per-area incident detail.

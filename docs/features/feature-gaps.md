@@ -34,6 +34,7 @@ Checkbox = unresolved. Strike-through + `(fixed <date>)` when closed — keep cl
 - [ skip] Reminders have zero delivery mechanism — internal to-do list only, no SMS/email/push trigger of any kind.
 - [skip ] Job→Invoice generation is status-independent — an invoice can be created regardless of job status, and `JobStatus.Invoiced` is never auto-set.
 - [x] ~~Job photos on local disk storage have no backup coverage~~ — **not actually a gap**, confirmed 2026-10-07. Production is provisioned with `FileStorage:Provider=S3` against a real versioned/encrypted bucket per `infrastructure/README.md`'s deploy checklist (specific bucket name/region/IAM grants, not aspirational). S3 versioning covers accidental-delete recovery; no separate backup script needed for uploads.
+- [x] ~~Job photo "Remove" button deleted instantly on click, no confirmation~~ (fixed 2026-10-07) — user-reported; now gated by `ConfirmDialog` in `JobPhotos.tsx`. Triggered an app-wide audit (new standing rule in `mobmek_frontend/CLAUDE.md`: every irreversible delete must go through `ConfirmDialog`) that found two more instances of the same bug — see Business Settings and Cash Flow & GST Reporting below.
 
 ## Invoices, Quotes & Public Booking
 *(detail: [invoices-quotes-public-booking.md](invoices-quotes-public-booking.md))*
@@ -53,6 +54,7 @@ Checkbox = unresolved. Strike-through + `(fixed <date>)` when closed — keep cl
 ## Cash Flow & GST Reporting [skip]
 *(detail: [cash-flow-gst.md](cash-flow-gst.md))*
 
+- [x] ~~Transaction attachment "Remove" button deleted instantly on click, no confirmation~~ (fixed 2026-10-07) — found via the job-photos audit above; now gated by its own `ConfirmDialog` (the transaction delete itself was already correctly gated).
 - [ ] No bank statement import (CSV/OFX) — all cash movements are 100% manual entry (plus invoice-payment and recurring auto-posting).
 - [ ] No reconciliation feature — `CashTransaction.Status == "Reconciled"` is a dead value nothing ever sets, despite guard checks, UI copy, and a filter option all referencing it. Either build it or stop implying it exists in the UI.
 - [ ] No category budgets (`CategoryBudget`) — entirely unbuilt.
@@ -78,6 +80,7 @@ Checkbox = unresolved. Strike-through + `(fixed <date>)` when closed — keep cl
 *(detail: [business-settings.md](business-settings.md))*
 
 - [x] ~~No configurable invoice/quote number prefix or format~~ (fixed 2026-10-07) — `BusinessDetails.InvoicePrefix`/`QuotePrefix` (default `INV`/`QUO`) now feed `InvoiceService`, `InvoicePdfService`, and `EmailComposeService`; exposed in `BusinessDetailsSettingsPage.tsx`. 1 new backend test + updated existing coverage.
+- [x] ~~Logo "Remove" button deleted instantly on click, no confirmation~~ (fixed 2026-10-07) — found via the job-photos audit above; now gated by its own `ConfirmDialog`.
 
 ## Legacy Data Import
 *(detail: [legacy-data-import.md](legacy-data-import.md))*
@@ -90,6 +93,16 @@ Checkbox = unresolved. Strike-through + `(fixed <date>)` when closed — keep cl
 
 - [ ] No CI/CD pipeline — no `.github/workflows` or any CI config at all; `main` reaches prod via a manual SSH script with no automated build/test gate.
 - [ ] No monitoring/alerting/error-tracking — no Sentry/APM/log-aggregation anywhere, no structured logging framework, minimal `ILogger` usage.
+- [x] ~~Deploy-mechanism gap caused a real outage~~ (fixed 2026-10-07) — two same-day commits' migrations were never applied to prod after `publish.sh` deployed their code, breaking invoice/quote generation live; fixed by running the documented migration procedure. **New follow-up gap surfaced by this incident:** `publish.sh` has no check for pending migrations before deploying — nothing warns when code has drifted ahead of the live schema.
+
+## UI Shell & Navigation
+*(detail: [ui-shell-navigation.md](ui-shell-navigation.md))*
+
+- [x] ~~Mobile/tablet top bar didn't stay pinned; page drag/scroll felt "stuck"~~ (fixed 2026-10-07) — `h-screen` → `h-dvh` in `AppLayout.tsx`; `100vh` exceeded the real visible viewport on mobile Safari/Chrome whenever the address bar was showing, making the whole document a second scroll container instead of just `<main>`.
+- [x] ~~Dropdown/combobox menus could get stuck open on mobile~~ (fixed 2026-10-07) — `DropdownMenu`, `Combobox`, `AsyncCombobox`, and `CustomerDetailPage`'s inline date filter now also listen for `touchstart`, since iOS Safari doesn't reliably fire synthetic `mousedown` for taps on non-"clickable" elements.
+- [x] ~~List-page header (title + search/toggle/Add) didn't wrap on narrow screens, squeezing the title text~~ (fixed 2026-10-07) — `CrudSection.tsx` header now stacks below `sm` and wraps its controls row.
+- [x] ~~Sidebar collapse (desktop icon-rail preference) leaked into the mobile/tablet drawer, hiding all nav labels~~ (fixed 2026-10-07) — user-reported, live on an iPhone. `Sidebar.tsx` nav labels/headings/footer now use the same `lg:hidden`-scoped-class pattern the brand title already used, instead of an unscoped `{!collapsed && ...}` JS conditional.
+- [ ] None of the fixes above were live-verified on a real device this session (no browser automation available) — worth a real-device pass, including a tablet per the user's "might be the same for tablets" note. **None of them have been deployed to production yet either** — all are uncommitted local changes as of 2026-10-07.
 
 ## Cross-cutting (appear more than once above)
 - **No notification/delivery layer beyond outbound invoice email** — job reminders and appointment reminders both have zero SMS/email/push mechanism.

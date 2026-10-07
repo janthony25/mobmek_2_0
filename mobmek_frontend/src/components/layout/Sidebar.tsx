@@ -114,10 +114,13 @@ const NAV_GROUPS: NavGroup[] = [
 
 const STORAGE_KEY = 'mobmek:sidebar-collapsed'
 
+// `collapsed` is a desktop-only icon-rail preference (toggle is `lg:flex`-only, below
+// that it's unreachable) — the mobile/tablet off-canvas drawer always has room for full
+// labels, so every class/render that depends on it must stay scoped to `lg:` and up.
 const navItemClass = (collapsed: boolean, isActive: boolean) =>
   [
-    'flex items-center gap-3 rounded-xl py-2.5 text-sm font-medium transition-colors',
-    collapsed ? 'justify-center px-2' : 'px-3',
+    'flex items-center gap-3 rounded-xl py-2.5 text-sm font-medium transition-colors px-3',
+    collapsed ? 'lg:justify-center lg:px-2' : '',
     isActive
       ? 'bg-indigo-50 text-indigo-600'
       : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
@@ -205,19 +208,17 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
                   groupIndex > 0 ? 'mt-4 border-t border-slate-100 pt-4' : 'mt-2',
                 ].join(' ')}
               >
-                {!collapsed && (
-                  <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-400 lg:block">
-                    {group.heading}
-                    {group.hiddenNote && (
-                      <span
-                        className="ml-1 cursor-default font-medium normal-case tracking-normal text-slate-400"
-                        title={group.hiddenNote}
-                      >
-                        (Hidden)
-                      </span>
-                    )}
-                  </p>
-                )}
+                <p className={['px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-400', collapsed ? 'lg:hidden' : ''].join(' ')}>
+                  {group.heading}
+                  {group.hiddenNote && (
+                    <span
+                      className="ml-1 cursor-default font-medium normal-case tracking-normal text-slate-400"
+                      title={group.hiddenNote}
+                    >
+                      (Hidden)
+                    </span>
+                  )}
+                </p>
                 {visibleItems.length > 0 && (
                   <div className="space-y-0.5">
                     {visibleItems.map((item) => (
@@ -229,7 +230,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
                         className={({ isActive }) => navItemClass(collapsed, isActive)}
                       >
                         <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} aria-hidden />
-                        {!collapsed && <span>{item.label}</span>}
+                        <span className={collapsed ? 'lg:hidden' : ''}>{item.label}</span>
                       </NavLink>
                     ))}
                   </div>
@@ -241,12 +242,15 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
 
         <div
           className={[
-            'shrink-0 border-t border-slate-100 py-3',
-            collapsed ? 'flex flex-col items-center gap-1 px-2' : 'px-3',
+            'shrink-0 border-t border-slate-100 py-3 px-3',
+            collapsed ? 'lg:flex lg:flex-col lg:items-center lg:gap-1 lg:px-2' : '',
           ].join(' ')}
         >
-          {!collapsed && user && (
-            <p className="truncate px-3 pb-2 text-xs text-slate-400" title={user.email}>
+          {user && (
+            <p
+              className={['truncate px-3 pb-2 text-xs text-slate-400', collapsed ? 'lg:hidden' : ''].join(' ')}
+              title={user.email}
+            >
               {user.firstName} {user.lastName}
               {isAdmin && <span className="ml-1 text-slate-400">· Admin</span>}
             </p>
@@ -258,19 +262,19 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
             className={({ isActive }) => navItemClass(collapsed, isActive)}
           >
             <User className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} aria-hidden />
-            {!collapsed && <span>Profile</span>}
+            <span className={collapsed ? 'lg:hidden' : ''}>Profile</span>
           </NavLink>
           <button
             type="button"
             onClick={() => void logout()}
             title="Sign out"
             className={[
-              'flex items-center gap-3 rounded-xl py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900',
-              collapsed ? 'justify-center px-2' : 'w-full px-3',
+              'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900',
+              collapsed ? 'lg:w-auto lg:justify-center lg:px-2' : '',
             ].join(' ')}
           >
             <LogOut className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} aria-hidden />
-            {!collapsed && <span>Sign out</span>}
+            <span className={collapsed ? 'lg:hidden' : ''}>Sign out</span>
           </button>
         </div>
       </aside>

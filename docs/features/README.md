@@ -25,15 +25,15 @@ Baseline audit performed 2026-10-07 by reading the actual backend (`mobmek_api/s
 |---|---|---|
 | Auth & Staff Management | [auth-staff-management.md](auth-staff-management.md) | Full admin-editable RBAC, account lifecycle, login audit — ahead of its own design doc |
 | Customers & Vehicles | [customers-vehicles.md](customers-vehicles.md) | All known gaps closed 2026-10-07 — duplicate detection, notes panel shipped |
-| Jobs / Workshop Floor | [jobs-workshop-floor.md](jobs-workshop-floor.md) | Core job/labour/invoice flow works; no status state machine, no real DVI, no parts inventory, no reminder delivery |
+| Jobs / Workshop Floor | [jobs-workshop-floor.md](jobs-workshop-floor.md) | Core job/labour/invoice flow works; no status state machine, no real DVI, no parts inventory, no reminder delivery; photo delete now confirms (fixed 2026-10-07, was instant) |
 | Invoices, Quotes & Public Booking | [invoices-quotes-public-booking.md](invoices-quotes-public-booking.md) | Invoicing/GST/payment-ledger/PDF/sequence-numbering all solid; public booking API built but deliberately has no consuming UI yet |
 | Appointments & Google Calendar Sync | [appointments-calendar-sync.md](appointments-calendar-sync.md) | One-way push to Google via service account works well; convert-on-arrival now fully atomic; no OAuth, no pull-back, no appointment reminders |
-| Cash Flow & GST Reporting | [cash-flow-gst.md](cash-flow-gst.md) | Well-tested manual ledger, payees, rules, recurring auto-post, 4-source forecast; bank import/reconciliation/budgets/tax-obligations all unbuilt |
+| Cash Flow & GST Reporting | [cash-flow-gst.md](cash-flow-gst.md) | Well-tested manual ledger, payees, rules, recurring auto-post, 4-source forecast; bank import/reconciliation/budgets/tax-obligations all unbuilt; attachment delete now confirms (fixed 2026-10-07, was instant) |
 | Email Module | [email-module.md](email-module.md) | Outbound send (invoice/reminder/appointment), webhook, and templates all working; inbox mirror/IMAP and customer email timeline still unbuilt |
-| Business Settings | [business-settings.md](business-settings.md) | Company profile/logo/bank-details plus configurable invoice/quote number prefix all working |
+| Business Settings | [business-settings.md](business-settings.md) | Company profile/logo/bank-details plus configurable invoice/quote number prefix all working; logo delete now confirms (fixed 2026-10-07, was instant) |
 | Legacy Data Import | [legacy-data-import.md](legacy-data-import.md) | CLI importer verified idempotent against live DB; docs stale vs an undocumented real run; Phase 6 cutover not done |
-| Infrastructure & Deployment | [infrastructure-deployment.md](infrastructure-deployment.md) | TLS live, nightly backup + real restore drill both verified; deploy is manual-SSH (no CI/CD); no monitoring/alerting/error-tracking |
-| UI Shell & Navigation | [ui-shell-navigation.md](ui-shell-navigation.md) | Minimalist light sidebar + notes panel, both become off-canvas drawers below 1024px (tablet/mobile) |
+| Infrastructure & Deployment | [infrastructure-deployment.md](infrastructure-deployment.md) | TLS live, nightly backup + real restore drill both verified; deploy is manual-SSH (no CI/CD) — caused a real outage 2026-10-07 when a migration step was skipped; no monitoring/alerting/error-tracking |
+| UI Shell & Navigation | [ui-shell-navigation.md](ui-shell-navigation.md) | Minimalist light sidebar + notes panel, both become off-canvas drawers below 1024px (tablet/mobile); 3 mobile bugs (sticky top bar, stuck dropdowns, list-header wrapping) fixed 2026-10-07, not yet re-verified live |
 
 ## Known cross-cutting gaps (appear in multiple areas)
 - **No delivery/notification layer beyond outbound email.** Reminders (job area) and appointment reminders (appointments area) have no SMS/push/email trigger at all — see `jobs-workshop-floor.md` §Reminders and `appointments-calendar-sync.md` §7.

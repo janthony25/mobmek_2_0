@@ -70,14 +70,20 @@ export function AsyncCombobox({
   // Close on outside click, discarding any unmatched typing.
   useEffect(() => {
     if (!open) return
-    const onDocMouseDown = (e: MouseEvent) => {
+    const onDocMouseDown = (e: Event) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
         setOpen(false)
         setQuery(value ? (initialLabel ?? '') : '')
       }
     }
+    // touchstart alongside mousedown: iOS Safari doesn't reliably fire synthetic
+    // mousedown for taps on non-"clickable" elements, which can leave this open.
     document.addEventListener('mousedown', onDocMouseDown)
-    return () => document.removeEventListener('mousedown', onDocMouseDown)
+    document.addEventListener('touchstart', onDocMouseDown)
+    return () => {
+      document.removeEventListener('mousedown', onDocMouseDown)
+      document.removeEventListener('touchstart', onDocMouseDown)
+    }
   }, [open, value, initialLabel])
 
   const choose = (opt: SelectOption) => {

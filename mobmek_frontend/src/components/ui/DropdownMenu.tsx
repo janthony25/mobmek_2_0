@@ -40,7 +40,7 @@ export function DropdownMenu({ label, items }: DropdownMenuProps) {
   useEffect(() => {
     if (!open) return
 
-    const onDocClick = (e: MouseEvent) => {
+    const onDocClick = (e: Event) => {
       const target = e.target as Node
       if (triggerRef.current?.contains(target) || panelRef.current?.contains(target)) return
       setOpen(false)
@@ -51,6 +51,11 @@ export function DropdownMenu({ label, items }: DropdownMenuProps) {
     const onScrollOrResize = () => setOpen(false)
 
     document.addEventListener('mousedown', onDocClick)
+    // iOS Safari only dispatches synthetic mousedown/click for taps that land on an
+    // element it considers "clickable" — tapping plain text or a background div to
+    // dismiss the menu can fire no mousedown at all, leaving it stuck open. touchstart
+    // fires unconditionally, so it closes the menu reliably on touch devices too.
+    document.addEventListener('touchstart', onDocClick)
     window.addEventListener('keydown', onKey)
 
     // Focusing the trigger button can itself scroll an ancestor (e.g. a horizontally
@@ -64,6 +69,7 @@ export function DropdownMenu({ label, items }: DropdownMenuProps) {
     return () => {
       cancelAnimationFrame(raf)
       document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('touchstart', onDocClick)
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('scroll', onScrollOrResize, true)
       window.removeEventListener('resize', onScrollOrResize)

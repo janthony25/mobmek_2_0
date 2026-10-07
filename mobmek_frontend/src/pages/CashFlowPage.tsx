@@ -1277,6 +1277,7 @@ function TransactionDetailModal({
   const toast = useToast()
   const [busy, setBusy] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null)
 
   const upload = async (file: File | undefined) => {
     if (!transaction || !file) return
@@ -1292,21 +1293,25 @@ function TransactionDetailModal({
     }
   }
 
-  const remove = async (attachmentId: string) => {
-    if (!transaction) return
+  const handleDeleteAttachment = async () => {
+    if (!transaction || !deletingAttachmentId) return
     setBusy(true)
     try {
-      await deleteTransactionAttachment(transaction.id, attachmentId)
+      await deleteTransactionAttachment(transaction.id, deletingAttachmentId)
       toast.success('Attachment removed')
       await onChanged(transaction.id)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     } finally {
       setBusy(false)
+      setDeletingAttachmentId(null)
     }
   }
 
+  const deletingAttachment = transaction?.attachments.find((a) => a.id === deletingAttachmentId) ?? null
+
   return (
+    <>
     <Modal open={transaction !== null} title="Transaction Details" onClose={() => { setShowHistory(false); onClose() }}>
       {transaction && (
         <div className="space-y-4 text-sm">
@@ -1381,7 +1386,7 @@ function TransactionDetailModal({
                       📎 {a.fileName}
                     </a>
                     <span className="shrink-0 text-xs text-slate-400">{Math.max(1, Math.round(a.sizeBytes / 1024))} KB</span>
-                    <Button variant="ghost" size="sm" className="text-red-600" disabled={busy} onClick={() => void remove(a.id)}>
+                    <Button variant="ghost" size="sm" className="text-red-600" disabled={busy} onClick={() => setDeletingAttachmentId(a.id)}>
                       Remove
                     </Button>
                   </li>
@@ -1403,6 +1408,15 @@ function TransactionDetailModal({
         </div>
       )}
     </Modal>
+    <ConfirmDialog
+      open={deletingAttachmentId !== null}
+      title="Remove attachment"
+      message={deletingAttachment ? `Remove "${deletingAttachment.fileName}"? This can't be undone.` : ''}
+      confirmLabel="Remove"
+      onConfirm={handleDeleteAttachment}
+      onCancel={() => setDeletingAttachmentId(null)}
+    />
+    </>
   )
 }
 

@@ -685,11 +685,17 @@ function InvoiceDateFilter({ mode, value, onModeChange, onValueChange }: Invoice
 
   useEffect(() => {
     if (!open) return
-    const onDocClick = (e: MouseEvent) => {
+    const onDocClick = (e: Event) => {
       if (!containerRef.current?.contains(e.target as Node)) setOpen(false)
     }
+    // touchstart alongside mousedown: iOS Safari doesn't reliably fire synthetic
+    // mousedown for taps on non-"clickable" elements, which can leave this open.
     document.addEventListener('mousedown', onDocClick)
-    return () => document.removeEventListener('mousedown', onDocClick)
+    document.addEventListener('touchstart', onDocClick)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('touchstart', onDocClick)
+    }
   }, [open])
 
   return (
