@@ -33,6 +33,7 @@ Baseline audit performed 2026-10-07 by reading the actual backend (`mobmek_api/s
 | Business Settings | [business-settings.md](business-settings.md) | Company profile/logo/bank-details plus configurable invoice/quote number prefix all working |
 | Legacy Data Import | [legacy-data-import.md](legacy-data-import.md) | CLI importer verified idempotent against live DB; docs stale vs an undocumented real run; Phase 6 cutover not done |
 | Infrastructure & Deployment | [infrastructure-deployment.md](infrastructure-deployment.md) | TLS live, nightly backup + real restore drill both verified; deploy is manual-SSH (no CI/CD); no monitoring/alerting/error-tracking |
+| UI Shell & Navigation | [ui-shell-navigation.md](ui-shell-navigation.md) | Minimalist light sidebar + notes panel, both become off-canvas drawers below 1024px (tablet/mobile) |
 
 ## Known cross-cutting gaps (appear in multiple areas)
 - **No delivery/notification layer beyond outbound email.** Reminders (job area) and appointment reminders (appointments area) have no SMS/push/email trigger at all — see `jobs-workshop-floor.md` §Reminders and `appointments-calendar-sync.md` §7.

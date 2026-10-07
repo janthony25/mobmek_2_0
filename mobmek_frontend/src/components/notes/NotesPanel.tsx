@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { getCustomers } from '@/api/customers'
 import { createNote, deleteNote, getNotes, updateNote } from '@/api/notes'
@@ -25,13 +26,20 @@ function visibleOnBoard(note: Note): boolean {
   return Date.now() - new Date(note.doneAtUtc).getTime() < DAY_MS
 }
 
+interface NotesPanelProps {
+  /** Whether the off-canvas drawer is open on screens below `lg`. At `lg` and up the panel is always visible in-flow. */
+  mobileOpen: boolean
+  onCloseMobile: () => void
+}
+
 /**
- * Fixed right-hand board, mounted once by AppLayout so it stays visible on every
- * page. Not collapsible. Shows sticky notes plus an at-a-glance list of the next
- * reminders coming due across all customers; the « button opens the full
- * Notes & Reminders page (which also shows notes done more than 24h ago).
+ * Right-hand board, mounted once by AppLayout so it stays visible on every
+ * page. Always visible in-flow at `lg` and up; below `lg` it's an off-canvas
+ * drawer toggled from the top bar. Shows sticky notes plus an at-a-glance list
+ * of the next reminders coming due across all customers; the « button opens
+ * the full Notes & Reminders page (which also shows notes done more than 24h ago).
  */
-export function NotesPanel() {
+export function NotesPanel({ mobileOpen, onCloseMobile }: NotesPanelProps) {
   const toast = useToast()
   const notes = useAsync(getNotes, [])
   const reminders = useAsync(() => getReminders({ includeDone: false }), [])
@@ -115,7 +123,21 @@ export function NotesPanel() {
   const upcoming = reminders.data ?? []
 
   return (
-    <aside className="flex h-full w-80 shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-slate-100">
+    <>
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-slate-900/40 lg:hidden"
+          onClick={onCloseMobile}
+          aria-hidden
+        />
+      )}
+      <aside
+        className={[
+          'fixed inset-y-0 right-0 z-40 flex h-full w-80 shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-slate-100 transition-transform duration-200',
+          'lg:static lg:translate-x-0',
+          mobileOpen ? 'translate-x-0' : 'translate-x-full',
+        ].join(' ')}
+      >
       {/* Notes */}
       <div className="flex items-center justify-between px-4 pb-2 pt-4">
         <div className="flex items-center gap-2">
@@ -130,13 +152,23 @@ export function NotesPanel() {
             📌 Notes
           </h2>
         </div>
-        <button
-          type="button"
-          onClick={() => setEditing('new')}
-          className="rounded-md bg-slate-900 px-2 py-1 text-xs font-medium text-white hover:bg-slate-700"
-        >
-          + Add
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setEditing('new')}
+            className="rounded-md bg-slate-900 px-2 py-1 text-xs font-medium text-white hover:bg-slate-700"
+          >
+            + Add
+          </button>
+          <button
+            type="button"
+            onClick={onCloseMobile}
+            aria-label="Close notes panel"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-white hover:text-slate-600 lg:hidden"
+          >
+            <X className="h-4 w-4" strokeWidth={1.75} />
+          </button>
+        </div>
       </div>
 
       <div className="space-y-2 px-4 pb-4">
@@ -223,6 +255,7 @@ export function NotesPanel() {
         onClose={() => setViewingReminder(null)}
         onSaved={notifyBoardChanged}
       />
-    </aside>
+      </aside>
+    </>
   )
 }
