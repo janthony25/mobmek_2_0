@@ -12,7 +12,8 @@ public enum NoteWriteError
 
 public interface INoteService
 {
-    Task<IReadOnlyList<NoteDto>> GetAllAsync(CancellationToken cancellationToken = default);
+    /// <summary>Lists notes, optionally scoped to one customer.</summary>
+    Task<IReadOnlyList<NoteDto>> GetAllAsync(Guid? customerId = null, CancellationToken cancellationToken = default);
 
     Task<NoteDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 

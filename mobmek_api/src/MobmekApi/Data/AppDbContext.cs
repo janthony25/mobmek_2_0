@@ -400,6 +400,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAc
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasIndex(i => i.JobId);
+
+            // SequenceNumber is computed in C# as MAX(...)+1 per DocumentType (InvoiceService),
+            // not DB-generated — this index is the actual safety net against two concurrent
+            // generations racing to the same number; InvoiceService retries on the resulting
+            // unique-violation. Confirmed no existing duplicates in production before adding
+            // this (2026-10-07).
+            entity.HasIndex(i => new { i.DocumentType, i.SequenceNumber }).IsUnique();
         });
 
         modelBuilder.Entity<InvoiceItem>(entity =>

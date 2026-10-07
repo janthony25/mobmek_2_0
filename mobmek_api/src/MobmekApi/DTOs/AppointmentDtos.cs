@@ -82,3 +82,21 @@ public enum AppointmentWriteError
     JobCustomerMismatch,
     MechanicNotFound,
 }
+
+/// <summary>Why a convert-on-arrival step (create-customer / create-car, each atomically linked
+/// to the appointment in the same write) was rejected. The Car-specific values mirror
+/// <see cref="CarWriteError"/> one-for-one — flattened here rather than nesting it, so callers
+/// get a single enum to switch on regardless of which convert step they called.</summary>
+public enum AppointmentConvertError
+{
+    None,
+    NotFound,
+    AlreadyLinkedToCustomer,
+    AlreadyLinkedToCar,
+    NoLinkedCustomer,
+    MakeNotFound,
+    ModelNotFound,
+    ModelNotInMake,
+    DuplicateRego,
+    DuplicateVin,
+}

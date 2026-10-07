@@ -2,6 +2,7 @@ using MobmekApi.Data;
 using MobmekApi.DTOs;
 using MobmekApi.Entities;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace MobmekApi.Services;
 
@@ -169,16 +170,9 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
         var taxAmount = Round((subTotal - discount) * gstRate);
         var totalAmount = Round(subTotal - discount + taxAmount);
 
-        // Business-wide sequential number for the printed document ID, counted per document
-        // type so invoices (INV-0001, ...) and quotations (QUO-0001, ...) number independently.
-        var nextSequenceNumber = (await db.Invoices
-            .Where(i => i.DocumentType == documentType)
-            .MaxAsync(i => (int?)i.SequenceNumber, cancellationToken) ?? 0) + 1;
-
         var invoice = new Invoice
         {
             JobId = jobId,
-            SequenceNumber = nextSequenceNumber,
             IssueName = job.Title,
             Notes = job.InvoiceNotes,
             DocumentType = documentType,
@@ -232,7 +226,7 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
         }
 
         db.Invoices.Add(invoice);
-        await db.SaveChangesAsync(cancellationToken);
+        await SaveWithUniqueSequenceNumberAsync(invoice, documentType, cancellationToken);
 
         return ToDto(invoice);
     }
@@ -250,16 +244,11 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
             return null;
         }
 
-        var nextSequenceNumber = (await db.Invoices
-            .Where(i => i.DocumentType == "Invoice")
-            .MaxAsync(i => (int?)i.SequenceNumber, cancellationToken) ?? 0) + 1;
-
         // The invoice copies the quotation's snapshot, not the job's current lines: the
         // customer pays exactly what they accepted.
         var invoice = new Invoice
         {
             JobId = quotation.JobId,
-            SequenceNumber = nextSequenceNumber,
             IssueName = quotation.IssueName,
             Notes = quotation.Notes,
             DocumentType = "Invoice",
@@ -287,7 +276,7 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
 
         quotation.Status = "Accepted";
         db.Invoices.Add(invoice);
-        await db.SaveChangesAsync(cancellationToken);
+        await SaveWithUniqueSequenceNumberAsync(invoice, "Invoice", cancellationToken);
 
         return ToDto(invoice);
     }
@@ -437,6 +426,38 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
             .ToListAsync(cancellationToken);
         db.CashTransactions.RemoveRange(postings);
     }
+
+    /// <summary>
+    /// Assigns <paramref name="invoice"/>'s SequenceNumber as (current max + 1) for
+    /// <paramref name="documentType"/> and saves — retrying with a freshly recomputed number if
+    /// a concurrent generation already took it (caught via the unique index on
+    /// (DocumentType, SequenceNumber), see AppDbContext.OnModelCreating). <paramref name="invoice"/>
+    /// must already be tracked (<c>db.Invoices.Add(invoice)</c> called) before this runs.
+    /// </summary>
+    private async Task SaveWithUniqueSequenceNumberAsync(Invoice invoice, string documentType, CancellationToken cancellationToken)
+    {
+        const int maxAttempts = 5;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            invoice.SequenceNumber = (await db.Invoices
+                .Where(i => i.DocumentType == documentType)
+                .MaxAsync(i => (int?)i.SequenceNumber, cancellationToken) ?? 0) + 1;
+
+            try
+            {
+                await db.SaveChangesAsync(cancellationToken);
+                return;
+            }
+            catch (DbUpdateException ex) when (attempt < maxAttempts && IsSequenceNumberCollision(ex))
+            {
+                // Another request's SaveChangesAsync landed on the same number between our
+                // MaxAsync read and this write — loop and recompute against the now-updated max.
+            }
+        }
+    }
+
+    private static bool IsSequenceNumberCollision(DbUpdateException ex) =>
+        ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
 
     private static decimal Round(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
 

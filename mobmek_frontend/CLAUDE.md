@@ -27,16 +27,29 @@ Before writing or editing any code in response to a request:
   about to take (files/components to add or edit, type changes in `src/types`, API modules,
   routes) so the user can see exactly what will change, then work through them one by one and
   keep the list visible/updated as you go.
-- **Verify before calling it done.** There's no test suite, so `npx tsc -b` (type check) and
-  `npm run lint` (oxlint) passing is the mandatory gate for every change — it's cheap, always run it.
-  Live browser verification (dev server + click through, screenshots) is **not required for every
-  change** — reserve it for new components, layout/structural rework, or new interactive behavior
-  (a new button/action, a new form, a cascading field). Skip it for copy/className/formatting
-  tweaks, renames, or anything the type checker already proves correct. When it is warranted,
-  do the smallest check that proves it (one interaction, one screenshot) rather than a full
-  multi-step session, and don't spin up a research subagent just to verify a UI change — read the
-  file directly. If you skip visual verification, say so explicitly rather than implying it was
-  tested.
+- **Verify before calling it done — but batch it.** `npx tsc -b` (type check) and `npm run lint`
+  (oxlint) are cheap (seconds) — fine to run them whenever useful, but there's no need to re-run
+  either mid-edit; run once after all the files for the current logical change are written, not
+  per file. Live browser verification (dev server + click through, screenshots) is **not required
+  for every change** — reserve it for new components, layout/structural rework, or new interactive
+  behavior (a new button/action, a new form, a cascading field). Skip it for copy/className/formatting
+  tweaks, renames, or anything the type checker already proves correct.
+  **When working through a to-do list with several warranted items (e.g. fixing multiple gaps in
+  one sitting), don't spin up the dev server / rebuild Docker / browser-verify after each item —
+  that's the expensive part (a container rebuild alone can take a minute-plus). Batch it: implement
+  everything on the list first, then do one rebuild-and-verify pass covering all of it**, unless a
+  specific item is high-risk enough that verifying it in isolation first is worth the cost (e.g. it
+  changes a shared abstraction other to-do items will build on). When it is warranted, do the
+  smallest check that proves it (one interaction, one screenshot) rather than a full multi-step
+  session, and don't spin up a research subagent just to verify a UI change — read the file
+  directly. If you skip visual verification, say so explicitly rather than implying it was tested.
+- **Update the feature status doc before calling it done.** `docs/features/` (repo root, sibling
+  of this directory) holds one living, code-verified status file per feature area (index at
+  `docs/features/README.md`). Any change that adds, fixes, or removes user-facing behavior must
+  update the corresponding file in the same change — new capability becomes "Working", a fixed
+  gap gets removed or re-marked, a newly discovered gap gets added. Don't skip this because the
+  change feels small; a stale status doc is worse than none. If no file covers the area yet, add
+  one rather than leaving the change undocumented.
 
 The goal: build exactly the right feature, correctly — never silently guess.
 

@@ -1,5 +1,5 @@
 import { apiDelete, apiGet, apiPost, apiPut } from './client'
-import type { Customer, CustomerListItem, CustomerRequest, PagedResult } from '@/types'
+import type { Customer, CustomerDuplicateMatch, CustomerListItem, CustomerRequest, PagedResult } from '@/types'
 
 export interface CustomerPagedFilters {
   sortBy?: 'newest' | 'oldest' | 'name'
@@ -26,3 +26,12 @@ export const createCustomer = (body: CustomerRequest) => apiPost<Customer>('/cus
 export const updateCustomer = (id: string, body: CustomerRequest) =>
   apiPut<Customer>(`/customers/${id}`, body)
 export const deleteCustomer = (id: string) => apiDelete(`/customers/${id}`)
+
+/** Soft duplicate check for the create/edit form — advisory only, never blocks a save. */
+export const checkCustomerDuplicates = (phone: string, email: string, excludeId?: string) => {
+  const params = new URLSearchParams()
+  if (phone) params.set('phone', phone)
+  if (email) params.set('email', email)
+  if (excludeId) params.set('excludeId', excludeId)
+  return apiGet<CustomerDuplicateMatch[]>(`/customers/check-duplicate?${params}`)
+}

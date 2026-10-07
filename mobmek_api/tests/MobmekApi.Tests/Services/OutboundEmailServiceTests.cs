@@ -45,14 +45,14 @@ public class OutboundEmailServiceTests
             new EmailSettingsService(db, CreateConfig(configured)));
     }
 
-    private static async Task<(Guid JobId, Guid InvoiceId)> SeedInvoiceAsync(AppDbContext db, string? customerEmail = "jane@example.com")
+    private static async Task<(Guid JobId, Guid InvoiceId)> SeedInvoiceAsync(AppDbContext db, string? customerEmail = "jane@example.com", string rego = "ABC123")
     {
         var customer = await new CustomerService(db).CreateAsync(
             new CreateCustomerRequest("Jane", "Doe", "0", customerEmail, null, null));
         var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Toyota"));
         var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Hilux"));
         var (car, _) = await new CarService(db).CreateAsync(
-            new CreateCarRequest(customer.Id, make.Id, model!.Id, 2020, "ABC123", null, null, null));
+            new CreateCarRequest(customer.Id, make.Id, model!.Id, 2020, rego, null, null, null));
         var jobs = new JobService(db);
         var (job, _) = await jobs.CreateAsync(new CreateJobRequest(customer.Id, car!.Id, "Brakes", JobStatus.Open, 1000, null, null));
         await new JobItemService(db, jobs).CreateAsync(job!.Id, new CreateJobItemRequest(
@@ -302,7 +302,7 @@ public class OutboundEmailServiceTests
     {
         await using var db = CreateContext();
         var (jobId, invoiceId) = await SeedInvoiceAsync(db);
-        var (_, otherInvoiceId) = await SeedInvoiceAsync(db, "other@example.com");
+        var (_, otherInvoiceId) = await SeedInvoiceAsync(db, "other@example.com", "XYZ789");
         var sender = new FakeEmailSender();
         var service = BuildService(db, sender);
         await service.SendInvoiceEmailAsync(jobId, invoiceId, DefaultRequest());

@@ -4,6 +4,7 @@ import { deleteCustomer, getCustomer, updateCustomer } from '@/api/customers'
 import { createCar, deleteCar, getCars, updateCar } from '@/api/cars'
 import { getJobs } from '@/api/jobs'
 import { getInvoices, rejectInvoice } from '@/api/invoices'
+import { apiUrl } from '@/api/client'
 import { getReminders } from '@/api/reminders'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -28,8 +29,9 @@ import {
   TrashIcon,
 } from '@/components/ui/icons'
 import { CarForm } from '@/components/forms/CarForm'
+import { CustomerForm } from '@/components/forms/CustomerForm'
 import { controlClass } from '@/components/forms/controls'
-import { ResourceForm } from '@/components/crud/ResourceForm'
+import { NotesSection } from '@/components/notes/NotesSection'
 import { AcceptQuotationForm } from '@/components/invoices/AcceptQuotationForm'
 import { MarkPaidForm } from '@/components/invoices/MarkPaidForm'
 import { EmailComposeModal } from '@/components/email/EmailComposeModal'
@@ -44,7 +46,6 @@ import {
 import { dueUrgency, URGENCY_BADGE } from '@/lib/dueDate'
 import { currency, date, orDash, time } from '@/lib/format'
 import { JOB_STATUS_LABELS } from '@/types'
-import type { FieldSchema } from '@/components/crud/types'
 import type {
   Car,
   CreateCarRequest,
@@ -55,15 +56,6 @@ import type {
   Reminder,
   UpdateCarRequest,
 } from '@/types'
-
-const customerFields: FieldSchema[] = [
-  { name: 'firstName', label: 'First name', type: 'text', required: true },
-  { name: 'lastName', label: 'Last name', type: 'text', required: true },
-  { name: 'phoneNumber', label: 'Phone number', type: 'text', required: true },
-  { name: 'emailAddress', label: 'Email', type: 'email' },
-  { name: 'physicalAddress', label: 'Address', type: 'text' },
-  { name: 'notes', label: 'Notes', type: 'textarea' },
-]
 
 /** First letters of first + last name, e.g. "James Wilson" -> "JW". */
 function initials(c: Customer): string {
@@ -330,6 +322,8 @@ export function CustomerDetailPage() {
               </div>
             )}
           </Card>
+
+          <NotesSection customerId={id} description="Notes about this customer." collapsible />
         </div>
 
         {/* Right column: appointment history + invoices */}
@@ -471,9 +465,8 @@ export function CustomerDetailPage() {
       </div>
 
       <Modal open={editOpen} title="Edit customer" onClose={() => setEditOpen(false)}>
-        <ResourceForm
-          fields={customerFields}
-          initial={customer as unknown as Record<string, unknown>}
+        <CustomerForm
+          initial={customer ?? null}
           onSubmit={handleUpdateCustomer}
           onCancel={() => setEditOpen(false)}
         />
@@ -756,7 +749,7 @@ interface InvoiceRowProps {
 
 function InvoiceRow({ invoice, onViewJob, onPay, onReject, onEmail }: InvoiceRowProps) {
   const active = invoice.status === 'Active'
-  const pdfUrl = `/jobs/${invoice.jobId}/invoices/${invoice.id}/pdf`
+  const pdfUrl = apiUrl(`/jobs/${invoice.jobId}/invoices/${invoice.id}/pdf`)
 
   return (
     <div className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
@@ -774,7 +767,7 @@ function InvoiceRow({ invoice, onViewJob, onPay, onReject, onEmail }: InvoiceRow
           items={[
             { label: 'View Job', onClick: onViewJob },
             { label: 'View Invoice (PDF)', onClick: () => window.open(pdfUrl, '_blank') },
-            { label: 'Download Invoice (PDF)', onClick: () => window.open(`${pdfUrl}?autoprint=1`, '_blank') },
+            { label: 'Download Invoice (PDF)', onClick: () => window.open(`${pdfUrl}?download=true`, '_blank') },
             { label: 'Mark as Paid', disabled: !active || invoice.isPaid, onClick: onPay },
             { label: 'Send Email', onClick: onEmail },
             { label: 'Reject', disabled: !active, tone: 'danger', onClick: onReject },
@@ -795,7 +788,7 @@ interface QuotationRowProps {
 
 function QuotationRow({ quotation, onViewJob, onAccept, onReject, onEmail }: QuotationRowProps) {
   const active = quotation.status === 'Active'
-  const pdfUrl = `/jobs/${quotation.jobId}/invoices/${quotation.id}/pdf`
+  const pdfUrl = apiUrl(`/jobs/${quotation.jobId}/invoices/${quotation.id}/pdf`)
 
   return (
     <div className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
@@ -813,7 +806,7 @@ function QuotationRow({ quotation, onViewJob, onAccept, onReject, onEmail }: Quo
           items={[
             { label: 'View Job', onClick: onViewJob },
             { label: 'View Quotation (PDF)', onClick: () => window.open(pdfUrl, '_blank') },
-            { label: 'Download Quotation (PDF)', onClick: () => window.open(`${pdfUrl}?autoprint=1`, '_blank') },
+            { label: 'Download Quotation (PDF)', onClick: () => window.open(`${pdfUrl}?download=true`, '_blank') },
             { label: 'Accept', disabled: !active, onClick: onAccept },
             { label: 'Send Email', onClick: onEmail },
             { label: 'Reject', disabled: !active, tone: 'danger', onClick: onReject },

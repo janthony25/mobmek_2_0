@@ -41,6 +41,24 @@ public class CarService(AppDbContext db) : ICarService
 
     public async Task<(CarDto? Car, CarWriteError Error)> CreateAsync(CreateCarRequest request, CancellationToken cancellationToken = default)
     {
+        var (car, error) = await BuildAsync(request, cancellationToken);
+        if (error != CarWriteError.None)
+        {
+            return (null, error);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        return (await GetByIdAsync(car!.Id, cancellationToken), CarWriteError.None);
+    }
+
+    /// <summary>Validates and constructs a Car entity, adding it to the tracked context —
+    /// deliberately does NOT call SaveChangesAsync. <see cref="CreateAsync"/> is just this plus
+    /// a save; exposed separately so a caller needing car creation as part of a larger atomic
+    /// operation (see <c>AppointmentService.ConvertToCarAsync</c>) can batch it into their own
+    /// single SaveChangesAsync call instead of this method committing on its own.</summary>
+    public async Task<(Car? Car, CarWriteError Error)> BuildAsync(CreateCarRequest request, CancellationToken cancellationToken = default)
+    {
         if (!await db.Customers.AnyAsync(c => c.Id == request.CustomerId, cancellationToken))
         {
             return (null, CarWriteError.CustomerNotFound);
@@ -50,6 +68,13 @@ public class CarService(AppDbContext db) : ICarService
         if (makeModelError != CarWriteError.None)
         {
             return (null, makeModelError);
+        }
+
+        var uniqueError = await ValidateUniqueAsync(
+            excludeCarId: null, request.Rego, currentRego: null, request.Vin, currentVin: null, cancellationToken);
+        if (uniqueError != CarWriteError.None)
+        {
+            return (null, uniqueError);
         }
 
         var car = new Car
@@ -65,9 +90,7 @@ public class CarService(AppDbContext db) : ICarService
         };
 
         db.Cars.Add(car);
-        await db.SaveChangesAsync(cancellationToken);
-
-        return (await GetByIdAsync(car.Id, cancellationToken), CarWriteError.None);
+        return (car, CarWriteError.None);
     }
 
     public async Task<(CarDto? Car, CarWriteError Error)> UpdateAsync(Guid id, UpdateCarRequest request, CancellationToken cancellationToken = default)
@@ -82,6 +105,13 @@ public class CarService(AppDbContext db) : ICarService
         if (makeModelError != CarWriteError.None)
         {
             return (null, makeModelError);
+        }
+
+        var uniqueError = await ValidateUniqueAsync(
+            excludeCarId: id, request.Rego, currentRego: car.Rego, request.Vin, currentVin: car.Vin, cancellationToken);
+        if (uniqueError != CarWriteError.None)
+        {
+            return (null, uniqueError);
         }
 
         car.CarMakeId = request.CarMakeId;
@@ -127,6 +157,45 @@ public class CarService(AppDbContext db) : ICarService
         if (model.CarMakeId != makeId)
         {
             return CarWriteError.ModelNotInMake;
+        }
+
+        return CarWriteError.None;
+    }
+
+    /// <summary>Rego is always checked (required, case/whitespace-insensitive) when it's actually
+    /// changing; VIN the same, only when provided (most cars don't have one on file, and two
+    /// blanks shouldn't collide). Hard block, not a warning — unlike customer phone/email, a
+    /// duplicate rego/VIN is unambiguously a data-entry mistake (one physical car, one record).
+    /// <paramref name="currentRego"/>/<paramref name="currentVin"/> are null on create (always
+    /// check) or the car's existing values on update — if the incoming value matches what's
+    /// already on this car, skip the check entirely. Without this, editing an unrelated field
+    /// (color, year) on either of a pre-existing duplicate-rego pair — confirmed to exist in
+    /// production from the legacy import, 7 pairs as of 2026-10-07 — would wrongly be blocked
+    /// as "colliding with itself's twin" even though the rego value itself isn't changing.</summary>
+    private async Task<CarWriteError> ValidateUniqueAsync(
+        Guid? excludeCarId, string rego, string? currentRego, string? vin, string? currentVin, CancellationToken cancellationToken)
+    {
+        var query = db.Cars.AsNoTracking().AsQueryable();
+        if (excludeCarId is { } id)
+        {
+            query = query.Where(c => c.Id != id);
+        }
+
+        var normalizedRego = rego.Trim().ToUpper();
+        var regoChanging = currentRego is null || !string.Equals(currentRego.Trim(), normalizedRego, StringComparison.OrdinalIgnoreCase);
+        if (regoChanging && await query.AnyAsync(c => c.Rego.ToUpper() == normalizedRego, cancellationToken))
+        {
+            return CarWriteError.DuplicateRego;
+        }
+
+        if (!string.IsNullOrWhiteSpace(vin))
+        {
+            var normalizedVin = vin.Trim().ToUpper();
+            var vinChanging = currentVin is null || !string.Equals(currentVin.Trim(), normalizedVin, StringComparison.OrdinalIgnoreCase);
+            if (vinChanging && await query.AnyAsync(c => c.Vin != null && c.Vin.ToUpper() == normalizedVin, cancellationToken))
+            {
+                return CarWriteError.DuplicateVin;
+            }
         }
 
         return CarWriteError.None;

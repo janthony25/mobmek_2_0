@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { generateInvoice, getInvoices, rejectInvoice } from '@/api/invoices'
+import { apiUrl } from '@/api/client'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { DropdownMenu } from '@/components/ui/DropdownMenu'
@@ -115,20 +116,11 @@ export function InvoicesSection({ jobId, reloadKey = 0 }: InvoicesSectionProps) 
                         items={[
                           {
                             label: 'View Invoice (PDF)',
-                            onClick: () => window.open(`/jobs/${jobId}/invoices/${inv.id}/pdf`, '_blank'),
+                            onClick: () => window.open(apiUrl(`/jobs/${jobId}/invoices/${inv.id}/pdf`), '_blank'),
                           },
                           {
                             label: 'Download Invoice (PDF)',
-                            onClick: () => window.open(`/jobs/${jobId}/invoices/${inv.id}/pdf?autoprint=1`, '_blank'),
-                          },
-                          {
-                            label: 'Print Invoice',
-                            onClick: () =>
-                              window.open(
-                                `/jobs/${jobId}/invoices/${inv.id}/pdf?autoprint=1`,
-                                '_blank',
-                                'width=900,height=700',
-                              ),
+                            onClick: () => window.open(apiUrl(`/jobs/${jobId}/invoices/${inv.id}/pdf?download=true`), '_blank'),
                           },
                           {
                             label: 'Mark as Paid',

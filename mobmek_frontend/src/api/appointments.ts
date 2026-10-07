@@ -3,6 +3,8 @@ import type {
   Appointment,
   AppointmentStatus,
   CreateAppointmentRequest,
+  CreateCarRequest,
+  CustomerRequest,
   UpdateAppointmentRequest,
 } from '@/types'
 
@@ -65,3 +67,13 @@ export const createAppointment = (body: CreateAppointmentRequest) =>
 export const updateAppointment = (id: string, body: UpdateAppointmentRequest) =>
   apiPut<Appointment>(`/appointments/${id}`, body)
 export const deleteAppointment = (id: string) => apiDelete(`/appointments/${id}`)
+
+/** Convert-on-arrival step 1: creates a customer from the phone-call contact and atomically
+ * links it to the appointment in one request — see docs/features/appointments-calendar-sync.md. */
+export const convertAppointmentToCustomer = (id: string, body: CustomerRequest) =>
+  apiPost<Appointment>(`/appointments/${id}/convert-to-customer`, body)
+
+/** Convert-on-arrival step 2: creates a car for the appointment's linked customer and
+ * atomically links it to the appointment in one request. */
+export const convertAppointmentToCar = (id: string, body: CreateCarRequest) =>
+  apiPost<Appointment>(`/appointments/${id}/convert-to-car`, body)

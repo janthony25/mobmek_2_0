@@ -51,13 +51,22 @@ public class EmploymentTypesController(IEmploymentTypeService typeService) : Con
         return updated is null ? NotFound() : Ok(updated);
     }
 
-    /// <summary>Deletes an employment type.</summary>
+    /// <summary>Deletes an employment type. Refuses (400) if any employee still has this type.</summary>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
-        var deleted = await typeService.DeleteAsync(id, cancellationToken);
-        return deleted ? NoContent() : NotFound();
+        var error = await typeService.DeleteAsync(id, cancellationToken);
+        return error switch
+        {
+            EmploymentTypeDeleteError.None => NoContent(),
+            EmploymentTypeDeleteError.NotFound => NotFound(),
+            EmploymentTypeDeleteError.InUse => Problem(
+                detail: "This employment type is still assigned to one or more employees — reassign them first.",
+                statusCode: StatusCodes.Status400BadRequest),
+            _ => Problem(statusCode: StatusCodes.Status500InternalServerError),
+        };
     }
 }

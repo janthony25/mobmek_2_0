@@ -20,4 +20,18 @@ public interface IAccountService
     /// <summary>Verifies the code and, if valid, resets the password without requiring the old one.</summary>
     Task<(AccountError Error, string? ErrorMessage)> ConfirmPasswordChangeAsync(
         Guid userId, ConfirmPasswordChangeRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>Unauthenticated counterpart to <see cref="RequestPasswordChangeCodeAsync"/>, for a
+    /// user who's locked out and can't sign in to reach the normal flow. Always returns
+    /// <see cref="AccountError.None"/> unless the system itself isn't configured to send email —
+    /// never <see cref="AccountError.NotConfigured"/>-vs-"unknown email", so an anonymous caller
+    /// can't use this to probe whether an email has an account. No code is actually sent when the
+    /// email doesn't match an active, email-confirmed account; that's indistinguishable from the
+    /// caller's point of view.</summary>
+    Task<AccountError> RequestForgotPasswordCodeAsync(string email, CancellationToken cancellationToken = default);
+
+    /// <summary>Unauthenticated counterpart to <see cref="ConfirmPasswordChangeAsync"/> — looks the
+    /// user up by email instead of trusting a session.</summary>
+    Task<(AccountError Error, string? ErrorMessage)> ResetForgottenPasswordAsync(
+        ResetForgottenPasswordRequest request, CancellationToken cancellationToken = default);
 }

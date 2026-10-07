@@ -9,18 +9,21 @@ import type { Note, NoteRequest } from '@/types'
 interface NoteFormProps {
   initial: Note | null
   customerOptions: SelectOption[]
+  /** When set, the note is tied to this customer and the picker is hidden — used when adding
+   * from a customer's own detail page, same convention as ReminderForm's `lockedCarId`. */
+  lockedCustomerId?: string
   onSubmit: (values: NoteRequest) => Promise<void>
   onCancel: () => void
 }
 
-export function NoteForm({ initial, customerOptions, onSubmit, onCancel }: NoteFormProps) {
+export function NoteForm({ initial, customerOptions, lockedCustomerId, onSubmit, onCancel }: NoteFormProps) {
   const [title, setTitle] = useState(initial?.title ?? '')
   const [body, setBody] = useState(initial?.body ?? '')
   const [dueDate, setDueDate] = useState(initial?.dueDate ?? '')
   const [color, setColor] = useState(initial?.color ?? NOTE_COLORS[0].key)
   const [isPinned, setIsPinned] = useState(initial?.isPinned ?? false)
   const [isDone, setIsDone] = useState(initial?.isDone ?? false)
-  const [customerId, setCustomerId] = useState(initial?.customerId ?? '')
+  const [customerId, setCustomerId] = useState(lockedCustomerId ?? initial?.customerId ?? '')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -97,14 +100,16 @@ export function NoteForm({ initial, customerOptions, onSubmit, onCancel }: NoteF
         </div>
       </div>
 
-      <Field label="Linked customer (optional)">
-        <Combobox
-          options={customerOptions}
-          value={customerId}
-          onChange={setCustomerId}
-          placeholder="Search customers…"
-        />
-      </Field>
+      {!lockedCustomerId && (
+        <Field label="Linked customer (optional)">
+          <Combobox
+            options={customerOptions}
+            value={customerId}
+            onChange={setCustomerId}
+            placeholder="Search customers…"
+          />
+        </Field>
+      )}
 
       <div className="flex gap-6">
         <label className="flex items-center gap-2 text-sm text-slate-700">

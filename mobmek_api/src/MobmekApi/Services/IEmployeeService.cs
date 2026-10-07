@@ -9,6 +9,7 @@ public enum EmployeeWriteError
     NotFound,
     TitleNotFound,
     EmploymentTypeNotFound,
+    InUse,
 }
 
 public interface IEmployeeService
@@ -25,5 +26,9 @@ public interface IEmployeeService
 
     Task<(EmployeeDto? Employee, EmployeeWriteError Error)> UpdateAsync(Guid id, UpdateEmployeeRequest request, CancellationToken cancellationToken = default);
 
-    Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <summary>Deletes an employee. Returns <see cref="EmployeeWriteError.InUse"/> instead of
+    /// deleting if the employee still has a login account or is assigned to a job as a mechanic —
+    /// both are DB-level <c>Restrict</c> foreign keys, so this check exists to surface a friendly
+    /// error instead of letting a <c>DbUpdateException</c> turn into a 500.</summary>
+    Task<EmployeeWriteError> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 }

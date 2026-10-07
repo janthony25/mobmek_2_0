@@ -19,9 +19,11 @@ public class Invoice : BaseEntity
     /// <summary>
     /// Business-wide sequential number backing the printed document ID, counted per
     /// <see cref="DocumentType"/> (INV-0001 for invoices, QUO-0001 for quotations). Assigned
-    /// in <see cref="Services.InvoiceService"/> as (current max + 1); not DB-generated, so it
-    /// isn't safe against concurrent generation, matching the app's other invoice invariants
-    /// (see todo-list.md) that aren't yet guarded for concurrency.
+    /// in <see cref="Services.InvoiceService"/> as (current max + 1), not DB-generated — a
+    /// unique index on (<see cref="DocumentType"/>, <see cref="SequenceNumber"/>) backs this
+    /// (`AppDbContext.OnModelCreating`), and <see cref="Services.InvoiceService"/> retries the
+    /// whole compute-and-save on the resulting unique-violation, so two concurrent generations
+    /// can no longer silently land on the same number.
     /// </summary>
     public int SequenceNumber { get; set; }
 

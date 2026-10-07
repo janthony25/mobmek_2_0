@@ -17,14 +17,14 @@ public class AppointmentServiceTests
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options);
 
-    private static async Task<(Guid CustomerId, Guid CarId)> SeedCustomerWithCarAsync(AppDbContext db)
+    private static async Task<(Guid CustomerId, Guid CarId)> SeedCustomerWithCarAsync(AppDbContext db, string rego = "ABC123")
     {
         var customer = await new CustomerService(db).CreateAsync(
             new CreateCustomerRequest("Owner", "Person", "000", null, null, null));
         var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Toyota"));
         var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Hilux"));
         var (car, _) = await new CarService(db).CreateAsync(
-            new CreateCarRequest(customer.Id, make.Id, model!.Id, 2020, "ABC123", null, null, null));
+            new CreateCarRequest(customer.Id, make.Id, model!.Id, 2020, rego, null, null, null));
         return (customer.Id, car!.Id);
     }
 
@@ -55,7 +55,7 @@ public class AppointmentServiceTests
     public async Task CreateAsync_PersistsSoftContactBooking_WithoutAnyLinks()
     {
         await using var db = CreateContext();
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
 
         var (appointment, error) = await service.CreateAsync(NewCallerBooking());
 
@@ -75,7 +75,7 @@ public class AppointmentServiceTests
         var mechanicId = await SeedEmployeeAsync(db);
         var (job, _) = await new JobService(db).CreateAsync(
             new CreateJobRequest(customerId, carId, "Clutch", JobStatus.AwaitingParts, 0, null, null));
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
 
         var (appointment, error) = await service.CreateAsync(NewCallerBooking() with
         {
@@ -98,7 +98,7 @@ public class AppointmentServiceTests
     public async Task CreateAsync_ReturnsEndNotAfterStart_WhenEndEqualsStart()
     {
         await using var db = CreateContext();
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
 
         var (_, error) = await service.CreateAsync(NewCallerBooking(Start, Start));
 
@@ -109,7 +109,7 @@ public class AppointmentServiceTests
     public async Task CreateAsync_ReturnsMissingContactOrCustomer_WhenNeitherProvided()
     {
         await using var db = CreateContext();
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
 
         var (_, error) = await service.CreateAsync(NewCallerBooking() with
         {
@@ -124,7 +124,7 @@ public class AppointmentServiceTests
     public async Task CreateAsync_ReturnsMissingContactOrCustomer_WhenContactNameLacksPhone()
     {
         await using var db = CreateContext();
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
 
         var (_, error) = await service.CreateAsync(NewCallerBooking() with { ContactPhone = " " });
 
@@ -135,7 +135,7 @@ public class AppointmentServiceTests
     public async Task CreateAsync_ReturnsCustomerNotFound_WhenCustomerMissing()
     {
         await using var db = CreateContext();
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
 
         var (_, error) = await service.CreateAsync(NewCallerBooking() with { CustomerId = Guid.NewGuid() });
 
@@ -147,7 +147,7 @@ public class AppointmentServiceTests
     {
         await using var db = CreateContext();
         var (_, carId) = await SeedCustomerWithCarAsync(db);
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
 
         var (_, error) = await service.CreateAsync(NewCallerBooking() with { CarId = carId });
 
@@ -159,8 +159,8 @@ public class AppointmentServiceTests
     {
         await using var db = CreateContext();
         var (customerId, _) = await SeedCustomerWithCarAsync(db);
-        var (_, otherCarId) = await SeedCustomerWithCarAsync(db);
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier());
+        var (_, otherCarId) = await SeedCustomerWithCarAsync(db, "XYZ789");
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
 
         var (_, error) = await service.CreateAsync(NewCallerBooking() with
         {
@@ -176,10 +176,10 @@ public class AppointmentServiceTests
     {
         await using var db = CreateContext();
         var (customerId, _) = await SeedCustomerWithCarAsync(db);
-        var (otherCustomerId, otherCarId) = await SeedCustomerWithCarAsync(db);
+        var (otherCustomerId, otherCarId) = await SeedCustomerWithCarAsync(db, "XYZ789");
         var (job, _) = await new JobService(db).CreateAsync(
             new CreateJobRequest(otherCustomerId, otherCarId, "Clutch", JobStatus.Open, 0, null, null));
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
 
         var (_, error) = await service.CreateAsync(NewCallerBooking() with
         {
@@ -194,7 +194,7 @@ public class AppointmentServiceTests
     public async Task CreateAsync_ReturnsJobNotFound_WhenJobMissing()
     {
         await using var db = CreateContext();
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
 
         var (_, error) = await service.CreateAsync(NewCallerBooking() with { JobId = Guid.NewGuid() });
 
@@ -205,7 +205,7 @@ public class AppointmentServiceTests
     public async Task CreateAsync_ReturnsMechanicNotFound_WhenEmployeeMissing()
     {
         await using var db = CreateContext();
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
 
         var (_, error) = await service.CreateAsync(NewCallerBooking() with { MechanicId = Guid.NewGuid() });
 
@@ -216,7 +216,7 @@ public class AppointmentServiceTests
     public async Task GetAllAsync_ReturnsOverlappingRange_OrderedByStart()
     {
         await using var db = CreateContext();
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
 
         // One before the window, one inside, one spanning the window's start boundary.
         await service.CreateAsync(NewCallerBooking(Start.AddDays(-2), Start.AddDays(-2).AddHours(1)));
@@ -236,7 +236,7 @@ public class AppointmentServiceTests
         // Bare query-string dates ("?from=2025-01-01") bind with Kind=Unspecified, which
         // Npgsql rejects for timestamptz — the service must normalize before comparing.
         await using var db = CreateContext();
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
         await service.CreateAsync(NewCallerBooking(Start.AddDays(-2), Start.AddDays(-2).AddHours(1)));
         var (inside, _) = await service.CreateAsync(NewCallerBooking(Start.AddHours(3), Start.AddHours(4)));
 
@@ -253,7 +253,7 @@ public class AppointmentServiceTests
     {
         await using var db = CreateContext();
         var mechanicId = await SeedEmployeeAsync(db);
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
 
         await service.CreateAsync(NewCallerBooking());
         var (assigned, _) = await service.CreateAsync(NewCallerBooking(Start.AddHours(2), Start.AddHours(3)) with
@@ -278,7 +278,7 @@ public class AppointmentServiceTests
         var (customerId, carId) = await SeedCustomerWithCarAsync(db);
         var (job, _) = await new JobService(db).CreateAsync(
             new CreateJobRequest(customerId, carId, "Clutch", JobStatus.AwaitingParts, 0, null, null));
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
 
         await service.CreateAsync(NewCallerBooking());
         var (linked, _) = await service.CreateAsync(NewCallerBooking(Start.AddHours(2), Start.AddHours(3)) with
@@ -297,7 +297,7 @@ public class AppointmentServiceTests
     {
         await using var db = CreateContext();
         var (customerId, carId) = await SeedCustomerWithCarAsync(db); // Owner Person, rego ABC123
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
 
         var (linked, _) = await service.CreateAsync(NewCallerBooking() with
         {
@@ -335,7 +335,7 @@ public class AppointmentServiceTests
     {
         await using var db = CreateContext();
         var (customerId, carId) = await SeedCustomerWithCarAsync(db);
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
         var (created, _) = await service.CreateAsync(NewCallerBooking());
 
         // The convert-on-arrival step: soft contact kept, real records linked in.
@@ -356,7 +356,7 @@ public class AppointmentServiceTests
     public async Task UpdateAsync_ReturnsNotFound_WhenAppointmentMissing()
     {
         await using var db = CreateContext();
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
 
         var (_, error) = await service.UpdateAsync(Guid.NewGuid(), new UpdateAppointmentRequest(
             "X", Start, Start.AddHours(1), AppointmentStatus.Scheduled,
@@ -369,7 +369,7 @@ public class AppointmentServiceTests
     public async Task DeleteAsync_RemovesAppointment_AndReportsMiss()
     {
         await using var db = CreateContext();
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
         var (created, _) = await service.CreateAsync(NewCallerBooking());
 
         Assert.True(await service.DeleteAsync(created!.Id));
@@ -387,7 +387,7 @@ public class AppointmentServiceTests
     {
         await using var db = CreateContext();
         var notifier = new FakeAppointmentChangeNotifier();
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), notifier);
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), notifier, new CarService(db));
 
         await service.CreateAsync(NewCallerBooking());
 
@@ -399,7 +399,7 @@ public class AppointmentServiceTests
     {
         await using var db = CreateContext();
         var notifier = new FakeAppointmentChangeNotifier();
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), notifier);
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), notifier, new CarService(db));
 
         await service.CreateAsync(NewCallerBooking(Start, Start));
 
@@ -411,10 +411,10 @@ public class AppointmentServiceTests
     {
         await using var db = CreateContext();
         var notifier = new FakeAppointmentChangeNotifier();
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), notifier);
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), notifier, new CarService(db));
         var (created, _) = await service.CreateAsync(NewCallerBooking());
         notifier = new FakeAppointmentChangeNotifier();
-        service = new AppointmentService(db, new FakeGoogleCalendarClient(), notifier);
+        service = new AppointmentService(db, new FakeGoogleCalendarClient(), notifier, new CarService(db));
 
         await service.UpdateAsync(created!.Id, new UpdateAppointmentRequest(
             created.Title, created.StartUtc, created.EndUtc, AppointmentStatus.Confirmed,
@@ -429,10 +429,10 @@ public class AppointmentServiceTests
     {
         await using var db = CreateContext();
         var notifier = new FakeAppointmentChangeNotifier();
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), notifier);
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), notifier, new CarService(db));
         var (created, _) = await service.CreateAsync(NewCallerBooking());
         notifier = new FakeAppointmentChangeNotifier();
-        service = new AppointmentService(db, new FakeGoogleCalendarClient(), notifier);
+        service = new AppointmentService(db, new FakeGoogleCalendarClient(), notifier, new CarService(db));
 
         await service.DeleteAsync(created!.Id);
 
@@ -444,10 +444,132 @@ public class AppointmentServiceTests
     {
         await using var db = CreateContext();
         var notifier = new FakeAppointmentChangeNotifier();
-        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), notifier);
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), notifier, new CarService(db));
 
         await service.DeleteAsync(Guid.NewGuid());
 
         Assert.Equal(0, notifier.NotifyCount);
+    }
+
+    [Fact]
+    public async Task ConvertToCustomerAsync_CreatesCustomer_AndLinksAppointment_InOneCall()
+    {
+        await using var db = CreateContext();
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
+        var (created, _) = await service.CreateAsync(NewCallerBooking());
+
+        var (appointment, error) = await service.ConvertToCustomerAsync(
+            created!.Id, new CreateCustomerRequest("Dave", "Miller", "0215551234", null, null, null));
+
+        Assert.Equal(AppointmentConvertError.None, error);
+        Assert.NotNull(appointment);
+        Assert.NotNull(appointment!.CustomerId);
+        Assert.Equal("Dave Miller", appointment.CustomerName);
+        Assert.Equal(1, await db.Customers.CountAsync());
+    }
+
+    [Fact]
+    public async Task ConvertToCustomerAsync_ReturnsNotFound_WhenAppointmentMissing()
+    {
+        await using var db = CreateContext();
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
+
+        var (appointment, error) = await service.ConvertToCustomerAsync(
+            Guid.NewGuid(), new CreateCustomerRequest("Dave", "Miller", "0215551234", null, null, null));
+
+        Assert.Null(appointment);
+        Assert.Equal(AppointmentConvertError.NotFound, error);
+    }
+
+    [Fact]
+    public async Task ConvertToCustomerAsync_ReturnsAlreadyLinked_WhenAppointmentAlreadyHasACustomer()
+    {
+        await using var db = CreateContext();
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
+        var (customerId, _) = await SeedCustomerWithCarAsync(db);
+        var (created, _) = await service.CreateAsync(NewCallerBooking() with { CustomerId = customerId });
+
+        var (appointment, error) = await service.ConvertToCustomerAsync(
+            created!.Id, new CreateCustomerRequest("Dave", "Miller", "0215551234", null, null, null));
+
+        Assert.Null(appointment);
+        Assert.Equal(AppointmentConvertError.AlreadyLinkedToCustomer, error);
+        Assert.Equal(1, await db.Customers.CountAsync()); // no second customer created
+    }
+
+    [Fact]
+    public async Task ConvertToCarAsync_CreatesCar_AndLinksAppointment_InOneCall()
+    {
+        await using var db = CreateContext();
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
+        var customer = await new CustomerService(db).CreateAsync(new CreateCustomerRequest("Dave", "Miller", "0215551234", null, null, null));
+        var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Toyota"));
+        var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Hilux"));
+        var (created, _) = await service.CreateAsync(NewCallerBooking() with { CustomerId = customer.Id });
+
+        var (appointment, error) = await service.ConvertToCarAsync(
+            created!.Id, new CreateCarRequest(Guid.Empty, make.Id, model!.Id, 2020, "NEW123", null, null, null));
+
+        Assert.Equal(AppointmentConvertError.None, error);
+        Assert.NotNull(appointment);
+        Assert.NotNull(appointment!.CarId);
+        Assert.Equal(1, await db.Cars.CountAsync());
+        Assert.Equal(customer.Id, (await db.Cars.SingleAsync()).CustomerId); // request.CustomerId ignored, appointment's used instead
+    }
+
+    [Fact]
+    public async Task ConvertToCarAsync_ReturnsNoLinkedCustomer_WhenAppointmentHasNoCustomer()
+    {
+        await using var db = CreateContext();
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
+        var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Toyota"));
+        var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Hilux"));
+        var (created, _) = await service.CreateAsync(NewCallerBooking());
+
+        var (appointment, error) = await service.ConvertToCarAsync(
+            created!.Id, new CreateCarRequest(Guid.Empty, make.Id, model!.Id, 2020, "NEW123", null, null, null));
+
+        Assert.Null(appointment);
+        Assert.Equal(AppointmentConvertError.NoLinkedCustomer, error);
+    }
+
+    [Fact]
+    public async Task ConvertToCarAsync_ReturnsAlreadyLinked_WhenAppointmentAlreadyHasACar()
+    {
+        await using var db = CreateContext();
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
+        var (customerId, carId) = await SeedCustomerWithCarAsync(db);
+        var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Honda"));
+        var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Civic"));
+        var (created, _) = await service.CreateAsync(NewCallerBooking() with { CustomerId = customerId, CarId = carId });
+
+        var (appointment, error) = await service.ConvertToCarAsync(
+            created!.Id, new CreateCarRequest(Guid.Empty, make.Id, model!.Id, 2020, "NEW123", null, null, null));
+
+        Assert.Null(appointment);
+        Assert.Equal(AppointmentConvertError.AlreadyLinkedToCar, error);
+        Assert.Equal(1, await db.Cars.CountAsync()); // no second car created
+    }
+
+    [Fact]
+    public async Task ConvertToCarAsync_DuplicateRego_LeavesAppointmentUnlinked_NotPartiallyConverted()
+    {
+        // The atomicity guarantee this whole feature exists for: a rejected car creation must
+        // not leave the appointment half-converted (customer linked, car silently missing).
+        await using var db = CreateContext();
+        var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
+        var (customerId, _) = await SeedCustomerWithCarAsync(db, "TAKEN1");
+        var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Honda"));
+        var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Civic"));
+        var (created, _) = await service.CreateAsync(NewCallerBooking() with { CustomerId = customerId });
+
+        var (appointment, error) = await service.ConvertToCarAsync(
+            created!.Id, new CreateCarRequest(Guid.Empty, make.Id, model!.Id, 2020, "TAKEN1", null, null, null));
+
+        Assert.Null(appointment);
+        Assert.Equal(AppointmentConvertError.DuplicateRego, error);
+        var reloaded = await db.Appointments.AsNoTracking().SingleAsync(a => a.Id == created.Id);
+        Assert.Null(reloaded.CarId);
+        Assert.Equal(1, await db.Cars.CountAsync()); // only the pre-seeded car — nothing orphaned
     }
 }

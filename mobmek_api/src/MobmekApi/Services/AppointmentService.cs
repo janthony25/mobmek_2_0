@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace MobmekApi.Services;
 
 public class AppointmentService(
-    AppDbContext db, IGoogleCalendarClient calendarClient, IAppointmentChangeNotifier changeNotifier)
+    AppDbContext db, IGoogleCalendarClient calendarClient, IAppointmentChangeNotifier changeNotifier, ICarService carService)
     : IAppointmentService
 {
     // Inline projection so EF resolves linked names via joins.
@@ -179,6 +179,89 @@ public class AppointmentService(
 
         return (await GetByIdAsync(appointment.Id, cancellationToken), AppointmentWriteError.None);
     }
+
+    public async Task<(AppointmentDto? Appointment, AppointmentConvertError Error)> ConvertToCustomerAsync(
+        Guid id, CreateCustomerRequest request, CancellationToken cancellationToken = default)
+    {
+        var appointment = await db.Appointments.FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
+        if (appointment is null)
+        {
+            return (null, AppointmentConvertError.NotFound);
+        }
+
+        if (appointment.CustomerId is not null)
+        {
+            return (null, AppointmentConvertError.AlreadyLinkedToCustomer);
+        }
+
+        var customer = new Customer
+        {
+            FirstName = request.FirstName,
+            LastName = request.LastName,
+            PhoneNumber = request.PhoneNumber,
+            EmailAddress = request.EmailAddress,
+            PhysicalAddress = request.PhysicalAddress,
+            Notes = request.Notes,
+        };
+        db.Customers.Add(customer);
+        appointment.CustomerId = customer.Id;
+
+        // Everything above is one SaveChangesAsync call below — the customer can't be persisted
+        // without the link, or vice versa, unlike the old two-separate-API-calls flow.
+        await EnqueueCalendarUpsertIfNotPendingAsync(appointment.Id, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        changeNotifier.NotifyChanged();
+
+        return (await GetByIdAsync(appointment.Id, cancellationToken), AppointmentConvertError.None);
+    }
+
+    public async Task<(AppointmentDto? Appointment, AppointmentConvertError Error)> ConvertToCarAsync(
+        Guid id, CreateCarRequest request, CancellationToken cancellationToken = default)
+    {
+        var appointment = await db.Appointments.FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
+        if (appointment is null)
+        {
+            return (null, AppointmentConvertError.NotFound);
+        }
+
+        if (appointment.CustomerId is not { } customerId)
+        {
+            return (null, AppointmentConvertError.NoLinkedCustomer);
+        }
+
+        if (appointment.CarId is not null)
+        {
+            return (null, AppointmentConvertError.AlreadyLinkedToCar);
+        }
+
+        var (car, carError) = await carService.BuildAsync(request with { CustomerId = customerId }, cancellationToken);
+        if (carError != CarWriteError.None)
+        {
+            return (null, MapCarError(carError));
+        }
+
+        appointment.CarId = car!.Id;
+
+        // Same single-SaveChangesAsync atomicity as ConvertToCustomerAsync above — carService
+        // .BuildAsync only adds the car to the tracked context, it doesn't save on its own.
+        await EnqueueCalendarUpsertIfNotPendingAsync(appointment.Id, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        changeNotifier.NotifyChanged();
+
+        return (await GetByIdAsync(appointment.Id, cancellationToken), AppointmentConvertError.None);
+    }
+
+    private static AppointmentConvertError MapCarError(CarWriteError error) => error switch
+    {
+        CarWriteError.MakeNotFound => AppointmentConvertError.MakeNotFound,
+        CarWriteError.ModelNotFound => AppointmentConvertError.ModelNotFound,
+        CarWriteError.ModelNotInMake => AppointmentConvertError.ModelNotInMake,
+        CarWriteError.DuplicateRego => AppointmentConvertError.DuplicateRego,
+        CarWriteError.DuplicateVin => AppointmentConvertError.DuplicateVin,
+        // CustomerNotFound/NotFound can't happen here — CustomerId is the appointment's own
+        // already-validated link, never user-supplied for this call.
+        _ => AppointmentConvertError.NotFound,
+    };
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {

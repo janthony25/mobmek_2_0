@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { generateQuotation, getInvoices, rejectInvoice } from '@/api/invoices'
+import { apiUrl } from '@/api/client'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { DropdownMenu } from '@/components/ui/DropdownMenu'
@@ -114,20 +115,11 @@ export function QuotationsSection({ jobId, onAccepted }: QuotationsSectionProps)
                         items={[
                           {
                             label: 'View Quotation (PDF)',
-                            onClick: () => window.open(`/jobs/${jobId}/invoices/${quo.id}/pdf`, '_blank'),
+                            onClick: () => window.open(apiUrl(`/jobs/${jobId}/invoices/${quo.id}/pdf`), '_blank'),
                           },
                           {
                             label: 'Download Quotation (PDF)',
-                            onClick: () => window.open(`/jobs/${jobId}/invoices/${quo.id}/pdf?autoprint=1`, '_blank'),
-                          },
-                          {
-                            label: 'Print Quotation',
-                            onClick: () =>
-                              window.open(
-                                `/jobs/${jobId}/invoices/${quo.id}/pdf?autoprint=1`,
-                                '_blank',
-                                'width=900,height=700',
-                              ),
+                            onClick: () => window.open(apiUrl(`/jobs/${jobId}/invoices/${quo.id}/pdf?download=true`), '_blank'),
                           },
                           {
                             label: 'Send Email',

@@ -9,12 +9,13 @@ namespace MobmekApi.Controllers;
 [Produces("application/json")]
 public class NotesController(INoteService noteService) : ControllerBase
 {
-    /// <summary>Returns all sticky notes (pinned first, then newest).</summary>
+    /// <summary>Returns sticky notes (pinned first, then newest), optionally filtered to one
+    /// customer via <c>?customerId=</c>.</summary>
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<NoteDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<NoteDto>>> GetAll(CancellationToken cancellationToken)
+    public async Task<ActionResult<IReadOnlyList<NoteDto>>> GetAll([FromQuery] Guid? customerId, CancellationToken cancellationToken)
     {
-        var notes = await noteService.GetAllAsync(cancellationToken);
+        var notes = await noteService.GetAllAsync(customerId, cancellationToken);
         return Ok(notes);
     }
 

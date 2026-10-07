@@ -24,11 +24,16 @@ public class NoteService(AppDbContext db) : INoteService
             n.CreatedAtUtc,
             n.UpdatedAtUtc);
 
-    public async Task<IReadOnlyList<NoteDto>> GetAllAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<NoteDto>> GetAllAsync(Guid? customerId = null, CancellationToken cancellationToken = default)
     {
+        var query = db.Notes.AsNoTracking();
+        if (customerId is { } id)
+        {
+            query = query.Where(n => n.CustomerId == id);
+        }
+
         // Pinned first, then newest — the board's natural order.
-        return await db.Notes
-            .AsNoTracking()
+        return await query
             .OrderByDescending(n => n.IsPinned)
             .ThenByDescending(n => n.CreatedAtUtc)
             .Select(ToDto)

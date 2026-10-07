@@ -13,6 +13,7 @@ Before writing or editing any code in response to a request:
 1. **Clarify first — ask, don't assume.** Ask the questions needed to be sure you understand exactly what's wanted (which entities/fields, required vs. optional, relationships, endpoints, edge cases, naming). Do not start coding until genuine ambiguity is resolved. A request that seems clear can still hide assumptions — surface them.
 2. **Challenge what looks wrong.** If something in the request seems mistaken, inconsistent with what's already here, or likely not what the user actually wants (e.g. a field marked required that's optional elsewhere, an odd name, a relationship that doesn't fit), **stop and ask whether they really want it** before proceeding. Be vigilant about this — flag it even when you're only somewhat unsure. The user would rather be asked than get the wrong thing.
 3. **Lay out a to-do list before changing anything.** Present the concrete, ordered steps you're about to take (files to add/edit, migration, tests) so the user can see exactly what will change, then work through them one by one and keep the list visible/updated as you go.
+4. **Update the feature status doc before calling it done.** `docs/features/` holds one living, code-verified status file per feature area (index at `docs/features/README.md`). Any change that adds, fixes, or removes behavior in a feature area must update the corresponding file in the same change — new capability becomes "Working", a fixed gap gets removed or re-marked, a newly discovered gap gets added. Don't skip this because the change feels small; a stale status doc is worse than none. If no file covers the area yet, add one rather than leaving the change undocumented.
 
 The goal: build exactly the right feature, correctly — never silently guess.
 
@@ -51,7 +52,7 @@ Whenever you add or change API behavior — a new endpoint, a new/changed servic
 
 - Test at the **service layer** (the `{X}Service` against an in-memory `AppDbContext`) — that's where the logic lives. See `ProductServiceTests` for the pattern.
 - Cover both the happy path and the edge cases the service signals: not-found (`null`), delete miss (`false`), validation/ordering, and audit stamping (`UpdatedAtUtc`).
-- Run `dotnet test` before considering the change done. A pure passthrough on a thin controller (no logic beyond status-code mapping) doesn't need its own test, but the service method behind it does.
+- **Batch the verification, don't run it after every edit.** Write the tests alongside the code as you go, but only actually invoke `dotnet build`/`dotnet test` once per logical unit of work — e.g. once after everything on the current to-do list is implemented, not once per gap/fix/file. Exception: run it immediately after a specific edit if that edit is genuinely high-risk for cascading breakage (changing a shared interface signature, an entity/migration, or a type many other files depend on) — catching that early is cheaper than discovering it three unrelated changes later. The same batching applies to the Docker rebuild + live-verification cycle (see `mobmek_frontend/CLAUDE.md`) when a session touches both backend and frontend — rebuild and verify once near the end of the batch, not once per feature.
 
 ## Running the app
 

@@ -7,7 +7,8 @@ namespace MobmekApi.Controllers;
 [ApiController]
 [Route("api/jobs/{jobId:guid}/invoices")]
 [Produces("application/json")]
-public class InvoicesController(IInvoiceService invoiceService, IOutboundEmailService outboundEmailService) : ControllerBase
+public class InvoicesController(
+    IInvoiceService invoiceService, IOutboundEmailService outboundEmailService, IInvoicePdfService invoicePdfService) : ControllerBase
 {
     /// <summary>Returns the invoices generated for a job, newest first.</summary>
     [HttpGet]
@@ -118,6 +119,26 @@ public class InvoicesController(IInvoiceService invoiceService, IOutboundEmailSe
     {
         var paid = await invoiceService.MarkPaidAsync(jobId, id, request, cancellationToken);
         return paid is null ? NotFound() : Ok(paid);
+    }
+
+    /// <summary>Returns the invoice/quotation as a PDF — the same QuestPDF document attached to
+    /// outbound emails, so what staff view/download here is exactly what the customer receives.
+    /// <c>?download=true</c> forces a Save-As (Content-Disposition: attachment); omitted/false
+    /// renders inline in the browser's own PDF viewer.</summary>
+    [HttpGet("{id:guid}/pdf")]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPdf(Guid jobId, Guid id, CancellationToken cancellationToken, [FromQuery] bool download = false)
+    {
+        var document = await invoicePdfService.GenerateAsync(jobId, id, cancellationToken);
+        if (document is null)
+        {
+            return NotFound();
+        }
+
+        return download
+            ? File(document.Bytes, "application/pdf", document.FileName)
+            : File(document.Bytes, "application/pdf");
     }
 
     /// <summary>Emails the invoice to a recipient (defaults to the customer on file) and records

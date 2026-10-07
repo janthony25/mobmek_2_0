@@ -18,12 +18,12 @@ public class JobPhotoServiceTests
     private static IFileStorage CreateStorage() =>
         new LocalFileStorage(Path.Combine(Path.GetTempPath(), "mobmek-tests", Guid.NewGuid().ToString("N")));
 
-    private static async Task<Guid> SeedJobAsync(AppDbContext db, IFileStorage storage)
+    private static async Task<Guid> SeedJobAsync(AppDbContext db, IFileStorage storage, string rego = "R")
     {
         var customer = await new CustomerService(db).CreateAsync(new CreateCustomerRequest("O", "P", "0", null, null, null));
         var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Make"));
         var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Model"));
-        var (car, _) = await new CarService(db).CreateAsync(new CreateCarRequest(customer.Id, make.Id, model!.Id, 2020, "R", null, null, null));
+        var (car, _) = await new CarService(db).CreateAsync(new CreateCarRequest(customer.Id, make.Id, model!.Id, 2020, rego, null, null, null));
         var (job, _) = await new JobService(db, storage).CreateAsync(
             new CreateJobRequest(customer.Id, car!.Id, "Job", JobStatus.Open, 1000, null, null));
         return job!.Id;
@@ -71,7 +71,7 @@ public class JobPhotoServiceTests
         await using var db = CreateContext();
         var storage = CreateStorage();
         var jobId = await SeedJobAsync(db, storage);
-        var otherJobId = await SeedJobAsync(db, storage);
+        var otherJobId = await SeedJobAsync(db, storage, "R2");
         var service = new JobPhotoService(db, storage);
 
         var first = await service.AddAsync(jobId, Jpeg(), "first.jpg", "image/jpeg", 11);
@@ -89,7 +89,7 @@ public class JobPhotoServiceTests
         await using var db = CreateContext();
         var storage = CreateStorage();
         var jobId = await SeedJobAsync(db, storage);
-        var otherJobId = await SeedJobAsync(db, storage);
+        var otherJobId = await SeedJobAsync(db, storage, "R2");
         var service = new JobPhotoService(db, storage);
 
         var photo = await service.AddAsync(jobId, Jpeg(), "damage.jpg", "image/jpeg", 11);

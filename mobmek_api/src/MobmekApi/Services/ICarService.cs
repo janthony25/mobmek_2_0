@@ -1,4 +1,5 @@
 using MobmekApi.DTOs;
+using MobmekApi.Entities;
 
 namespace MobmekApi.Services;
 
@@ -11,6 +12,8 @@ public enum CarWriteError
     MakeNotFound,
     ModelNotFound,
     ModelNotInMake,
+    DuplicateRego,
+    DuplicateVin,
 }
 
 public interface ICarService
@@ -21,6 +24,10 @@ public interface ICarService
     Task<CarDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<(CarDto? Car, CarWriteError Error)> CreateAsync(CreateCarRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>Same validation as <see cref="CreateAsync"/> but adds the car to the tracked
+    /// context without saving — for callers that need to batch it into a larger atomic write.</summary>
+    Task<(Car? Car, CarWriteError Error)> BuildAsync(CreateCarRequest request, CancellationToken cancellationToken = default);
 
     Task<(CarDto? Car, CarWriteError Error)> UpdateAsync(Guid id, UpdateCarRequest request, CancellationToken cancellationToken = default);
 

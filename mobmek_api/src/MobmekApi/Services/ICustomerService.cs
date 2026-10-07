@@ -24,4 +24,11 @@ public interface ICustomerService
     Task<CustomerDto?> UpdateAsync(Guid id, UpdateCustomerRequest request, CancellationToken cancellationToken = default);
 
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>Soft duplicate check for the create/edit form — looks for an existing customer
+    /// with the same phone and/or email (whitespace/case-insensitive), excluding
+    /// <paramref name="excludeId"/> when editing. Returns an empty list when neither value is
+    /// supplied. This is advisory only; callers are never blocked from saving on a match.</summary>
+    Task<IReadOnlyList<CustomerDuplicateMatchDto>> CheckDuplicatesAsync(
+        string? phone, string? email, Guid? excludeId, CancellationToken cancellationToken = default);
 }

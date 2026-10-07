@@ -41,7 +41,7 @@ public class AppointmentCalendarSyncTests
     {
         await using var db = CreateContext();
         var client = new FakeGoogleCalendarClient { IsConfigured = true };
-        var service = new AppointmentService(db, client, new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, client, new FakeAppointmentChangeNotifier(), new CarService(db));
 
         var (appointment, _) = await service.CreateAsync(NewCallerBooking());
 
@@ -56,7 +56,7 @@ public class AppointmentCalendarSyncTests
     {
         await using var db = CreateContext();
         var client = new FakeGoogleCalendarClient { IsConfigured = false };
-        var service = new AppointmentService(db, client, new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, client, new FakeAppointmentChangeNotifier(), new CarService(db));
 
         await service.CreateAsync(NewCallerBooking());
 
@@ -68,7 +68,7 @@ public class AppointmentCalendarSyncTests
     {
         await using var db = CreateContext();
         var client = new FakeGoogleCalendarClient { IsConfigured = true };
-        var service = new AppointmentService(db, client, new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, client, new FakeAppointmentChangeNotifier(), new CarService(db));
         var (appointment, _) = await service.CreateAsync(NewCallerBooking());
 
         // Simulate the sync job already having pushed and cleared the create's outbox row.
@@ -88,7 +88,7 @@ public class AppointmentCalendarSyncTests
     {
         await using var db = CreateContext();
         var client = new FakeGoogleCalendarClient { IsConfigured = true };
-        var service = new AppointmentService(db, client, new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, client, new FakeAppointmentChangeNotifier(), new CarService(db));
         var (appointment, _) = await service.CreateAsync(NewCallerBooking());
 
         await service.UpdateAsync(appointment!.Id, ToUpdateRequest(appointment) with { Title = "First edit" });
@@ -104,7 +104,7 @@ public class AppointmentCalendarSyncTests
     {
         await using var db = CreateContext();
         var client = new FakeGoogleCalendarClient { IsConfigured = true };
-        var service = new AppointmentService(db, client, new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, client, new FakeAppointmentChangeNotifier(), new CarService(db));
         var (appointment, _) = await service.CreateAsync(NewCallerBooking());
 
         // Simulate: already pushed once (has a GoogleEventId), then edited again (pending Upsert).
@@ -127,7 +127,7 @@ public class AppointmentCalendarSyncTests
     {
         await using var db = CreateContext();
         var client = new FakeGoogleCalendarClient { IsConfigured = true };
-        var service = new AppointmentService(db, client, new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, client, new FakeAppointmentChangeNotifier(), new CarService(db));
         var (appointment, _) = await service.CreateAsync(NewCallerBooking());
 
         await service.DeleteAsync(appointment!.Id);
@@ -142,7 +142,7 @@ public class AppointmentCalendarSyncTests
     {
         await using var db = CreateContext();
         var client = new FakeGoogleCalendarClient { IsConfigured = false };
-        var service = new AppointmentService(db, client, new FakeAppointmentChangeNotifier());
+        var service = new AppointmentService(db, client, new FakeAppointmentChangeNotifier(), new CarService(db));
         var (appointment, _) = await service.CreateAsync(NewCallerBooking());
 
         await service.DeleteAsync(appointment!.Id);

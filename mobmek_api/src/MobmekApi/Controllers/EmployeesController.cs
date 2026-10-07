@@ -74,15 +74,21 @@ public class EmployeesController(IEmployeeService employeeService) : ControllerB
         return Ok(employee);
     }
 
-    /// <summary>Deletes an employee.</summary>
+    /// <summary>Deletes an employee. Refuses (400) if the employee still has a login account or
+    /// is assigned to a job as a mechanic — remove those first.</summary>
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = Permissions.ManageEmployees)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
-        var deleted = await employeeService.DeleteAsync(id, cancellationToken);
-        return deleted ? NoContent() : NotFound();
+        var error = await employeeService.DeleteAsync(id, cancellationToken);
+        return error switch
+        {
+            EmployeeWriteError.None => NoContent(),
+            _ => MapError(error, Guid.Empty, Guid.Empty),
+        };
     }
 
     private ActionResult MapError(EmployeeWriteError error, Guid titleId, Guid employmentTypeId) => error switch
@@ -92,6 +98,9 @@ public class EmployeesController(IEmployeeService employeeService) : ControllerB
             detail: $"Employee title '{titleId}' does not exist.", statusCode: StatusCodes.Status400BadRequest),
         EmployeeWriteError.EmploymentTypeNotFound => Problem(
             detail: $"Employment type '{employmentTypeId}' does not exist.", statusCode: StatusCodes.Status400BadRequest),
+        EmployeeWriteError.InUse => Problem(
+            detail: "This employee still has a login account or is assigned to a job as a mechanic — remove those first.",
+            statusCode: StatusCodes.Status400BadRequest),
         _ => Problem(statusCode: StatusCodes.Status500InternalServerError),
     };
 }

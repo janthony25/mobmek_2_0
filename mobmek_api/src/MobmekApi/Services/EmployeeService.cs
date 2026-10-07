@@ -99,18 +99,25 @@ public class EmployeeService(AppDbContext db) : IEmployeeService
         return ((await GetByIdAsync(employee.Id, cancellationToken))!, EmployeeWriteError.None);
     }
 
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<EmployeeWriteError> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var employee = await db.Employees.FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
         if (employee is null)
         {
-            return false;
+            return EmployeeWriteError.NotFound;
+        }
+
+        var hasLoginAccount = await db.Users.AnyAsync(u => u.EmployeeId == id, cancellationToken);
+        var isMechanicOnAJob = await db.JobMechanics.AnyAsync(m => m.EmployeeId == id, cancellationToken);
+        if (hasLoginAccount || isMechanicOnAJob)
+        {
+            return EmployeeWriteError.InUse;
         }
 
         db.Employees.Remove(employee);
         await db.SaveChangesAsync(cancellationToken);
 
-        return true;
+        return EmployeeWriteError.None;
     }
 
     private async Task<EmployeeWriteError> ValidateReferencesAsync(Guid titleId, Guid employmentTypeId, CancellationToken cancellationToken)

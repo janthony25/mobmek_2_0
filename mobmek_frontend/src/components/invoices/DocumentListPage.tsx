@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getInvoice, getInvoicesPaged, rejectInvoice } from '@/api/invoices'
 import type { InvoicePagedFilters } from '@/api/invoices'
-import { ApiError } from '@/api/client'
+import { apiUrl, ApiError } from '@/api/client'
 import { CrudSection } from '@/components/crud/CrudSection'
 import { Badge } from '@/components/ui/Badge'
 import { DateRangeFilter } from '@/components/ui/DateRangeFilter'
@@ -181,7 +181,7 @@ export function DocumentListPage({ documentType }: DocumentListPageProps) {
             header: 'Actions',
             className: 'text-right',
             cell: (i) => {
-              const pdfUrl = `/jobs/${i.jobId}/invoices/${i.id}/pdf`
+              const pdfUrl = apiUrl(`/jobs/${i.jobId}/invoices/${i.id}/pdf`)
               // Quotations move Active -> Accepted/Rejected; invoices move Active -> Rejected.
               const active = i.status === 'Active'
               return (
@@ -195,7 +195,7 @@ export function DocumentListPage({ documentType }: DocumentListPageProps) {
                     },
                     {
                       label: `Download ${documentType} (PDF)`,
-                      onClick: () => window.open(`${pdfUrl}?autoprint=1`, '_blank'),
+                      onClick: () => window.open(`${pdfUrl}?download=true`, '_blank'),
                     },
                     ...(isQuotation
                       ? [{ label: 'Accept', disabled: !active, onClick: () => setAccepting(i) }]

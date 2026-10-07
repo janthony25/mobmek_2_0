@@ -49,18 +49,23 @@ public class EmployeeTitleService(AppDbContext db) : IEmployeeTitleService
         return ToDto(title);
     }
 
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<EmployeeTitleDeleteError> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var title = await db.EmployeeTitles.FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
         if (title is null)
         {
-            return false;
+            return EmployeeTitleDeleteError.NotFound;
+        }
+
+        if (await db.Employees.AnyAsync(e => e.TitleId == id, cancellationToken))
+        {
+            return EmployeeTitleDeleteError.InUse;
         }
 
         db.EmployeeTitles.Remove(title);
         await db.SaveChangesAsync(cancellationToken);
 
-        return true;
+        return EmployeeTitleDeleteError.None;
     }
 
     private static EmployeeTitleDto ToDto(EmployeeTitle t) =>

@@ -49,18 +49,23 @@ public class EmploymentTypeService(AppDbContext db) : IEmploymentTypeService
         return ToDto(type);
     }
 
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<EmploymentTypeDeleteError> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var type = await db.EmploymentTypes.FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
         if (type is null)
         {
-            return false;
+            return EmploymentTypeDeleteError.NotFound;
+        }
+
+        if (await db.Employees.AnyAsync(e => e.EmploymentTypeId == id, cancellationToken))
+        {
+            return EmploymentTypeDeleteError.InUse;
         }
 
         db.EmploymentTypes.Remove(type);
         await db.SaveChangesAsync(cancellationToken);
 
-        return true;
+        return EmploymentTypeDeleteError.None;
     }
 
     private static EmploymentTypeDto ToDto(EmploymentType t) =>

@@ -76,6 +76,8 @@ public class CarsController(ICarService carService) : ControllerBase
         CarWriteError.MakeNotFound => Problem(detail: "Car make does not exist.", statusCode: StatusCodes.Status400BadRequest),
         CarWriteError.ModelNotFound => Problem(detail: "Car model does not exist.", statusCode: StatusCodes.Status400BadRequest),
         CarWriteError.ModelNotInMake => Problem(detail: "The selected model does not belong to the selected make.", statusCode: StatusCodes.Status400BadRequest),
+        CarWriteError.DuplicateRego => Problem(detail: "A car with this rego already exists.", statusCode: StatusCodes.Status400BadRequest),
+        CarWriteError.DuplicateVin => Problem(detail: "A car with this VIN already exists.", statusCode: StatusCodes.Status400BadRequest),
         _ => Problem(statusCode: StatusCodes.Status500InternalServerError),
     };
 }

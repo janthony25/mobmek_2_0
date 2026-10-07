@@ -51,13 +51,22 @@ public class EmployeeTitlesController(IEmployeeTitleService titleService) : Cont
         return updated is null ? NotFound() : Ok(updated);
     }
 
-    /// <summary>Deletes a title.</summary>
+    /// <summary>Deletes a title. Refuses (400) if any employee still has this title.</summary>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
-        var deleted = await titleService.DeleteAsync(id, cancellationToken);
-        return deleted ? NoContent() : NotFound();
+        var error = await titleService.DeleteAsync(id, cancellationToken);
+        return error switch
+        {
+            EmployeeTitleDeleteError.None => NoContent(),
+            EmployeeTitleDeleteError.NotFound => NotFound(),
+            EmployeeTitleDeleteError.InUse => Problem(
+                detail: "This title is still assigned to one or more employees — reassign them first.",
+                statusCode: StatusCodes.Status400BadRequest),
+            _ => Problem(statusCode: StatusCodes.Status500InternalServerError),
+        };
     }
 }

@@ -4,19 +4,10 @@ import { createCustomer, deleteCustomer, getCustomersPaged, updateCustomer } fro
 import type { CustomerPagedFilters } from '@/api/customers'
 import { CrudSection } from '@/components/crud/CrudSection'
 import { CustomerCard } from '@/components/customers/CustomerCard'
+import { CustomerForm } from '@/components/forms/CustomerForm'
 import { DateRangeFilter } from '@/components/ui/DateRangeFilter'
-import type { FieldSchema } from '@/components/crud/types'
 import { orDash } from '@/lib/format'
 import type { CustomerListItem, CustomerRequest } from '@/types'
-
-const fields: FieldSchema[] = [
-  { name: 'firstName', label: 'First name', type: 'text', required: true },
-  { name: 'lastName', label: 'Last name', type: 'text', required: true },
-  { name: 'phoneNumber', label: 'Phone number', type: 'phone', required: true },
-  { name: 'emailAddress', label: 'Email', type: 'email' },
-  { name: 'physicalAddress', label: 'Address', type: 'text' },
-  { name: 'notes', label: 'Notes', type: 'textarea' },
-]
 
 export function CustomersPage() {
   const [sortBy, setSortBy] = useState<NonNullable<CustomerPagedFilters['sortBy']>>('newest')
@@ -66,7 +57,9 @@ export function CustomersPage() {
           { header: 'Email', cell: (c) => orDash(c.emailAddress) },
           { header: 'Address', cell: (c) => orDash(c.physicalAddress) },
         ]}
-        fields={fields}
+        renderForm={({ initial, onSubmit, onCancel }) => (
+          <CustomerForm initial={initial} onSubmit={onSubmit} onCancel={onCancel} />
+        )}
         onCreate={(v) => createCustomer(v as unknown as CustomerRequest).then(() => undefined)}
         onUpdate={(id, v) => updateCustomer(id, v as unknown as CustomerRequest).then(() => undefined)}
         onDelete={deleteCustomer}

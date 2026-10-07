@@ -14,14 +14,14 @@ public class JobServiceTests
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options);
 
-    private static async Task<(Guid CustomerId, Guid CarId)> SeedCustomerWithCarAsync(AppDbContext db)
+    private static async Task<(Guid CustomerId, Guid CarId)> SeedCustomerWithCarAsync(AppDbContext db, string rego = "ABC123")
     {
         var customer = await new CustomerService(db).CreateAsync(
             new CreateCustomerRequest("Owner", "Person", "000", null, null, null));
         var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Toyota"));
         var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Hilux"));
         var (car, _) = await new CarService(db).CreateAsync(
-            new CreateCarRequest(customer.Id, make.Id, model!.Id, 2020, "ABC123", null, null, null));
+            new CreateCarRequest(customer.Id, make.Id, model!.Id, 2020, rego, null, null, null));
         return (customer.Id, car!.Id);
     }
 
@@ -48,7 +48,7 @@ public class JobServiceTests
     {
         await using var db = CreateContext();
         var (customerId, _) = await SeedCustomerWithCarAsync(db);
-        var (_, otherCarId) = await SeedCustomerWithCarAsync(db);
+        var (_, otherCarId) = await SeedCustomerWithCarAsync(db, "XYZ789");
         var service = new JobService(db);
 
         var (job, error) = await service.CreateAsync(NewJob(customerId, otherCarId));

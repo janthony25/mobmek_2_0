@@ -124,6 +124,31 @@ public class AppointmentsController(
         return Ok(appointment);
     }
 
+    /// <summary>Convert-on-arrival step 1: creates a customer from the phone-call contact and
+    /// atomically links it to the appointment (one DB write — see <see cref="IAppointmentService.ConvertToCustomerAsync"/>
+    /// for why this replaced two separate create-then-link frontend calls).</summary>
+    [HttpPost("{id:guid}/convert-to-customer")]
+    [ProducesResponseType(typeof(AppointmentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<AppointmentDto>> ConvertToCustomer(Guid id, CreateCustomerRequest request, CancellationToken cancellationToken)
+    {
+        var (appointment, error) = await appointmentService.ConvertToCustomerAsync(id, request, cancellationToken);
+        return error == AppointmentConvertError.None ? Ok(appointment) : MapConvertError(error);
+    }
+
+    /// <summary>Convert-on-arrival step 2: creates a car for the appointment's linked customer
+    /// and atomically links it to the appointment (one DB write).</summary>
+    [HttpPost("{id:guid}/convert-to-car")]
+    [ProducesResponseType(typeof(AppointmentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<AppointmentDto>> ConvertToCar(Guid id, CreateCarRequest request, CancellationToken cancellationToken)
+    {
+        var (appointment, error) = await appointmentService.ConvertToCarAsync(id, request, cancellationToken);
+        return error == AppointmentConvertError.None ? Ok(appointment) : MapConvertError(error);
+    }
+
     /// <summary>Deletes an appointment.</summary>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -146,6 +171,20 @@ public class AppointmentsController(
         AppointmentWriteError.JobNotFound => Problem(detail: "Job does not exist.", statusCode: StatusCodes.Status400BadRequest),
         AppointmentWriteError.JobCustomerMismatch => Problem(detail: "The selected job belongs to a different customer.", statusCode: StatusCodes.Status400BadRequest),
         AppointmentWriteError.MechanicNotFound => Problem(detail: "Employee does not exist.", statusCode: StatusCodes.Status400BadRequest),
+        _ => Problem(statusCode: StatusCodes.Status500InternalServerError),
+    };
+
+    private ActionResult MapConvertError(AppointmentConvertError error) => error switch
+    {
+        AppointmentConvertError.NotFound => NotFound(),
+        AppointmentConvertError.AlreadyLinkedToCustomer => Problem(detail: "This appointment already has a linked customer.", statusCode: StatusCodes.Status400BadRequest),
+        AppointmentConvertError.AlreadyLinkedToCar => Problem(detail: "This appointment already has a linked car.", statusCode: StatusCodes.Status400BadRequest),
+        AppointmentConvertError.NoLinkedCustomer => Problem(detail: "Link a customer before adding a car.", statusCode: StatusCodes.Status400BadRequest),
+        AppointmentConvertError.MakeNotFound => Problem(detail: "Car make does not exist.", statusCode: StatusCodes.Status400BadRequest),
+        AppointmentConvertError.ModelNotFound => Problem(detail: "Car model does not exist.", statusCode: StatusCodes.Status400BadRequest),
+        AppointmentConvertError.ModelNotInMake => Problem(detail: "The selected model does not belong to the selected make.", statusCode: StatusCodes.Status400BadRequest),
+        AppointmentConvertError.DuplicateRego => Problem(detail: "A car with this rego already exists.", statusCode: StatusCodes.Status400BadRequest),
+        AppointmentConvertError.DuplicateVin => Problem(detail: "A car with this VIN already exists.", statusCode: StatusCodes.Status400BadRequest),
         _ => Problem(statusCode: StatusCodes.Status500InternalServerError),
     };
 }

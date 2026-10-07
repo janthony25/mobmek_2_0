@@ -44,6 +44,19 @@ public class CustomersController(ICustomerService customerService) : ControllerB
         return customer is null ? NotFound() : Ok(customer);
     }
 
+    /// <summary>Soft duplicate check for the create/edit form — looks for an existing customer
+    /// with the same phone and/or email. Advisory only: returning matches never blocks a save,
+    /// the caller just gets to decide whether to proceed. Pass <c>excludeId</c> when editing so
+    /// the customer being edited doesn't match itself.</summary>
+    [HttpGet("check-duplicate")]
+    [ProducesResponseType(typeof(IReadOnlyList<CustomerDuplicateMatchDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<CustomerDuplicateMatchDto>>> CheckDuplicate(
+        CancellationToken cancellationToken, [FromQuery] string? phone = null, [FromQuery] string? email = null, [FromQuery] Guid? excludeId = null)
+    {
+        var matches = await customerService.CheckDuplicatesAsync(phone, email, excludeId, cancellationToken);
+        return Ok(matches);
+    }
+
     /// <summary>Creates a new customer.</summary>
     [HttpPost]
     [ProducesResponseType(typeof(CustomerDto), StatusCodes.Status201Created)]

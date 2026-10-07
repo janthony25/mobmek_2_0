@@ -1,8 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { updateAppointment, deleteAppointment, toAppointmentRequest } from '@/api/appointments'
-import { createCustomer } from '@/api/customers'
-import { createCar } from '@/api/cars'
+import {
+  updateAppointment,
+  deleteAppointment,
+  toAppointmentRequest,
+  convertAppointmentToCustomer,
+  convertAppointmentToCar,
+} from '@/api/appointments'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -88,8 +92,7 @@ export function AppointmentDetailModal({
   }
 
   const handleCarCreated = async (values: Record<string, unknown>) => {
-    const car = await createCar({ customerId: a.customerId, ...values } as CreateCarRequest)
-    const updated = await updateAppointment(a.id, toAppointmentRequest(a, { carId: car.id }))
+    const updated = await convertAppointmentToCar(a.id, { customerId: a.customerId ?? '', ...values } as CreateCarRequest)
     toast.success('Car added and linked.')
     setConvertStep(null)
     onChanged(updated)
@@ -323,7 +326,7 @@ function QuickCustomerForm({ appointment, onDone, onCancel }: QuickCustomerFormP
     setBusy(true)
     setError(null)
     try {
-      const customer = await createCustomer({
+      const updated = await convertAppointmentToCustomer(appointment.id, {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         phoneNumber: phoneNumber.trim(),
@@ -331,10 +334,6 @@ function QuickCustomerForm({ appointment, onDone, onCancel }: QuickCustomerFormP
         physicalAddress: null,
         notes: null,
       })
-      const updated = await updateAppointment(
-        appointment.id,
-        toAppointmentRequest(appointment, { customerId: customer.id }),
-      )
       toast.success('Customer created and linked.')
       onDone(updated)
     } catch (err) {

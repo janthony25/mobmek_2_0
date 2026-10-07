@@ -126,24 +126,58 @@ public class EmployeeServiceTests
     }
 
     [Fact]
-    public async Task DeleteAsync_RemovesEmployee_AndReturnsTrue()
+    public async Task DeleteAsync_RemovesEmployee_AndReturnsNone()
     {
         await using var db = CreateContext();
         var (titleId, typeId) = await SeedLookupsAsync(db);
         var service = new EmployeeService(db);
         var (created, _) = await service.CreateAsync(NewEmployee(titleId, typeId, "Temp", "Worker"));
 
-        Assert.True(await service.DeleteAsync(created!.Id));
+        Assert.Equal(EmployeeWriteError.None, await service.DeleteAsync(created!.Id));
         Assert.Equal(0, await db.Employees.CountAsync());
     }
 
     [Fact]
-    public async Task DeleteAsync_ReturnsFalse_WhenMissing()
+    public async Task DeleteAsync_ReturnsNotFound_WhenMissing()
     {
         await using var db = CreateContext();
         var service = new EmployeeService(db);
 
-        Assert.False(await service.DeleteAsync(Guid.NewGuid()));
+        Assert.Equal(EmployeeWriteError.NotFound, await service.DeleteAsync(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ReturnsInUse_WhenEmployeeHasLoginAccount()
+    {
+        await using var db = CreateContext();
+        var (titleId, typeId) = await SeedLookupsAsync(db);
+        var service = new EmployeeService(db);
+        var (created, _) = await service.CreateAsync(NewEmployee(titleId, typeId, "Has", "Login"));
+        db.Users.Add(new MobmekApi.Entities.ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            EmployeeId = created!.Id,
+            UserName = "has.login@example.com",
+            Email = "has.login@example.com",
+        });
+        await db.SaveChangesAsync();
+
+        Assert.Equal(EmployeeWriteError.InUse, await service.DeleteAsync(created.Id));
+        Assert.Equal(1, await db.Employees.CountAsync());
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ReturnsInUse_WhenEmployeeIsMechanicOnAJob()
+    {
+        await using var db = CreateContext();
+        var (titleId, typeId) = await SeedLookupsAsync(db);
+        var service = new EmployeeService(db);
+        var (created, _) = await service.CreateAsync(NewEmployee(titleId, typeId, "On", "Job"));
+        db.JobMechanics.Add(new MobmekApi.Entities.JobMechanic { JobId = Guid.NewGuid(), EmployeeId = created!.Id });
+        await db.SaveChangesAsync();
+
+        Assert.Equal(EmployeeWriteError.InUse, await service.DeleteAsync(created.Id));
+        Assert.Equal(1, await db.Employees.CountAsync());
     }
 
     [Fact]

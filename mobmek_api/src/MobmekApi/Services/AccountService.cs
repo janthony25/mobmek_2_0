@@ -61,23 +61,7 @@ public class AccountService(
             return AccountError.NotConfigured;
         }
 
-        // Only the newest code is ever valid — supersede anything still pending.
-        var pending = await db.PasswordChangeCodes
-            .Where(c => c.UserId == userId && c.ConsumedAtUtc == null)
-            .ToListAsync(cancellationToken);
-        foreach (var old in pending)
-        {
-            old.ConsumedAtUtc = DateTime.UtcNow;
-        }
-
-        var code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
-        db.PasswordChangeCodes.Add(new PasswordChangeCode
-        {
-            UserId = userId,
-            CodeHash = Hash(code),
-            ExpiresAtUtc = DateTime.UtcNow.Add(CodeLifetime),
-        });
-        await db.SaveChangesAsync(cancellationToken);
+        var code = await IssueCodeAsync(userId, cancellationToken);
 
         var message = new OutboundEmailMessage(
             To: user.Email!,
@@ -131,6 +115,107 @@ public class AccountService(
         }
 
         return (AccountError.None, null);
+    }
+
+    public async Task<AccountError> RequestForgotPasswordCodeAsync(string email, CancellationToken cancellationToken = default)
+    {
+        var settings = await emailSettingsService.GetCurrentAsync(cancellationToken);
+        if (!settings.ResendConfigured)
+        {
+            return AccountError.NotConfigured;
+        }
+
+        var user = await userManager.FindByEmailAsync(email);
+        // No code is generated/sent for an unknown email, a deactivated account, or an
+        // unconfirmed one (that's what the activation-link flow is for) — but this method
+        // always returns None in every one of those cases, same as when a code genuinely goes
+        // out. An anonymous caller must not be able to tell them apart by probing this endpoint.
+        if (user is null || user.DeactivatedAtUtc is not null || !user.EmailConfirmed)
+        {
+            return AccountError.None;
+        }
+
+        var code = await IssueCodeAsync(user.Id, cancellationToken);
+        var message = new OutboundEmailMessage(
+            To: user.Email!,
+            ToName: null, Cc: null, Bcc: null,
+            ReplyTo: settings.ReplyToAddress,
+            FromName: settings.FromName, FromAddress: settings.FromAddress,
+            Subject: "Reset your Mobmek password",
+            Html: $"<p>Your password reset code is <strong>{code}</strong>. It expires in 10 minutes. " +
+                  "If you didn't request this, you can safely ignore this email — your password hasn't changed.</p>");
+
+        // A real send failure here is deliberately still reported as None, not SendFailed — the
+        // authenticated /account/password flow can afford to be specific since the caller is
+        // already proven to own the account, but this endpoint can't let "it failed to send"
+        // (only reachable once we already know the account is eligible) become a side channel
+        // distinguishable from "no such account" (which never attempts a send at all).
+        await emailSender.SendAsync(message, cancellationToken);
+        return AccountError.None;
+    }
+
+    public async Task<(AccountError Error, string? ErrorMessage)> ResetForgottenPasswordAsync(
+        ResetForgottenPasswordRequest request, CancellationToken cancellationToken = default)
+    {
+        var user = await userManager.FindByEmailAsync(request.Email);
+        if (user is null || user.DeactivatedAtUtc is not null)
+        {
+            // Same generic error as a wrong/expired code — an anonymous caller must not be able
+            // to tell "no such account" apart from "wrong code" by probing this endpoint.
+            return (AccountError.InvalidCode, null);
+        }
+
+        var codeRow = await db.PasswordChangeCodes
+            .Where(c => c.UserId == user.Id && c.ConsumedAtUtc == null)
+            .OrderByDescending(c => c.CreatedAtUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (codeRow is null || !FixedTimeEquals(codeRow.CodeHash, Hash(request.Code)))
+        {
+            return (AccountError.InvalidCode, null);
+        }
+
+        if (codeRow.ExpiresAtUtc < DateTime.UtcNow)
+        {
+            return (AccountError.CodeExpired, null);
+        }
+
+        codeRow.ConsumedAtUtc = DateTime.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+
+        var token = await userManager.GeneratePasswordResetTokenAsync(user);
+        var result = await userManager.ResetPasswordAsync(user, token, request.NewPassword);
+        if (!result.Succeeded)
+        {
+            return (AccountError.WeakPassword, string.Join(" ", result.Errors.Select(e => e.Description)));
+        }
+
+        return (AccountError.None, null);
+    }
+
+    /// <summary>Supersedes any still-pending code for this user and issues a fresh one. Shared by
+    /// the authenticated (<see cref="RequestPasswordChangeCodeAsync"/>) and unauthenticated
+    /// (<see cref="RequestForgotPasswordCodeAsync"/>) request-code flows — same table, same
+    /// 10-minute lifetime, same "only the newest code is valid" rule either way.</summary>
+    private async Task<string> IssueCodeAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var pending = await db.PasswordChangeCodes
+            .Where(c => c.UserId == userId && c.ConsumedAtUtc == null)
+            .ToListAsync(cancellationToken);
+        foreach (var old in pending)
+        {
+            old.ConsumedAtUtc = DateTime.UtcNow;
+        }
+
+        var code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
+        db.PasswordChangeCodes.Add(new PasswordChangeCode
+        {
+            UserId = userId,
+            CodeHash = Hash(code),
+            ExpiresAtUtc = DateTime.UtcNow.Add(CodeLifetime),
+        });
+        await db.SaveChangesAsync(cancellationToken);
+        return code;
     }
 
     private static ProfileDto ToDto(ApplicationUser user) => new(

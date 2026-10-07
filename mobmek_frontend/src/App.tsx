@@ -6,6 +6,7 @@ import { RequirePermission } from '@/components/auth/RequirePermission'
 import { PERMISSIONS } from '@/types'
 import { LoginPage } from '@/pages/LoginPage'
 import { ConfirmAccountPage } from '@/pages/ConfirmAccountPage'
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
 import { AccountsPage } from '@/pages/AccountsPage'
 import { RolesPage } from '@/pages/RolesPage'
 import { CustomersPage } from '@/pages/CustomersPage'
@@ -27,7 +28,6 @@ import { EmploymentTypesPage } from '@/pages/EmploymentTypesPage'
 import { TaxSettingsPage } from '@/pages/TaxSettingsPage'
 import { BusinessDetailsSettingsPage } from '@/pages/BusinessDetailsSettingsPage'
 import { ReminderTemplatesPage } from '@/pages/ReminderTemplatesPage'
-import { InvoicePrintPage } from '@/pages/InvoicePrintPage'
 import { CashFlowPage } from '@/pages/CashFlowPage'
 import { CashAccountsPage } from '@/pages/CashAccountsPage'
 import { TransactionCategoriesPage } from '@/pages/TransactionCategoriesPage'
@@ -45,12 +45,10 @@ function App() {
   return (
     <Routes>
       <Route path="login" element={<LoginPage />} />
+      <Route path="forgot-password" element={<ForgotPasswordPage />} />
       <Route path="confirm-account" element={<ConfirmAccountPage />} />
 
       <Route element={<RequireAuth />}>
-        {/* Outside AppLayout: a bare, print-friendly page with no sidebar/notes panel. */}
-        <Route path="jobs/:jobId/invoices/:invoiceId/pdf" element={<InvoicePrintPage />} />
-
         <Route element={<AppLayout />}>
           <Route index element={<Navigate to="/customers" replace />} />
           <Route path="customers" element={<CustomersPage />} />

@@ -15,6 +15,10 @@ public record CustomerDto(
     DateTime? UpdatedAtUtc,
     string? UpdatedByName);
 
+/// <summary>A lightweight match returned by the duplicate-check endpoint — enough for the
+/// frontend to show "looks like you already have this customer" without a second round trip.</summary>
+public record CustomerDuplicateMatchDto(Guid Id, string FirstName, string LastName, string PhoneNumber, string? EmailAddress);
+
 /// <summary>A customer's car as shown on the customer list, with its active-reminder info.</summary>
 public record CustomerCarSummaryDto(
     Guid Id,

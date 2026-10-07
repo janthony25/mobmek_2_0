@@ -284,4 +284,66 @@ public class CustomerServiceTests
         Assert.Equal(1, item.ActiveNoteCount);
         Assert.Equal(new DateOnly(2026, 7, 20), item.NextNoteDueDate);
     }
+
+    [Fact]
+    public async Task CheckDuplicatesAsync_NeitherFieldGiven_ReturnsEmpty_WithoutQuerying()
+    {
+        await using var db = CreateContext();
+        var service = new CustomerService(db);
+        await service.CreateAsync(new CreateCustomerRequest("Ada", "Lovelace", "+1-555-0100", "ada@example.com", null, null));
+
+        var matches = await service.CheckDuplicatesAsync(null, "  ", null);
+
+        Assert.Empty(matches);
+    }
+
+    [Fact]
+    public async Task CheckDuplicatesAsync_MatchesOnPhone_IgnoringSpacesAndDashes()
+    {
+        await using var db = CreateContext();
+        var service = new CustomerService(db);
+        var existing = await service.CreateAsync(new CreateCustomerRequest("Ada", "Lovelace", "021-234-5678", null, null, null));
+
+        var matches = await service.CheckDuplicatesAsync("0212345678", null, null);
+
+        var match = Assert.Single(matches);
+        Assert.Equal(existing.Id, match.Id);
+    }
+
+    [Fact]
+    public async Task CheckDuplicatesAsync_MatchesOnEmail_CaseInsensitive()
+    {
+        await using var db = CreateContext();
+        var service = new CustomerService(db);
+        var existing = await service.CreateAsync(new CreateCustomerRequest("Ada", "Lovelace", "0211111111", "Ada@Example.com", null, null));
+
+        var matches = await service.CheckDuplicatesAsync(null, "ada@example.com", null);
+
+        var match = Assert.Single(matches);
+        Assert.Equal(existing.Id, match.Id);
+    }
+
+    [Fact]
+    public async Task CheckDuplicatesAsync_ExcludesTheGivenId_SoEditingDoesNotMatchItself()
+    {
+        await using var db = CreateContext();
+        var service = new CustomerService(db);
+        var existing = await service.CreateAsync(new CreateCustomerRequest("Ada", "Lovelace", "0211111111", "ada@example.com", null, null));
+
+        var matches = await service.CheckDuplicatesAsync("0211111111", "ada@example.com", existing.Id);
+
+        Assert.Empty(matches);
+    }
+
+    [Fact]
+    public async Task CheckDuplicatesAsync_NoMatch_ReturnsEmpty()
+    {
+        await using var db = CreateContext();
+        var service = new CustomerService(db);
+        await service.CreateAsync(new CreateCustomerRequest("Ada", "Lovelace", "0211111111", "ada@example.com", null, null));
+
+        var matches = await service.CheckDuplicatesAsync("0299999999", "nobody@example.com", null);
+
+        Assert.Empty(matches);
+    }
 }

@@ -14,7 +14,8 @@ public class AuthController(
     SignInManager<ApplicationUser> signInManager,
     UserManager<ApplicationUser> userManager,
     IAuthService authService,
-    ILoginAttemptService loginAttemptService) : ControllerBase
+    ILoginAttemptService loginAttemptService,
+    IAccountService accountService) : ControllerBase
 {
     /// <summary>Signs in with email + password and sets the auth cookie.</summary>
     [HttpPost("login")]
@@ -67,6 +68,38 @@ public class AuthController(
 
         var currentUser = await authService.GetCurrentUserAsync(user.Id, cancellationToken);
         return Ok(currentUser);
+    }
+
+    /// <summary>Starts a password reset for a user who's locked out and can't sign in to reach
+    /// the authenticated <c>/account/password</c> flow. Always 204 — deliberately indistinguishable
+    /// whether or not the email matches an account, see <see cref="IAccountService.RequestForgotPasswordCodeAsync"/>.</summary>
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request, CancellationToken cancellationToken)
+    {
+        await accountService.RequestForgotPasswordCodeAsync(request.Email, cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>Verifies the code emailed by <see cref="ForgotPassword"/> and sets a new password.</summary>
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResetPassword(ResetForgottenPasswordRequest request, CancellationToken cancellationToken)
+    {
+        var (error, errorMessage) = await accountService.ResetForgottenPasswordAsync(request, cancellationToken);
+        return error switch
+        {
+            AccountError.None => NoContent(),
+            AccountError.InvalidCode => Problem(
+                detail: "That code is incorrect, has already been used, or doesn't match that email.",
+                statusCode: StatusCodes.Status400BadRequest),
+            AccountError.CodeExpired => Problem(detail: "That code has expired — request a new one.", statusCode: StatusCodes.Status400BadRequest),
+            AccountError.WeakPassword => Problem(detail: errorMessage ?? "That password doesn't meet the requirements.", statusCode: StatusCodes.Status400BadRequest),
+            _ => Problem(statusCode: StatusCodes.Status500InternalServerError),
+        };
     }
 
     /// <summary>Clears the auth cookie.</summary>

@@ -175,4 +175,113 @@ public class CarServiceTests
 
         Assert.False(await service.DeleteAsync(Guid.NewGuid()));
     }
+
+    [Fact]
+    public async Task CreateAsync_ReturnsDuplicateRego_WhenRegoAlreadyInUse_CaseAndWhitespaceInsensitive()
+    {
+        await using var db = CreateContext();
+        var customerId = await SeedCustomerAsync(db);
+        var (makeId, modelId) = await SeedMakeModelAsync(db);
+        var service = new CarService(db);
+        await service.CreateAsync(new CreateCarRequest(customerId, makeId, modelId, 2020, "ABC123", null, null, null));
+
+        var (car, error) = await service.CreateAsync(
+            new CreateCarRequest(customerId, makeId, modelId, 2021, " abc123 ", null, null, null));
+
+        Assert.Null(car);
+        Assert.Equal(CarWriteError.DuplicateRego, error);
+        Assert.Equal(1, await db.Cars.CountAsync());
+    }
+
+    [Fact]
+    public async Task CreateAsync_ReturnsDuplicateVin_WhenVinAlreadyInUse()
+    {
+        await using var db = CreateContext();
+        var customerId = await SeedCustomerAsync(db);
+        var (makeId, modelId) = await SeedMakeModelAsync(db);
+        var service = new CarService(db);
+        await service.CreateAsync(new CreateCarRequest(customerId, makeId, modelId, 2020, "REG1", "VIN123ABC", null, null));
+
+        var (car, error) = await service.CreateAsync(
+            new CreateCarRequest(customerId, makeId, modelId, 2021, "REG2", "vin123abc", null, null));
+
+        Assert.Null(car);
+        Assert.Equal(CarWriteError.DuplicateVin, error);
+    }
+
+    [Fact]
+    public async Task CreateAsync_AllowsTwoCars_WithNoVin()
+    {
+        await using var db = CreateContext();
+        var customerId = await SeedCustomerAsync(db);
+        var (makeId, modelId) = await SeedMakeModelAsync(db);
+        var service = new CarService(db);
+        await service.CreateAsync(new CreateCarRequest(customerId, makeId, modelId, 2020, "REG1", null, null, null));
+
+        var (car, error) = await service.CreateAsync(
+            new CreateCarRequest(customerId, makeId, modelId, 2021, "REG2", null, null, null));
+
+        Assert.NotNull(car);
+        Assert.Equal(CarWriteError.None, error);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_AllowsKeepingItsOwnRego()
+    {
+        await using var db = CreateContext();
+        var customerId = await SeedCustomerAsync(db);
+        var (makeId, modelId) = await SeedMakeModelAsync(db);
+        var service = new CarService(db);
+        var (created, _) = await service.CreateAsync(
+            new CreateCarRequest(customerId, makeId, modelId, 2020, "ABC123", null, null, null));
+
+        var (updated, error) = await service.UpdateAsync(created!.Id,
+            new UpdateCarRequest(makeId, modelId, 2021, "ABC123", null, "Blue", null));
+
+        Assert.Equal(CarWriteError.None, error);
+        Assert.NotNull(updated);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_AllowsEditingOtherFields_OnAPreExistingDuplicateRegoPair()
+    {
+        // Regression guard: legacy-imported data has real pairs of cars sharing a rego (7 pairs
+        // confirmed in production as of 2026-10-07, predating this uniqueness check). Editing an
+        // unrelated field on either one must not be blocked just because its sibling already
+        // holds the same rego — only an actual *change* to a colliding rego should be rejected.
+        await using var db = CreateContext();
+        var customerId = await SeedCustomerAsync(db);
+        var (makeId, modelId) = await SeedMakeModelAsync(db);
+        var service = new CarService(db);
+        // Bypass CarService's own check to simulate data that predates it (e.g. a legacy import).
+        db.Cars.AddRange(
+            new MobmekApi.Entities.Car { CustomerId = customerId, CarMakeId = makeId, CarModelId = modelId, Year = 2019, Rego = "DUP123" },
+            new MobmekApi.Entities.Car { Id = Guid.NewGuid(), CustomerId = customerId, CarMakeId = makeId, CarModelId = modelId, Year = 2020, Rego = "DUP123" });
+        await db.SaveChangesAsync();
+        var second = await db.Cars.OrderBy(c => c.Year).LastAsync();
+
+        var (updated, error) = await service.UpdateAsync(second.Id,
+            new UpdateCarRequest(makeId, modelId, 2020, "DUP123", null, "Blue", null));
+
+        Assert.Equal(CarWriteError.None, error);
+        Assert.NotNull(updated);
+        Assert.Equal("Blue", updated!.Color);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ReturnsDuplicateRego_WhenCollidingWithAnotherCar()
+    {
+        await using var db = CreateContext();
+        var customerId = await SeedCustomerAsync(db);
+        var (makeId, modelId) = await SeedMakeModelAsync(db);
+        var service = new CarService(db);
+        await service.CreateAsync(new CreateCarRequest(customerId, makeId, modelId, 2020, "TAKEN1", null, null, null));
+        var (other, _) = await service.CreateAsync(new CreateCarRequest(customerId, makeId, modelId, 2020, "FREE1", null, null, null));
+
+        var (updated, error) = await service.UpdateAsync(other!.Id,
+            new UpdateCarRequest(makeId, modelId, 2020, "TAKEN1", null, null, null));
+
+        Assert.Null(updated);
+        Assert.Equal(CarWriteError.DuplicateRego, error);
+    }
 }

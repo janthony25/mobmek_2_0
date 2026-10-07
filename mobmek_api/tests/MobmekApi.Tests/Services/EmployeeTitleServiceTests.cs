@@ -64,22 +64,36 @@ public class EmployeeTitleServiceTests
     }
 
     [Fact]
-    public async Task DeleteAsync_RemovesTitle_AndReturnsTrue()
+    public async Task DeleteAsync_RemovesTitle_AndReturnsNone()
     {
         await using var db = CreateContext();
         var service = new EmployeeTitleService(db);
         var created = await service.CreateAsync(new CreateEmployeeTitleRequest("Temp"));
 
-        Assert.True(await service.DeleteAsync(created.Id));
+        Assert.Equal(EmployeeTitleDeleteError.None, await service.DeleteAsync(created.Id));
         Assert.Equal(0, await db.EmployeeTitles.CountAsync());
     }
 
     [Fact]
-    public async Task DeleteAsync_ReturnsFalse_WhenMissing()
+    public async Task DeleteAsync_ReturnsNotFound_WhenMissing()
     {
         await using var db = CreateContext();
         var service = new EmployeeTitleService(db);
 
-        Assert.False(await service.DeleteAsync(Guid.NewGuid()));
+        Assert.Equal(EmployeeTitleDeleteError.NotFound, await service.DeleteAsync(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ReturnsInUse_WhenAnEmployeeHasThisTitle()
+    {
+        await using var db = CreateContext();
+        var titleService = new EmployeeTitleService(db);
+        var title = await titleService.CreateAsync(new CreateEmployeeTitleRequest("Temp"));
+        var type = await new EmploymentTypeService(db).CreateAsync(new CreateEmploymentTypeRequest("Full-time"));
+        await new EmployeeService(db).CreateAsync(
+            new CreateEmployeeRequest("Jane", "Doe", title.Id, type.Id, "+1-555-0100", "jane@example.com", "1 Main St"));
+
+        Assert.Equal(EmployeeTitleDeleteError.InUse, await titleService.DeleteAsync(title.Id));
+        Assert.Equal(1, await db.EmployeeTitles.CountAsync());
     }
 }

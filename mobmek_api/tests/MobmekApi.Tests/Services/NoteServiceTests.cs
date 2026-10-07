@@ -92,6 +92,21 @@ public class NoteServiceTests
     }
 
     [Fact]
+    public async Task GetAllAsync_FiltersByCustomerId_WhenGiven()
+    {
+        await using var db = CreateContext();
+        var service = new NoteService(db);
+        var customerId = await SeedCustomerAsync(db);
+        await service.CreateAsync(NewNote("General note"));
+        await service.CreateAsync(NewNote("Customer note", customerId: customerId));
+
+        var result = await service.GetAllAsync(customerId);
+
+        var note = Assert.Single(result);
+        Assert.Equal("Customer note", note.Title);
+    }
+
+    [Fact]
     public async Task UpdateAsync_ModifiesFields_AndStampsUpdatedAt()
     {
         await using var db = CreateContext();

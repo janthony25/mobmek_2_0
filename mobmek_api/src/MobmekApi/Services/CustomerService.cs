@@ -167,6 +167,34 @@ public class CustomerService(AppDbContext db) : ICustomerService
         return true;
     }
 
+    public async Task<IReadOnlyList<CustomerDuplicateMatchDto>> CheckDuplicatesAsync(
+        string? phone, string? email, Guid? excludeId, CancellationToken cancellationToken = default)
+    {
+        var normalizedPhone = string.IsNullOrWhiteSpace(phone) ? null : phone.Replace(" ", "").Replace("-", "").Trim();
+        var normalizedEmail = string.IsNullOrWhiteSpace(email) ? null : email.Trim().ToLower();
+
+        if (normalizedPhone is null && normalizedEmail is null)
+        {
+            return [];
+        }
+
+        var query = db.Customers.AsNoTracking().AsQueryable();
+        if (excludeId is { } id)
+        {
+            query = query.Where(c => c.Id != id);
+        }
+
+        query = query.Where(c =>
+            (normalizedPhone != null && c.PhoneNumber.Replace(" ", "").Replace("-", "") == normalizedPhone) ||
+            (normalizedEmail != null && c.EmailAddress != null && c.EmailAddress.ToLower() == normalizedEmail));
+
+        return await query
+            .OrderBy(c => c.LastName).ThenBy(c => c.FirstName)
+            .Take(5)
+            .Select(c => new CustomerDuplicateMatchDto(c.Id, c.FirstName, c.LastName, c.PhoneNumber, c.EmailAddress))
+            .ToListAsync(cancellationToken);
+    }
+
     private static CustomerDto ToDto(Customer c) =>
         new(c.Id, c.FirstName, c.LastName, c.PhoneNumber, c.EmailAddress, c.PhysicalAddress, c.Notes, c.CreatedAtUtc, c.UpdatedAtUtc, c.UpdatedByName);
 }

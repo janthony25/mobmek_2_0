@@ -37,6 +37,15 @@ export interface CustomerRequest {
   notes: string | null
 }
 
+/** Lightweight match returned by the duplicate-check endpoint — advisory only, never blocks a save. */
+export interface CustomerDuplicateMatch {
+  id: string
+  firstName: string
+  lastName: string
+  phoneNumber: string
+  emailAddress: string | null
+}
+
 /** A customer's car as shown on the customer list, with its active-reminder info. */
 export interface CustomerCarSummary {
   id: string
@@ -1264,6 +1273,16 @@ export const PERMISSION_INFO: Record<string, { label: string; description: strin
 export interface LoginRequest {
   email: string
   password: string
+}
+
+export interface ForgotPasswordRequest {
+  email: string
+}
+
+export interface ResetForgottenPasswordRequest {
+  email: string
+  code: string
+  newPassword: string
 }
 
 // --- Email ---------------------------------------------------------------------
