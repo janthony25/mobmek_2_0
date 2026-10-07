@@ -25,6 +25,8 @@ public class BusinessDetailsServiceTests
 
         Assert.Equal("Mobmek Workshop", details.Name);
         Assert.Null(details.Address);
+        Assert.Equal("INV", details.InvoicePrefix);
+        Assert.Equal("QUO", details.QuotePrefix);
         Assert.Equal(1, await db.BusinessDetails.CountAsync());
     }
 
@@ -55,7 +57,9 @@ public class BusinessDetailsServiceTests
             "09 123 4567",
             "12 345 678 901",
             "www.junsgarage.co.nz",
-            "Account Name: Jun's Garage\nBank: ANZ\nAccount: 12-3456-7890123-00");
+            "Account Name: Jun's Garage\nBank: ANZ\nAccount: 12-3456-7890123-00",
+            "JG",
+            "JGQ");
         var updated = await service.UpdateAsync(request);
 
         Assert.Equal("Jun's Garage", updated.Name);
@@ -66,6 +70,8 @@ public class BusinessDetailsServiceTests
         Assert.Equal("12 345 678 901", updated.GstNumber);
         Assert.Equal("www.junsgarage.co.nz", updated.Website);
         Assert.Equal("Account Name: Jun's Garage\nBank: ANZ\nAccount: 12-3456-7890123-00", updated.BankDetails);
+        Assert.Equal("JG", updated.InvoicePrefix);
+        Assert.Equal("JGQ", updated.QuotePrefix);
         Assert.NotNull(updated.UpdatedAtUtc);
 
         var reloaded = await service.GetCurrentAsync();

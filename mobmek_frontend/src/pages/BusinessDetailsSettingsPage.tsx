@@ -28,6 +28,8 @@ export function BusinessDetailsSettingsPage() {
   const [gstNumber, setGstNumber] = useState('')
   const [website, setWebsite] = useState('')
   const [bankDetails, setBankDetails] = useState('')
+  const [invoicePrefix, setInvoicePrefix] = useState('')
+  const [quotePrefix, setQuotePrefix] = useState('')
   const [logoBusy, setLogoBusy] = useState(false)
   const [confirming, setConfirming] = useState(false)
 
@@ -41,14 +43,22 @@ export function BusinessDetailsSettingsPage() {
     setGstNumber(data.gstNumber ?? '')
     setWebsite(data.website ?? '')
     setBankDetails(data.bankDetails ?? '')
+    setInvoicePrefix(data.invoicePrefix)
+    setQuotePrefix(data.quotePrefix)
   }, [data])
 
   if (loading && !data) return <StateMessage title="Loading business details…" loading />
   if (error) return <StateMessage title="Could not load business details" description={error.message} />
 
+  const prefixPattern = /^[A-Z0-9]{1,10}$/
+
   const requestSave = () => {
     if (!name.trim()) {
       toast.error('Business name is required.')
+      return
+    }
+    if (!prefixPattern.test(invoicePrefix) || !prefixPattern.test(quotePrefix)) {
+      toast.error('Invoice/quote prefix must be 1-10 uppercase letters or digits.')
       return
     }
     setConfirming(true)
@@ -65,6 +75,8 @@ export function BusinessDetailsSettingsPage() {
         gstNumber: gstNumber.trim() || null,
         website: website.trim() || null,
         bankDetails: bankDetails.trim() || null,
+        invoicePrefix: invoicePrefix.trim(),
+        quotePrefix: quotePrefix.trim(),
       })
       toast.success('Business details updated')
       reload()
@@ -157,6 +169,34 @@ export function BusinessDetailsSettingsPage() {
             className={inputClass}
           />
         </label>
+        <div className="grid grid-cols-2 gap-4">
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-slate-700">
+              Invoice number prefix<span className="text-red-500"> *</span>
+            </span>
+            <input
+              type="text"
+              value={invoicePrefix}
+              maxLength={10}
+              onChange={(e) => setInvoicePrefix(e.target.value.toUpperCase())}
+              className={inputClass}
+            />
+            <span className="mt-1 block text-xs text-slate-500">e.g. "{invoicePrefix || 'INV'}-0001"</span>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-slate-700">
+              Quote number prefix<span className="text-red-500"> *</span>
+            </span>
+            <input
+              type="text"
+              value={quotePrefix}
+              maxLength={10}
+              onChange={(e) => setQuotePrefix(e.target.value.toUpperCase())}
+              className={inputClass}
+            />
+            <span className="mt-1 block text-xs text-slate-500">e.g. "{quotePrefix || 'QUO'}-0001"</span>
+          </label>
+        </div>
         <div>
           <span className="mb-1 block text-sm font-medium text-slate-700">Logo</span>
           <div className="flex items-center gap-4">

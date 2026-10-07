@@ -6,7 +6,7 @@ using Npgsql;
 
 namespace MobmekApi.Services;
 
-public class InvoiceService(AppDbContext db, IGstSettingService gstSettingService) : IInvoiceService
+public class InvoiceService(AppDbContext db, IGstSettingService gstSettingService, IBusinessDetailsService businessDetailsService) : IInvoiceService
 {
     private const int MaxPageSize = 200;
 
@@ -22,7 +22,8 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
             .ToListAsync(cancellationToken);
 
         var latestEmailByInvoiceId = await GetLatestEmailsAsync(invoices.Select(i => i.Id), cancellationToken);
-        return invoices.Select(i => ToDto(i, latestEmailByInvoiceId.GetValueOrDefault(i.Id))).ToList();
+        var business = await businessDetailsService.GetCurrentAsync(cancellationToken);
+        return invoices.Select(i => ToDto(i, business, latestEmailByInvoiceId.GetValueOrDefault(i.Id))).ToList();
     }
 
     public async Task<PagedResult<InvoiceListItemDto>> GetPagedAsync(
@@ -75,7 +76,8 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
-        return new PagedResult<InvoiceListItemDto>(items.Select(ToListItemDto).ToList(), totalCount, page, pageSize);
+        var business = await businessDetailsService.GetCurrentAsync(cancellationToken);
+        return new PagedResult<InvoiceListItemDto>(items.Select(i => ToListItemDto(i, business)).ToList(), totalCount, page, pageSize);
     }
 
     // Npgsql only accepts UTC-kinded DateTimes against "timestamp with time zone" columns, so
@@ -116,7 +118,8 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
             .OrderByDescending(e => e.CreatedAtUtc)
             .FirstOrDefaultAsync(cancellationToken);
 
-        return ToDto(invoice, latestEmail);
+        var business = await businessDetailsService.GetCurrentAsync(cancellationToken);
+        return ToDto(invoice, business, latestEmail);
     }
 
     /// <summary>Most recent <see cref="OutboundEmail"/> per invoice id, for the list view's email column.</summary>
@@ -228,7 +231,8 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
         db.Invoices.Add(invoice);
         await SaveWithUniqueSequenceNumberAsync(invoice, documentType, cancellationToken);
 
-        return ToDto(invoice);
+        var business = await businessDetailsService.GetCurrentAsync(cancellationToken);
+        return ToDto(invoice, business);
     }
 
     public async Task<InvoiceDto?> AcceptQuotationAsync(Guid jobId, Guid id, AcceptQuotationRequest request, CancellationToken cancellationToken = default)
@@ -278,7 +282,8 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
         db.Invoices.Add(invoice);
         await SaveWithUniqueSequenceNumberAsync(invoice, "Invoice", cancellationToken);
 
-        return ToDto(invoice);
+        var business = await businessDetailsService.GetCurrentAsync(cancellationToken);
+        return ToDto(invoice, business);
     }
 
     public async Task<InvoiceDto?> RejectAsync(Guid jobId, Guid id, CancellationToken cancellationToken = default)
@@ -299,7 +304,8 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
         await RemoveLedgerPostingsAsync(invoice.Id, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
 
-        return ToDto(invoice);
+        var business = await businessDetailsService.GetCurrentAsync(cancellationToken);
+        return ToDto(invoice, business);
     }
 
     public async Task<InvoiceDto?> MarkPaidAsync(Guid jobId, Guid id, MarkInvoicePaidRequest request, CancellationToken cancellationToken = default)
@@ -323,10 +329,11 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
         invoice.ModeOfPayment = string.IsNullOrWhiteSpace(request.ModeOfPayment) ? null : request.ModeOfPayment;
         invoice.PaymentTerm = string.IsNullOrWhiteSpace(request.PaymentTerm) ? null : request.PaymentTerm;
 
-        await PostPaymentToLedgerAsync(invoice, cancellationToken);
+        var business = await businessDetailsService.GetCurrentAsync(cancellationToken);
+        await PostPaymentToLedgerAsync(invoice, business.InvoicePrefix, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
 
-        return ToDto(invoice);
+        return ToDto(invoice, business);
     }
 
     /// <summary>
@@ -337,7 +344,7 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
     /// invoicing works before any cash accounts exist. Re-marking an invoice paid replaces
     /// its earlier postings instead of doubling them.
     /// </summary>
-    private async Task PostPaymentToLedgerAsync(Invoice invoice, CancellationToken cancellationToken)
+    private async Task PostPaymentToLedgerAsync(Invoice invoice, string invoicePrefix, CancellationToken cancellationToken)
     {
         await RemoveLedgerPostingsAsync(invoice.Id, cancellationToken);
 
@@ -410,7 +417,7 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
                 Direction = "In",
                 Amount = amount,
                 Date = invoice.DatePaid ?? DateOnly.FromDateTime(DateTime.UtcNow),
-                Description = $"Invoice INV-{invoice.SequenceNumber:D4} — {invoice.IssueName}",
+                Description = $"Invoice {invoicePrefix}-{invoice.SequenceNumber:D4} — {invoice.IssueName}",
                 CategoryId = category.Id,
                 Counterparty = customerName,
                 InvoiceId = invoice.Id,
@@ -461,14 +468,17 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
 
     private static decimal Round(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
 
-    private static InvoiceListItemDto ToListItemDto(Invoice i) =>
-        new(i.Id, i.JobId, $"{(i.DocumentType == "Quotation" ? "QUO" : "INV")}-{i.SequenceNumber:D4}", i.IssueName, i.DocumentType, i.Status,
+    private static string FormatDocumentNumber(Invoice i, DTOs.BusinessDetailsDto business) =>
+        $"{(i.DocumentType == "Quotation" ? business.QuotePrefix : business.InvoicePrefix)}-{i.SequenceNumber:D4}";
+
+    private static InvoiceListItemDto ToListItemDto(Invoice i, DTOs.BusinessDetailsDto business) =>
+        new(i.Id, i.JobId, FormatDocumentNumber(i, business), i.IssueName, i.DocumentType, i.Status,
             i.Job?.Customer is { } customer ? $"{customer.FirstName} {customer.LastName}" : null,
             i.Job?.Car is { } car ? $"{car.CarMake?.Name} {car.CarModel?.Name} ({car.Rego})" : null,
             i.DueDate, i.TotalAmount, i.IsPaid, i.CreatedAtUtc);
 
-    private static InvoiceDto ToDto(Invoice i, OutboundEmail? latestEmail = null) =>
-        new(i.Id, i.JobId, $"{(i.DocumentType == "Quotation" ? "QUO" : "INV")}-{i.SequenceNumber:D4}", i.IssueName, i.Notes, i.DocumentType, i.Status, i.DueDate, i.PaymentTerm, i.ModeOfPayment,
+    private static InvoiceDto ToDto(Invoice i, DTOs.BusinessDetailsDto business, OutboundEmail? latestEmail = null) =>
+        new(i.Id, i.JobId, FormatDocumentNumber(i, business), i.IssueName, i.Notes, i.DocumentType, i.Status, i.DueDate, i.PaymentTerm, i.ModeOfPayment,
             i.LabourPrice, i.SubTotal, i.GstRate, i.TaxAmount, i.Discount, i.ShippingFee, i.TotalAmount,
             i.IsPaid, i.AmountPaid, i.DatePaid, i.CashAmount, i.CardAmount,
             i.Items.OrderBy(x => x.CreatedAtUtc)

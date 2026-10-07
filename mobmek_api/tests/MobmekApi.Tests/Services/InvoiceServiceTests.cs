@@ -14,6 +14,9 @@ public class InvoiceServiceTests
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options);
 
+    private static IFileStorage CreateStorage() =>
+        new LocalFileStorage(Path.Combine(Path.GetTempPath(), "mobmek-tests", Guid.NewGuid().ToString("N")));
+
     // Seeds a job carrying one item ($110), labour ($200) and one service line ($150) -> subtotal $460.
     private static async Task<(InvoiceService Invoices, JobService Jobs, Guid JobId)> SeedFullJobAsync(AppDbContext db)
     {
@@ -30,7 +33,7 @@ public class InvoiceServiceTests
         var catalog = await new JobServiceCatalogService(db).CreateAsync(new CreateJobServiceRequest("Oil change", null, 50m, true));
         await new JobServiceLineService(db, jobs).CreateAsync(job.Id, new CreateJobServiceLineRequest(catalog.Id, 3));               // 150
 
-        var invoices = new InvoiceService(db, new GstSettingService(db));
+        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()));
         return (invoices, jobs, job.Id);
     }
 
@@ -97,10 +100,26 @@ public class InvoiceServiceTests
     }
 
     [Fact]
+    public async Task GenerateAsync_AndGenerateQuotationAsync_UseConfiguredPrefixes()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var business = new BusinessDetailsService(db, CreateStorage());
+        await business.UpdateAsync(new UpdateBusinessDetailsRequest(
+            "Jun's Garage", null, null, null, null, null, null, null, "JG", "JGQ"));
+
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+        var quotation = await invoices.GenerateQuotationAsync(jobId, new CreateInvoiceRequest(null));
+
+        Assert.Equal("JG-0001", invoice!.InvoiceNumber);
+        Assert.Equal("JGQ-0001", quotation!.InvoiceNumber);
+    }
+
+    [Fact]
     public async Task GenerateAsync_ReturnsNull_WhenJobMissing()
     {
         await using var db = CreateContext();
-        var invoices = new InvoiceService(db, new GstSettingService(db));
+        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()));
 
         var invoice = await invoices.GenerateAsync(Guid.NewGuid(), new CreateInvoiceRequest(null));
 
@@ -196,7 +215,7 @@ public class InvoiceServiceTests
     public async Task GenerateQuotationAsync_ReturnsNull_WhenJobMissing()
     {
         await using var db = CreateContext();
-        var invoices = new InvoiceService(db, new GstSettingService(db));
+        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()));
 
         Assert.Null(await invoices.GenerateQuotationAsync(Guid.NewGuid(), new CreateInvoiceRequest(null)));
     }
@@ -638,7 +657,7 @@ public class InvoiceServiceTests
             new CreateCarRequest(customer.Id, make.Id, model!.Id, 2020, "ABC123", null, null, null));
         var jobs = new JobService(db);
         var (job, _) = await jobs.CreateAsync(new CreateJobRequest(customer.Id, car!.Id, "Brakes", JobStatus.Open, 1000, null, null));
-        var invoices = new InvoiceService(db, new GstSettingService(db));
+        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()));
         await invoices.GenerateAsync(job!.Id, new CreateInvoiceRequest(null));
 
         var all = await invoices.GetAllAsync(job.Id);

@@ -13,6 +13,8 @@ public enum JobWriteError
     CarNotOwnedByCustomer,
     EmployeeNotFound,
     MechanicAlreadyAssigned,
+    AppointmentNotFound,
+    AppointmentAlreadyLinkedToJob,
 }
 
 public interface IJobService
@@ -32,6 +34,12 @@ public interface IJobService
 
     Task<JobDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Creates a job. When <see cref="CreateJobRequest.AppointmentId"/> is set, the referenced
+    /// appointment is linked to the new job and marked Arrived in the same save, so a convert-
+    /// on-arrival job can never be created without its appointment link being updated too (or
+    /// vice versa).
+    /// </summary>
     Task<(JobDto? Job, JobWriteError Error)> CreateAsync(CreateJobRequest request, CancellationToken cancellationToken = default);
 
     Task<(JobDto? Job, JobWriteError Error)> UpdateAsync(Guid id, UpdateJobRequest request, CancellationToken cancellationToken = default);

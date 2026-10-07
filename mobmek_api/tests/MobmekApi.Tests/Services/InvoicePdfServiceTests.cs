@@ -30,7 +30,7 @@ public class InvoicePdfServiceTests
         await new JobItemService(db, jobs).CreateAsync(job!.Id, new CreateJobItemRequest(
             "Pads", TradePrice: 100m, RetailPrice: 100m, MarkupSolution.Dollar, Markup: 10m, ItemQuantity: 1, SellingPrice: null));
 
-        var invoices = new InvoiceService(db, new GstSettingService(db));
+        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()));
         var pdf = new InvoicePdfService(db, new BusinessDetailsService(db, CreateStorage()));
         return (pdf, invoices, job.Id);
     }

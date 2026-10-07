@@ -23,7 +23,7 @@
 ### Invoice numbering — Working, concurrency-safe (fixed 2026-10-07)
 `SequenceNumber` = `MAX(SequenceNumber) WHERE DocumentType=X) + 1`, counted independently per doc type. **Fixed:** a unique index on `(DocumentType, SequenceNumber)` now backs this at the DB level (migration `AddInvoiceSequenceNumberUniqueIndex`, confirmed no pre-existing duplicates before adding it), and both generation call sites (`GenerateDocumentAsync`, `AcceptQuotationAsync`) go through a new shared `SaveWithUniqueSequenceNumberAsync` helper that retries (up to 5 attempts) with a freshly recomputed number whenever a concurrent generation wins the race first — detected via `Npgsql.PostgresException.SqlState == UniqueViolation`. Live-verified: generated a real quotation post-fix, got the correctly-continued `QUO-0183`.
 
-Format is hardcoded, not a setting — see `business-settings.md` ("invoice numbering prefix does not exist").
+Prefix is configurable (fixed 2026-10-07) — see `business-settings.md` ("Invoice numbering prefix"); the numeric sequence itself is still a fixed 4-digit zero-padded format.
 
 ### GST calc — Working
 Pulls the live GST rate at generation time and **snapshots** it onto the invoice (`GstRate`/`TaxAmount`) — later global rate changes don't retroactively affect issued invoices (tested). GST treated as tax-inclusive, applied on discounted subtotal.

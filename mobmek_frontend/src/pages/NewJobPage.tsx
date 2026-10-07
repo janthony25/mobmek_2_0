@@ -6,7 +6,6 @@ import { getCars } from '@/api/cars'
 import { getEmployeeSummaries } from '@/api/employees'
 import { getJobServices } from '@/api/jobServices'
 import { addJobMechanic, createJob } from '@/api/jobs'
-import { toAppointmentRequest, updateAppointment } from '@/api/appointments'
 import { createJobItem } from '@/api/jobItems'
 import { createLabour } from '@/api/labour'
 import { createJobServiceLine } from '@/api/jobServiceLines'
@@ -36,7 +35,6 @@ import {
   type PhotoDraft,
 } from '@/lib/jobLineDrafts'
 import {
-  AppointmentStatus,
   DiscountType,
   JOB_STATUS_LABELS,
   JobStatus,
@@ -193,6 +191,9 @@ export function NewJobPage() {
       invoiceNotes: invoiceNotes.trim() || null,
       discountType,
       discountValue: num(discountValue) ?? 0,
+      // Convert-on-arrival: the backend links this appointment and marks it Arrived in the
+      // same save as the job's creation, so the two can never end up out of sync.
+      appointmentId: appointment?.id ?? null,
     }
 
     let jobId: string
@@ -247,16 +248,6 @@ export function NewJobPage() {
     // drafts above rather than posted as the user picks them.
     for (const p of photos)
       await attempt(`Photo ${p.file.name}`, () => addJobPhoto(jobId, p.file))
-
-    // Arrived from an appointment's check-in: link the new job back and mark it Arrived.
-    if (appointment) {
-      await attempt('Appointment link', () =>
-        updateAppointment(
-          appointment.id,
-          toAppointmentRequest(appointment, { jobId, status: AppointmentStatus.Arrived }),
-        ),
-      )
-    }
 
     for (const p of photos) URL.revokeObjectURL(p.previewUrl)
 

@@ -118,6 +118,8 @@ public class JobsController(IJobService jobService) : ControllerBase
         JobWriteError.CarNotOwnedByCustomer => Problem(detail: "The selected car does not belong to this customer.", statusCode: StatusCodes.Status400BadRequest),
         JobWriteError.EmployeeNotFound => Problem(detail: "Employee does not exist.", statusCode: StatusCodes.Status400BadRequest),
         JobWriteError.MechanicAlreadyAssigned => Problem(detail: "That mechanic is already assigned to this job.", statusCode: StatusCodes.Status400BadRequest),
+        JobWriteError.AppointmentNotFound => Problem(detail: "Appointment does not exist.", statusCode: StatusCodes.Status400BadRequest),
+        JobWriteError.AppointmentAlreadyLinkedToJob => Problem(detail: "This appointment is already linked to a job.", statusCode: StatusCodes.Status400BadRequest),
         _ => Problem(statusCode: StatusCodes.Status500InternalServerError),
     };
 }

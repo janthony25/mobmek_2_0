@@ -47,7 +47,7 @@ Checkbox = unresolved. Strike-through + `(fixed <date>)` when closed — keep cl
 
 - [skip] No overlap/double-booking check — two appointments for the same mechanic/time slot can both be created.
 - [ skip] No appointment reminders (SMS/email ahead of the appointment) — mechanism doesn't exist at all; only whatever default notification settings exist on the Google account apply.
-- [ ] Convert-on-arrival wizard (create customer → add car → create job) isn't transactional — a failure partway through can leave an appointment linked to a customer with no car/job.
+- [x] ~~Convert-on-arrival wizard (create customer → add car → create job) isn't transactional~~ (fixed 2026-10-07) — the final job-creation step now links the appointment and marks it Arrived in the same `SaveChangesAsync` as job creation (`CreateJobRequest.AppointmentId`), instead of a separate best-effort call after the fact. Steps 1-2 were already atomic individually, and the wizard is resumable by design. 4 new backend tests; live-verified via curl.
 - [skip] Conflict handling is overwrite-only — a manual edit made directly in Google Calendar is always silently discarded on the next reconcile, with no surfacing of the conflict. (Decided 2026-10-07: working as designed — the design doc explicitly rejected two-way sync; silent overwrite is intended, not a bug.)
 
 ## Cash Flow & GST Reporting [skip]
@@ -77,7 +77,7 @@ Checkbox = unresolved. Strike-through + `(fixed <date>)` when closed — keep cl
 ## Business Settings
 *(detail: [business-settings.md](business-settings.md))*
 
-- [ ] No configurable invoice/quote number prefix or format — hardcoded `INV-`/`QUO-` + 4-digit sequence in `InvoiceService.cs`, nowhere to configure it.
+- [x] ~~No configurable invoice/quote number prefix or format~~ (fixed 2026-10-07) — `BusinessDetails.InvoicePrefix`/`QuotePrefix` (default `INV`/`QUO`) now feed `InvoiceService`, `InvoicePdfService`, and `EmailComposeService`; exposed in `BusinessDetailsSettingsPage.tsx`. 1 new backend test + updated existing coverage.
 
 ## Legacy Data Import
 *(detail: [legacy-data-import.md](legacy-data-import.md))*

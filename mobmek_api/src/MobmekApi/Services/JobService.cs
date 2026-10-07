@@ -128,6 +128,21 @@ public class JobService(AppDbContext db, IFileStorage? fileStorage = null) : IJo
             return (null, carError);
         }
 
+        Appointment? appointment = null;
+        if (request.AppointmentId is { } appointmentId)
+        {
+            appointment = await db.Appointments.FirstOrDefaultAsync(a => a.Id == appointmentId, cancellationToken);
+            if (appointment is null)
+            {
+                return (null, JobWriteError.AppointmentNotFound);
+            }
+
+            if (appointment.JobId is not null)
+            {
+                return (null, JobWriteError.AppointmentAlreadyLinkedToJob);
+            }
+        }
+
         var job = new Job
         {
             CustomerId = request.CustomerId,
@@ -142,6 +157,16 @@ public class JobService(AppDbContext db, IFileStorage? fileStorage = null) : IJo
         };
 
         db.Jobs.Add(job);
+
+        // Linking the appointment in the same SaveChangesAsync as the job's own creation means a
+        // convert-on-arrival job can never exist without its appointment being updated, or vice
+        // versa — unlike the old flow where this was a separate HTTP call that could fail alone.
+        if (appointment is not null)
+        {
+            appointment.JobId = job.Id;
+            appointment.Status = AppointmentStatus.Arrived;
+        }
+
         await db.SaveChangesAsync(cancellationToken);
 
         return (await GetByIdAsync(job.Id, cancellationToken), JobWriteError.None);

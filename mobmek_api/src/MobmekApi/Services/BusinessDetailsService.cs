@@ -21,6 +21,8 @@ public class BusinessDetailsService(AppDbContext db, IFileStorage fileStorage) :
         details.GstNumber = request.GstNumber;
         details.Website = request.Website;
         details.BankDetails = request.BankDetails;
+        details.InvoicePrefix = request.InvoicePrefix;
+        details.QuotePrefix = request.QuotePrefix;
         await db.SaveChangesAsync(cancellationToken);
         return ToDto(details);
     }
@@ -86,6 +88,7 @@ public class BusinessDetailsService(AppDbContext db, IFileStorage fileStorage) :
 
     private static BusinessDetailsDto ToDto(BusinessDetails b) =>
         new(b.Id, b.Name, b.Address, b.Email, b.BusinessPhone, b.Telephone, b.GstNumber, b.Website, b.BankDetails,
+            b.InvoicePrefix, b.QuotePrefix,
             b.LogoStorageKey is null ? null : "/business-details/logo",
             b.CreatedAtUtc, b.UpdatedAtUtc, b.UpdatedByName);
 }

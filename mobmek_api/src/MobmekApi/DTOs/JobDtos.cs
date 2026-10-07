@@ -40,7 +40,13 @@ public record CreateJobRequest(
     [MaxLength(4000)] string? JobNotes,
     [MaxLength(4000)] string? InvoiceNotes,
     DiscountType DiscountType = DiscountType.None,
-    [Range(0, 1000000)] decimal DiscountValue = 0m);
+    [Range(0, 1000000)] decimal DiscountValue = 0m,
+    /// <summary>
+    /// When set (convert-on-arrival's final step), the appointment is linked to this job and
+    /// marked <see cref="MobmekApi.Entities.AppointmentStatus.Arrived"/> in the same save as the
+    /// job's creation, so the two can never end up out of sync from a failure in between.
+    /// </summary>
+    Guid? AppointmentId = null);
 
 /// <summary>Payload for updating a job. The owning customer cannot be changed.</summary>
 public record UpdateJobRequest(

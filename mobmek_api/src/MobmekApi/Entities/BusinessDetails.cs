@@ -20,6 +20,12 @@ public class BusinessDetails : BaseEntity
     /// <summary>Free-text bank/payment details (account name, bank, account number) shown on invoices for bank-transfer payers.</summary>
     public string? BankDetails { get; set; }
 
+    /// <summary>Prefix for generated invoice numbers, e.g. "INV" in "INV-0001".</summary>
+    public string InvoicePrefix { get; set; } = "INV";
+
+    /// <summary>Prefix for generated quotation numbers, e.g. "QUO" in "QUO-0001".</summary>
+    public string QuotePrefix { get; set; } = "QUO";
+
     /// <summary>Provider-agnostic storage handle for the uploaded logo image (see <see cref="Services.IFileStorage"/>).</summary>
     public string? LogoStorageKey { get; set; }
 

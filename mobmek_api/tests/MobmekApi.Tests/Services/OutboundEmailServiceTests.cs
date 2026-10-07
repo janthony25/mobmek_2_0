@@ -58,7 +58,7 @@ public class OutboundEmailServiceTests
         await new JobItemService(db, jobs).CreateAsync(job!.Id, new CreateJobItemRequest(
             "Pads", TradePrice: 100m, RetailPrice: 100m, MarkupSolution.Dollar, Markup: 10m, ItemQuantity: 1, SellingPrice: null));
 
-        var invoices = new InvoiceService(db, new GstSettingService(db));
+        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()));
         var invoice = await invoices.GenerateAsync(job.Id, new CreateInvoiceRequest(null));
         return (job.Id, invoice!.Id);
     }

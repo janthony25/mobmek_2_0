@@ -70,6 +70,72 @@ public class JobServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_WithAppointmentId_LinksJobAndMarksArrived_InOneSave()
+    {
+        await using var db = CreateContext();
+        var (customerId, carId) = await SeedCustomerWithCarAsync(db);
+        var appointment = new Appointment
+        {
+            Title = "Brake check",
+            StartUtc = DateTime.UtcNow,
+            EndUtc = DateTime.UtcNow.AddHours(1),
+            CustomerId = customerId,
+            CarId = carId,
+        };
+        db.Appointments.Add(appointment);
+        await db.SaveChangesAsync();
+        var service = new JobService(db);
+
+        var (job, error) = await service.CreateAsync(NewJob(customerId, carId) with { AppointmentId = appointment.Id });
+
+        Assert.Equal(JobWriteError.None, error);
+        Assert.NotNull(job);
+
+        var reloaded = await db.Appointments.AsNoTracking().SingleAsync(a => a.Id == appointment.Id);
+        Assert.Equal(job!.Id, reloaded.JobId);
+        Assert.Equal(AppointmentStatus.Arrived, reloaded.Status);
+    }
+
+    [Fact]
+    public async Task CreateAsync_ReturnsAppointmentNotFound_WhenAppointmentIdInvalid()
+    {
+        await using var db = CreateContext();
+        var (customerId, carId) = await SeedCustomerWithCarAsync(db);
+        var service = new JobService(db);
+
+        var (job, error) = await service.CreateAsync(NewJob(customerId, carId) with { AppointmentId = Guid.NewGuid() });
+
+        Assert.Null(job);
+        Assert.Equal(JobWriteError.AppointmentNotFound, error);
+        Assert.Empty(await db.Jobs.ToListAsync()); // nothing half-created when the link target is bad
+    }
+
+    [Fact]
+    public async Task CreateAsync_ReturnsAppointmentAlreadyLinkedToJob_WhenAppointmentHasJob()
+    {
+        await using var db = CreateContext();
+        var (customerId, carId) = await SeedCustomerWithCarAsync(db);
+        var existingJob = (await new JobService(db).CreateAsync(NewJob(customerId, carId))).Job!;
+        var appointment = new Appointment
+        {
+            Title = "Brake check",
+            StartUtc = DateTime.UtcNow,
+            EndUtc = DateTime.UtcNow.AddHours(1),
+            CustomerId = customerId,
+            CarId = carId,
+            JobId = existingJob.Id,
+        };
+        db.Appointments.Add(appointment);
+        await db.SaveChangesAsync();
+        var service = new JobService(db);
+
+        var (job, error) = await service.CreateAsync(NewJob(customerId, carId) with { AppointmentId = appointment.Id });
+
+        Assert.Null(job);
+        Assert.Equal(JobWriteError.AppointmentAlreadyLinkedToJob, error);
+    }
+
+    [Fact]
     public async Task AddMechanicAsync_AssignsEmployee_AndPreventsDuplicates()
     {
         await using var db = CreateContext();

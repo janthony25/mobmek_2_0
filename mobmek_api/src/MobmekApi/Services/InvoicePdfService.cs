@@ -32,7 +32,7 @@ public class InvoicePdfService(AppDbContext db, IBusinessDetailsService business
 
         var isQuotation = invoice.DocumentType == "Quotation";
         var documentLabel = isQuotation ? "Quotation" : "Invoice";
-        var documentNumber = $"{(isQuotation ? "QUO" : "INV")}-{invoice.SequenceNumber:D4}";
+        var documentNumber = $"{(isQuotation ? business.QuotePrefix : business.InvoicePrefix)}-{invoice.SequenceNumber:D4}";
         var customer = invoice.Job?.Customer;
         var car = invoice.Job?.Car;
         var carDescription = car is null ? null : $"{car.CarMake?.Name} {car.CarModel?.Name} ({car.Rego})";

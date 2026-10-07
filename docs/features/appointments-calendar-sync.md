@@ -9,7 +9,7 @@ Memory previously summarized this as "all of v1 shipped, live-verified." Re-veri
 | Sub-capability | Status | Key file(s) |
 |---|---|---|
 | Soft-contact appointment creation | Working | `Services/AppointmentService.cs:256-277`, `AppointmentForm.tsx` |
-| Convert-on-arrival | Working, but manual 3-step wizard, not automatic | `AppointmentDetailModal.tsx:106-131` |
+| Convert-on-arrival | Working, manual 3-step wizard (steps 1-2 and the final job-link are each atomic) | `AppointmentDetailModal.tsx:106-131`, `JobService.CreateAsync` |
 | Google OAuth connect flow | **Does not exist — by design** | `Services/GoogleCalendarClient.cs` (uses a service account, not OAuth) |
 | Event push to Google (app → Calendar) | Working | `Services/CalendarSyncJob.cs` |
 | Event pull from Google (Calendar → app) | **Does not exist — one-way by design** | — |
@@ -21,8 +21,10 @@ Memory previously summarized this as "all of v1 shipped, live-verified." Re-veri
 ### Soft-contact creation — Working
 `Appointment` carries both hard links (`CustomerId`/`CarId`/`JobId`/`MechanicId`, all nullable) and soft-contact snapshot fields (`ContactName`/`ContactPhone`/`ContactEmail`/`VehicleDescription`). `AppointmentService.ValidateAsync` enforces "linked customer OR (name + phone)". There's also an anonymous public-booking path (`PublicBookingController.cs`, produces `AppointmentStatus.Requested`) — functionally part of this capability but not covered by the original design doc. Well tested (`AppointmentServiceTests.cs`, 453 lines).
 
-### Convert-on-arrival — Working, but it's a manual wizard
-**Correction vs. the "soft-contact → convert-on-arrival" framing used elsewhere:** there is no backend logic that triggers conversion when status becomes `Arrived`. It's a 3-step manual UI wizard in `AppointmentDetailModal.tsx` (create customer → add car → create job), available any time the appointment lacks a job, regardless of status. `Arrived` is set as a **side effect of finishing step 3** (`NewJobPage.tsx:251-257`), not a cause of it. Each step is a separate API call orchestrated client-side — a partial failure can leave an appointment linked to a customer but no car/job.
+### Convert-on-arrival — Working, manual wizard, each step atomic (fixed 2026-10-07)
+**Correction vs. the "soft-contact → convert-on-arrival" framing used elsewhere:** there is no backend logic that triggers conversion when status becomes `Arrived`. It's a 3-step manual UI wizard in `AppointmentDetailModal.tsx` (create customer → add car → create job), available any time the appointment lacks a job, regardless of status. The wizard is resumable by design — the modal shows exactly the next step based on which links are already set, so stopping partway never loses anything already saved.
+
+**Fixed:** step 3 used to be a separate client-orchestrated `updateAppointment` call *after* job creation, wrapped in the same best-effort `attempt()` helper used for optional job line items (parts/labour/photos) — so a failure there silently left a newly-created job with no appointment link, and the appointment still showing "no job" (inviting a duplicate job on retry). `CreateJobRequest` now takes an optional `AppointmentId`; when set, `JobService.CreateAsync` links the appointment and sets it to `Arrived` in the **same `SaveChangesAsync`** as the job's own creation (new `JobWriteError.AppointmentNotFound`/`AppointmentAlreadyLinkedToJob` guard the edge cases). `NewJobPage.tsx` now passes `appointmentId` on create instead of issuing a second call afterward. Live-verified via curl: creating a job with `appointmentId` flips the appointment to `status:2` (Arrived) with `jobId` set in the job-creation response's side effect; a second attempt against the same appointment correctly 400s ("already linked to a job"). 4 new backend tests in `JobServiceTests.cs`.
 
 ### Google Calendar auth — service account, not OAuth
 `GoogleCalendarClient.cs:170-190` loads a **service-account JSON key** (`GoogleCalendar:CredentialsJson` env var, or a file path). No OAuth2 authorization-code flow, no refresh token, no DB-stored credential table exists anywhere. `CalendarSyncSettingsPage.tsx` is explicitly read-only diagnostics (configured/not-configured badge + "Sync now" button) — there's no "Connect to Google" action anywhere because none is needed for this design. Matches the design doc's documented deviation (env var, not file-mount).
@@ -50,4 +52,3 @@ No code anywhere sends an SMS/email reminder tied to an upcoming appointment. (N
 ## Recommended follow-ups
 - If double-booking the same mechanic/slot is a real-world problem, add an overlap check to `AppointmentService.ValidateAsync`.
 - Decide whether appointment reminders (SMS/email ahead of the appointment) are worth building — currently zero mechanism exists.
-- Consider making the 3-step convert-on-arrival wizard transactional, or at least resumable, so a mid-wizard failure doesn't leave an appointment half-linked.

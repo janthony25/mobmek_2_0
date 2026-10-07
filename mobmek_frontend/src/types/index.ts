@@ -195,6 +195,8 @@ export interface CreateJobRequest {
   invoiceNotes: string | null
   discountType: DiscountType
   discountValue: number
+  /** Convert-on-arrival: links and marks this appointment Arrived in the same save as job creation. */
+  appointmentId?: string | null
 }
 
 export type UpdateJobRequest = Omit<CreateJobRequest, 'customerId'>
@@ -504,6 +506,10 @@ export interface BusinessDetails {
   website: string | null
   /** Free-text bank/payment details shown on invoices for bank-transfer payers. */
   bankDetails: string | null
+  /** Prefix for generated invoice numbers, e.g. "INV" in "INV-0001". */
+  invoicePrefix: string
+  /** Prefix for generated quotation numbers, e.g. "QUO" in "QUO-0001". */
+  quotePrefix: string
   logoUrl: string | null
   createdAtUtc: string
   updatedAtUtc: string | null
@@ -519,6 +525,8 @@ export interface UpdateBusinessDetailsRequest {
   gstNumber: string | null
   website: string | null
   bankDetails: string | null
+  invoicePrefix: string
+  quotePrefix: string
 }
 
 // --- Products ----------------------------------------------------------------

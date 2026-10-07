@@ -27,7 +27,7 @@ public class EmailComposeService(AppDbContext db, IBusinessDetailsService busine
         var business = await businessDetailsService.GetCurrentAsync(cancellationToken);
         var customer = invoice.Job?.Customer;
         var documentLabel = invoice.DocumentType == "Quotation" ? "Quotation" : "Invoice";
-        var documentNumber = $"{(invoice.DocumentType == "Quotation" ? "QUO" : "INV")}-{invoice.SequenceNumber:D4}";
+        var documentNumber = $"{(invoice.DocumentType == "Quotation" ? business.QuotePrefix : business.InvoicePrefix)}-{invoice.SequenceNumber:D4}";
 
         return new InvoiceEmailDraft(
             CustomerId: invoice.Job?.CustomerId,

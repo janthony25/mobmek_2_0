@@ -1,8 +1,8 @@
 # Business Settings
 
-**Last verified:** 2026-10-07 (read against `Controllers/BusinessDetailsController.cs`, `Entities/BusinessDetails.cs`, `DTOs/BusinessDetailsDtos.cs`, `mobmek_frontend/src/pages/BusinessDetailsSettingsPage.tsx`)
+**Last verified:** 2026-10-07 (read against `Controllers/BusinessDetailsController.cs`, `Entities/BusinessDetails.cs`, `DTOs/BusinessDetailsDtos.cs`, `Services/InvoiceService.cs`, `Services/InvoicePdfService.cs`, `Services/EmailComposeService.cs`, `mobmek_frontend/src/pages/BusinessDetailsSettingsPage.tsx`)
 
-Covers the single business-profile record used on invoices/emails (company info, GST number, bank details, logo).
+Covers the single business-profile record used on invoices/emails (company info, GST number, bank details, logo, invoice/quote numbering prefix).
 
 ## Status summary
 
@@ -10,15 +10,17 @@ Covers the single business-profile record used on invoices/emails (company info,
 |---|---|
 | Company profile fields (name, address, phone, email, GST number, website, bank details) | Working |
 | Logo upload/replace/remove | Working |
-| Invoice numbering prefix / format | **Does not exist** |
+| Invoice numbering prefix / format | Working |
 
 ## Details
 
 ### Company profile & logo — Working
-Singleton entity (`Entities/BusinessDetails.cs:7-30`): `Name`, `Address`, `Email`, `BusinessPhone`, `Telephone`, `GstNumber`, `Website`, `BankDetails`, plus logo (`LogoStorageKey`/`LogoFileName`/`LogoContentType`). `BusinessDetailsController`: `GET`/`PUT`, plus `POST`/`GET`/`DELETE` for the logo (5MB cap, must be `image/*`). Read is open to any signed-in staff; writes gated by `Permissions.ManageBusinessSettings`. `BusinessDetailsSettingsPage.tsx` is a complete form covering every field, with a confirm-dialog before save and an `UpdatedByTag` audit display.
+Singleton entity (`Entities/BusinessDetails.cs:7-33`): `Name`, `Address`, `Email`, `BusinessPhone`, `Telephone`, `GstNumber`, `Website`, `BankDetails`, `InvoicePrefix`/`QuotePrefix`, plus logo (`LogoStorageKey`/`LogoFileName`/`LogoContentType`). `BusinessDetailsController`: `GET`/`PUT`, plus `POST`/`GET`/`DELETE` for the logo (5MB cap, must be `image/*`). Read is open to any signed-in staff; writes gated by `Permissions.ManageBusinessSettings`. `BusinessDetailsSettingsPage.tsx` is a complete form covering every field, with a confirm-dialog before save and an `UpdatedByTag` audit display.
 
-### Invoice numbering prefix — does not exist
-There is no settings field for this anywhere. Invoice/quote numbers are generated from a hardcoded format string baked into `Services/InvoiceService.cs` at three call sites (`$"{(DocumentType=="Quotation"?"QUO":"INV")}-{SequenceNumber:D4}"`). If a per-shop configurable prefix is wanted, it needs a new field on `BusinessDetails` (or a dedicated settings entity) plus a code change in `InvoiceService` — it is a real gap, not a UI oversight; there's nowhere to even put the value today.
+### Invoice numbering prefix — Working (fixed 2026-10-07)
+`BusinessDetails.InvoicePrefix`/`QuotePrefix` (default `"INV"`/`"QUO"`, server-validated `^[A-Z0-9]{1,10}$` via `UpdateBusinessDetailsRequest`) now feed every place a document number is formatted: `InvoiceService.FormatDocumentNumber` (list/detail DTOs + the cash-ledger posting description), `InvoicePdfService.GenerateAsync` (PDF header/filename), and `EmailComposeService.ComposeInvoiceEmailAsync` (subject line). `BusinessDetailsSettingsPage.tsx` exposes both as required fields next to the rest of the letterhead. Migration `AddInvoiceQuotePrefixToBusinessDetails`. Covered by `InvoiceServiceTests.GenerateAsync_AndGenerateQuotationAsync_UseConfiguredPrefixes` and updated `BusinessDetailsServiceTests`.
+
+Live-verified via curl against the dev stack post-rebuild: `GET /api/business-details` returns `invoicePrefix:"INV"`, `quotePrefix:"QUO"` for the pre-existing row. **Caught in that same check:** the EF-generated migration initially used `defaultValue: ""` for the `ADD COLUMN` (EF doesn't read C# property initializers for `AddColumn` scaffolding), which would have backfilled every existing `BusinessDetails` row with an empty prefix instead of `"INV"`/`"QUO"`. Fixed by hand-editing the migration's default values and re-running it against the dev DB before rebuilding.
 
 ## Recommended follow-ups
-- Add a configurable invoice/quote number prefix if the business ever needs one (e.g. multi-location, rebrand).
+None open for this file.

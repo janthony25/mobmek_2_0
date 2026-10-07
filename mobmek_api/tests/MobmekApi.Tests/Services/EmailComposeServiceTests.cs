@@ -33,7 +33,7 @@ public class EmailComposeServiceTests
         await new JobItemService(db, jobs).CreateAsync(job!.Id, new CreateJobItemRequest(
             "Pads", TradePrice: 100m, RetailPrice: 100m, MarkupSolution.Dollar, Markup: 10m, ItemQuantity: 1, SellingPrice: null));
 
-        var invoices = new InvoiceService(db, new GstSettingService(db));
+        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()));
         var invoice = await invoices.GenerateAsync(job.Id, new CreateInvoiceRequest(new DateOnly(2026, 8, 1)));
 
         var compose = new EmailComposeService(db, new BusinessDetailsService(db, CreateStorage()));
@@ -85,7 +85,8 @@ public class EmailComposeServiceTests
         var businessDetails = new BusinessDetailsService(db, storage);
         await businessDetails.UpdateAsync(new UpdateBusinessDetailsRequest(
             "Jun Garage", "1 Main St", "shop@jungarage.co.nz", "0400 000 000", null,
-            "12 345 678 901", null, "Account: Jun Garage\nBank: ANZ\n12-3456-7890123-00"));
+            "12 345 678 901", null, "Account: Jun Garage\nBank: ANZ\n12-3456-7890123-00",
+            "INV", "QUO"));
 
         var customer = await new CustomerService(db).CreateAsync(
             new CreateCustomerRequest("Jane", "Doe", "0", "jane@example.com", null, null));
@@ -97,7 +98,7 @@ public class EmailComposeServiceTests
         var (job, _) = await jobs.CreateAsync(new CreateJobRequest(customer.Id, car!.Id, "Brakes", JobStatus.Open, 1000, null, null));
         await new JobItemService(db, jobs).CreateAsync(job!.Id, new CreateJobItemRequest(
             "Brake Pads", TradePrice: 100m, RetailPrice: 100m, MarkupSolution.Dollar, Markup: 10m, ItemQuantity: 1, SellingPrice: null));
-        var invoices = new InvoiceService(db, new GstSettingService(db));
+        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()));
         var invoice = await invoices.GenerateAsync(job.Id, new CreateInvoiceRequest(null));
 
         var compose = new EmailComposeService(db, businessDetails);
