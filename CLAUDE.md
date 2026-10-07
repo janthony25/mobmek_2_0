@@ -23,3 +23,16 @@ Do not skip this because a change feels small — a stale status doc is worse th
 `docs/features/feature-gaps.md` is the consolidated backlog of every open gap across all the files above. When a change closes a gap, check it off (or delete the line) there too, in the same change. When a change surfaces a new gap, add it there as well — not just in the per-feature file.
 
 See the `feature-status-docs` memory entry for how this was bootstrapped (2026-10-07 full-codebase audit) and what it corrected.
+
+## Rule: log every commit in `CHANGELOG.md`
+
+`CHANGELOG.md` (repo root) is a running, human-readable log of what shipped and why — reverse-chronological, grouped by date heading (`## YYYY-MM-DD`), newest date and newest entry within a date both at the top.
+
+**Every commit must add its own entry to `CHANGELOG.md` in that same commit.** This applies to every commit in this repo — backend, frontend, infra, scripts, docs-only — not just user-facing features.
+
+- If there's no heading for today yet, add one at the very top of the file.
+- Write one bullet (two lines only if genuinely needed): a short bold summary of what changed, then — after an em dash — the reason/impact when that's the useful part (a bug's user-visible symptom, a decision's rationale). Don't just restate the diff; match the tone of the existing entries (go read a few before writing one).
+- You can't know a commit's own hash before it exists, so the trailing `(`short-hash`)` is optional for the commit introducing the entry — append it later (a small follow-up edit, not an amend) if it's easy to, but don't block the commit on it.
+- Skip pure reverts/merges with no independent content, and skip amend-in-place fixups to a commit not yet pushed (fold the changelog entry into the one it's fixing instead of stacking a second line).
+
+Treat a commit with no changelog entry as incomplete, the same way a commit that skips the `docs/features/` update above is incomplete.
