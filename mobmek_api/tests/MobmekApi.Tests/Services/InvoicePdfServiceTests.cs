@@ -17,7 +17,8 @@ public class InvoicePdfServiceTests
     private static IFileStorage CreateStorage() =>
         new LocalFileStorage(Path.Combine(Path.GetTempPath(), "mobmek-tests", Guid.NewGuid().ToString("N")));
 
-    private static async Task<(InvoicePdfService Pdf, InvoiceService Invoices, Guid JobId)> SeedJobAsync(AppDbContext db)
+    private static async Task<(InvoicePdfService Pdf, InvoiceService Invoices, Guid JobId)> SeedJobAsync(
+        AppDbContext db, string? invoiceNotes = null)
     {
         var customer = await new CustomerService(db, new CarService(db)).CreateAsync(
             new CreateCustomerRequest("Jane", "Doe", "0", "jane@example.com", null, null));
@@ -26,7 +27,7 @@ public class InvoicePdfServiceTests
         var (car, _) = await new CarService(db).CreateAsync(
             new CreateCarRequest(customer.Id, make.Id, model!.Id, 2020, "ABC123", null, null, null));
         var jobs = new JobService(db);
-        var (job, _) = await jobs.CreateAsync(new CreateJobRequest(customer.Id, car!.Id, "Brakes", JobStatus.Open, 1000, null, null));
+        var (job, _) = await jobs.CreateAsync(new CreateJobRequest(customer.Id, car!.Id, "Brakes", JobStatus.Open, 1000, null, invoiceNotes));
         await new JobItemService(db, jobs).CreateAsync(job!.Id, new CreateJobItemRequest(
             "Pads", TradePrice: 100m, RetailPrice: 100m, MarkupSolution.Dollar, Markup: 10m, ItemQuantity: 1, SellingPrice: null));
 
@@ -73,6 +74,21 @@ public class InvoicePdfServiceTests
 
         Assert.NotNull(result);
         Assert.StartsWith("QUO-", result!.FileName);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_DoesNotThrow_WhenNotesSpanMultipleLines()
+    {
+        await using var db = CreateContext();
+        // "\r\n", a bare trailing newline, and a blank line in the middle — the exact shapes a
+        // textarea (Windows-pasted or not) and the legacy import can produce.
+        var (pdf, invoices, jobId) = await SeedJobAsync(db, invoiceNotes: "Line one\r\nLine two\n\nLine four\n");
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+
+        var result = await pdf.GenerateAsync(jobId, invoice!.Id);
+
+        Assert.NotNull(result);
+        Assert.True(result!.Bytes.Length > 0);
     }
 
     [Fact]

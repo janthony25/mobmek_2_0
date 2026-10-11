@@ -231,7 +231,13 @@ public class InvoicePdfService(AppDbContext db, IBusinessDetailsService business
                 column.Item().Column(notes =>
                 {
                     notes.Item().Text("Notes").FontSize(8).FontColor(Colors.Grey.Medium);
-                    notes.Item().Text(invoice.Notes);
+                    // QuestPDF's Text() renders a single string as one wrapped paragraph and
+                    // ignores embedded "\n" — without splitting, line breaks the user typed in
+                    // the job's Invoice Notes (preserved on-screen there via CSS) disappear here.
+                    foreach (var line in invoice.Notes.ReplaceLineEndings("\n").Split('\n'))
+                    {
+                        notes.Item().Text(line);
+                    }
                 });
             }
 

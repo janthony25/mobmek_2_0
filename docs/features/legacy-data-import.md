@@ -1,6 +1,13 @@
 # Legacy Data Import (old MSSQL → Postgres)
 
-**Last verified:** 2026-10-11 (ran the real Phase 6 cutover this session — dry-run + real run against `legacy-backup/db_aae44c_mobmekv200_10_11_2026_0.bak`, read the resulting `legacy-import-report-20261011-080122.md`, queried both local and EC2 Postgres row counts directly)
+**Last verified:** 2026-10-12 (restored a newer legacy `.bak` alongside the cutover one and diffed all 18 imported tables between them; found and fixed one drifted invoice — see below)
+
+### Post-cutover drift check — 2026-10-12
+The owner suspected a legacy-side edit after cutover had been missed. Restored `db_aae44c_mobmekv200_10_11_2026_11.bak` (internal data as of 2026-10-12 07:41, despite the filename) as a second database (`MobileMekanikoNew`) alongside the cutover restore (`MobileMekaniko`) in the same `legacy-mssql` container, and ran a full `SELECT * EXCEPT SELECT *` diff per table. **`Customers` was byte-for-byte identical** — the only drift was in `NewInvoices`/`NewInvoiceItems`: legacy invoice #1518 (Job #486, customer David Fa'anunu) was marked `Rejected` on 2026-10-12 07:41 and replaced by a new legacy invoice #1556 — same job, same 5 line items, same $6,089.25 total, new due date (2026-10-11 vs. 2026-09-01).
+
+Confirmed via direct query that neither local dev nor EC2 had any `UpdatedAtUtc` on the corresponding `Invoice` row (`a51853c7-1918-4e4b-aad6-350bfb5a9750`, #624) — nobody had touched it in the new system, so the fix was conflict-free. Applied to both local dev and EC2 (identical `Id`s/`SequenceNumber` on both): rejected #624, inserted a new `Invoice` #663 (`546db49a-8961-4da2-b1de-3765e15a6a72`) cloning the snapshot fields/items with `Status = 'Active'`, `DueDate = 2026-10-11`. A `pg_dump` safety backup was taken on EC2 (`/tmp/pre-invoice-fix-20261012-080107.dump` inside the `db` container) immediately before the production write.
+
+Applied via direct SQL (mirroring exactly what `InvoiceService.RejectAsync`/`GenerateAsync` would do — same columns, same sequence-number-as-max+1 logic), not via the API: no working local admin session was available at the time. **Follow-up:** figure out/reset the local dev bootstrap admin password (`justforvalo25@gmail.com` per `.env`'s `BOOTSTRAP_ADMIN_PASSWORD` didn't authenticate) so future one-off corrections like this can go through the real service layer instead of hand-written SQL.
 
 ## Status summary
 
@@ -45,6 +52,8 @@ Tracked in `docs/legacy-import-duplicate-customers.md`. 3 of 37 flagged pairs me
 `SequenceNumberAssignerTests.cs` only tested the pure numbering math in memory — it never exercised the actual `SaveChanges` insert path that hit the real unique-index constraint, so it could not have caught (and still can't protect against regressing) the `AddInvoiceSequenceNumberUniqueIndex` bug above. Checked: **100% of `MobmekApi.Tests` uses EF Core's InMemory provider**, which silently ignores `HasFilter` partial indexes — a structural blind spot for this whole class of bug. Added `tests/MobmekApi.Tests/Data/InvoiceSequenceIndexTests.cs` (2026-10-11), the first test in the suite to connect to a real Postgres instead: asserts two `SequenceNumber = 0` placeholders of the same `DocumentType` don't collide, and that two real (`>0`) numbers of the same type still do. Needs `docker compose up -d db` running locally to pass; everything runs inside a transaction that's always rolled back, so no test data is left in the dev DB. 647/647 tests green including these two.
 
 ## Recommended follow-ups
+- Figure out/reset the local dev bootstrap admin password (`justforvalo25@gmail.com`) — not currently known, forced the 2026-10-12 invoice-drift fix through hand-written SQL instead of the real `InvoiceService` endpoints.
+- Decide on a lighter-weight process for future post-cutover drift checks (the owner may still be using the legacy system in parallel) — the 2026-10-12 check needed a second full MSSQL restore; a smaller recurring diff script would be cheaper if this keeps happening.
 - Manually review the remaining 34 of 37 suspected-duplicate customers and all 6 duplicate-rego pairs in the new UI (owner task — the report is the worklist).
 - Decide whether to mirror the 3 EC2 customer merges above into the local dev DB, for consistency with future testing.
 - Update `docs/legacy-import-{design,todo,testing}.md` to reflect this 2026-10-11 run as the real cutover (they're still frozen at 2026-07-10 content-wise).

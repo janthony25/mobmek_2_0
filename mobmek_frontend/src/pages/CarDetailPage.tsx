@@ -44,6 +44,9 @@ export function CarDetailPage() {
 
   const subtitle = [car.color, car.rego].filter(Boolean).join(' · ')
 
+  // So the job page's back-link can return here instead of defaulting to Job Center.
+  const backState = { from: `/customers/${customerId}/cars/${carId}`, fromLabel: `${car.year} ${car.carMakeName} ${car.carModelName}`.trim() }
+
   const handleUpdateCar = async (values: Record<string, unknown>) => {
     await updateCar(carId, values as unknown as UpdateCarRequest)
     toast.success('Vehicle updated')
@@ -129,7 +132,7 @@ export function CarDetailPage() {
             items={carJobs}
             pageSize={15}
             getKey={(job) => job.id}
-            renderItem={(job) => <AppointmentRow job={job} />}
+            renderItem={(job) => <AppointmentRow job={job} backState={backState} />}
           />
         )}
       </Card>
@@ -149,7 +152,7 @@ export function CarDetailPage() {
   )
 }
 
-function AppointmentRow({ job }: { job: Job }) {
+function AppointmentRow({ job, backState }: { job: Job; backState: { from: string; fromLabel: string } }) {
   const mechanic = job.mechanics[0]?.fullName
 
   return (
@@ -159,7 +162,7 @@ function AppointmentRow({ job }: { job: Job }) {
         <p className="text-xs text-slate-500">{time(job.createdAtUtc)}</p>
       </div>
       <div className="min-w-0 flex-1">
-        <Link to={`/jobs/${job.id}`} className="block truncate font-medium text-slate-900 hover:underline">
+        <Link to={`/jobs/${job.id}`} state={backState} className="block truncate font-medium text-slate-900 hover:underline">
           {job.title}
         </Link>
         <p className="truncate text-sm text-slate-500">{orDash(mechanic)}</p>
