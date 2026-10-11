@@ -20,7 +20,7 @@ Checkbox = unresolved. Strike-through + `(fixed <date>)` when closed — keep cl
 
 - [x] ~~No duplicate-customer detection~~ (fixed 2026-10-07) — soft warning (phone/email), debounced, dismissible, never blocks save. `check-duplicate` endpoint + `CustomerForm.tsx`.
 - [x] ~~No duplicate-vehicle detection~~ (fixed 2026-10-07) — hard block (rego always, VIN when provided), only re-checked when the value actually changes (regression-tested against 7 known pre-existing duplicate-rego pairs from the legacy import).
-- [~] `car-make-model.md` reference file is dead — never consumed by the seeder, which only has ~10 hardcoded makes. **Decision (2026-10-07): leave as-is** — not wiring it in, not deleting it. Revisit only if the 10-make seed list becomes a real problem in practice.
+- [x] ~~`car-make-model.md` reference file is dead~~ (fixed 2026-10-12) — merged into `CarMakes`/`CarModels` directly via a generated idempotent SQL script (case-insensitive find-or-create, same semantics as `MakeModelResolver`), run on local then EC2. 31→73 makes, 211→1319 models on both, zero case-insensitive duplicates, purely additive.
 - [x] ~~`CustomerDetailPage` has no notes panel~~ (fixed 2026-10-07) — `NotesSection.tsx` added (mirrors `RemindersSection.tsx`), backend `GET /api/notes?customerId=` filter added. Live-verified in-browser.
 - [x] ~~`Reminder.CarId` "must belong to the same customer" is documented as an invariant but not enforced server-side~~ — **not actually a gap**, corrected 2026-10-07. `ReminderService.ValidateReferencesAsync` already enforces this and has test coverage; the original audit note was wrong.
 - [x] ~~Customers could be created with zero cars, weakening the rego-uniqueness guard against duplicates~~ (fixed 2026-10-11) — `POST /api/customers/with-car` creates customer+car atomically (nothing saved on car-side validation failure, not even the customer); `CustomerForm.tsx` requires a full car when creating. 3 new tests incl. the atomicity regression.
@@ -92,7 +92,7 @@ Checkbox = unresolved. Strike-through + `(fixed <date>)` when closed — keep cl
 - [ ] `legacy_import_map` table and the `legacy-mssql` compose service/importer project were not torn down after the 2026-10-11 cutover — left in place pending a deliberate cleanup pass.
 - [ ] 34 of 37 suspected-duplicate customers + 6 duplicate-rego cars from the 2026-10-11 import are still flagged, not reviewed/merged (owner task, see `legacy-import-report-20261011-080122.md`). 3 merged on EC2 so far: Joseph Gilliard (`#2468`/`#2469`), Aaron (`#2159`/`#2278`), Jhovan/Jovan (`#2372`/`#2376`) — tracked in `docs/legacy-import-duplicate-customers.md`.
 - [x] ~~`dotnet test` suite is 100% EF InMemory, can't catch relational-only bugs like partial unique indexes~~ (fixed 2026-10-11) — added `tests/MobmekApi.Tests/Data/InvoiceSequenceIndexTests.cs`, the first real-Postgres test in the suite (needs `docker compose up -d db`), pinning the exact `AddInvoiceSequenceNumberUniqueIndex`/partial-index behavior above.
-- [ ] `car-make-model.md` (new, more exhaustive NZ make/model reference) not yet merged into `CarMakes`/`CarModels` — needs a find-or-create seeder so it doesn't duplicate the 32 makes/212 models the legacy import created.
+- [x] ~~`car-make-model.md` not yet merged into `CarMakes`/`CarModels`~~ (fixed 2026-10-12) — see `customers-vehicles.md`/the Customers & Vehicles section above for detail.
 
 ## Infrastructure & Deployment
 *(detail: [infrastructure-deployment.md](infrastructure-deployment.md))*

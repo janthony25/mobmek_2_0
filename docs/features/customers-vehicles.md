@@ -12,7 +12,7 @@ Covers customer records, vehicle records, the make/model lookup tables, customer
 | Customer ↔ Car relationship | Working | `Entities/Customer.cs:21`, `Entities/Car.cs:31-33` |
 | Car ↔ CarMake/CarModel lookup | Working | `Services/CarService.cs`, `CarMakesController.cs`, `CarModelsController.cs` |
 | Car → service history (Jobs) link | Working | `pages/CarDetailPage.tsx:29-43` (client-side filter) |
-| `car-make-model.md` reference file | Not consumed by code — **decided to leave as-is** | `Data/CarReferenceDataSeeder.cs` (10 hardcoded makes only) |
+| `car-make-model.md` reference file | Merged into the DB — see below (2026-10-12) | one-off find-or-create SQL, not code-wired |
 | "Send Email" on customer page | Working | invoice/quote scoped only — see below |
 | Search / filtering / pagination | Working | `CustomerService.GetPagedAsync`, `CrudSection.tsx` |
 | Duplicate-customer detection (phone/email) | Working — soft warning | `CustomerService.CheckDuplicatesAsync`, `CustomerForm.tsx` |
@@ -35,8 +35,10 @@ Originally free-text `Make`/`Model` strings; migration `20260630104940_AddCarMak
 ### Car → service history — Working
 `CarDetailPage.tsx:29-43` fetches jobs by customer and client-filters by `carId`. Fine at per-car volumes; no server-side filter exists for this specific case.
 
-### `car-make-model.md` — not wired in, deliberately left as-is
-Zero code references anywhere (`grep` confirmed). Real seeding is `Data/CarReferenceDataSeeder.cs:12-23` — ~10 hardcoded makes, a small fraction of the `.md` file's exhaustive NZ-market list. **Decision (2026-10-07): leave as-is** — not worth wiring in or deleting unless the 10-make seed list becomes a real problem in practice.
+### `car-make-model.md` — merged into `CarMakes`/`CarModels` (2026-10-12)
+Previously zero code references anywhere; the only real seeding was `Data/CarReferenceDataSeeder.cs` (~10 hardcoded makes, skipped once the table had any rows — couldn't merge into an already-populated table). Rather than wiring the `.md` file into app code (it's a one-time reference bootstrap, not an ongoing input), merged it directly into the database with a generated, idempotent SQL script: for each of the file's 69 makes / 1231 models, `INSERT ... WHERE NOT EXISTS (... LOWER(...) = LOWER(...))` — same case-insensitive find-or-create semantics as `MakeModelResolver` (the legacy importer's resolver), just expressed as SQL instead of reusing that C# class directly. Run on local first (31→73 makes, 211→1319 models) and verified zero case-insensitive duplicates in either `CarMakes` or `CarModels` before running the identical script on EC2 (same before/after numbers, pre-merge `pg_dump` taken first). Purely additive — no rows deleted or updated, so no existing `Car` row's make/model reference could be affected.
+
+The generated SQL script itself wasn't committed (one-off, not reusable tooling) — if `car-make-model.md` gets extended later, the same approach (regenerate a dedup-checked SQL script from its JSON, run on local then EC2) applies again.
 
 ### "Send Email" on customer page — Working, but invoice/quote scoped only
 Despite being framed as "email the customer," the button only ever appears on `InvoiceRow`/`QuotationRow` and opens `EmailComposeModal` for that specific document — there's no free-form "email this customer" action. Full real call chain verified end to end: `CustomerDetailPage.tsx` → `EmailComposeModal.tsx` → `api/invoices.ts:sendInvoiceEmail` → `POST /api/jobs/{jobId}/invoices/{id}/email` → `InvoicesController.SendEmail` → `OutboundEmailService.SendInvoiceEmailAsync` → real Resend HTTP call, with a PDF attachment and a `Queued→Sent/Failed` audit row. See `email-module.md` for the full pipeline. Gated on `ResendConfigured`; surfaces a clear "not configured yet" message if unset.

@@ -49,5 +49,5 @@ Tracked in `docs/legacy-import-duplicate-customers.md`. 3 of 37 flagged pairs me
 - Decide whether to mirror the 3 EC2 customer merges above into the local dev DB, for consistency with future testing.
 - Update `docs/legacy-import-{design,todo,testing}.md` to reflect this 2026-10-11 run as the real cutover (they're still frozen at 2026-07-10 content-wise).
 - Tear down `legacy_import_map` and remove `legacy-mssql` from `docker-compose.yml` + delete the importer project once the flagged data has been cleaned up and nobody needs to re-run the import.
-- `car-make-model.md` (new, more exhaustive NZ make/model reference) still needs to be merged into the `CarMakes`/`CarModels` tables — not done this session; needs a find-or-create seeder (same case-insensitive matching as `MakeModelResolver`) so it doesn't duplicate the 32 makes/212 models the legacy import just created.
+- ~~`car-make-model.md` needs to be merged into `CarMakes`/`CarModels`~~ — done 2026-10-12, see `customers-vehicles.md`.
 - Run the Phase 6 manual sign-off checklist (`docs/legacy-import-todo.md`) against the real EC2 data — open a legacy customer end-to-end, check an invoice total against an old printout, edit an imported customer, add a new car/job/invoice to one. Not yet done.
