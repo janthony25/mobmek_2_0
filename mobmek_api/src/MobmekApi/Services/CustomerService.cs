@@ -73,6 +73,7 @@ public class CustomerService(AppDbContext db) : ICustomerService
                         car.Year,
                         car.CarMake!.Name,
                         car.CarModel!.Name,
+                        car.Rego,
                         db.Reminders.Count(r => r.CarId == car.Id && !r.IsDone),
                         db.Reminders
                             .Where(r => r.CarId == car.Id && !r.IsDone)

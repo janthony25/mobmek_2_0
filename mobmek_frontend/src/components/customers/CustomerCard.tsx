@@ -73,7 +73,7 @@ export function CustomerCard({ customer }: CustomerCardProps) {
                 key={car.id}
                 className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2.5 py-1 text-xs text-slate-700"
               >
-                {car.year} {car.carMakeName} {car.carModelName}
+                {car.year} {car.carMakeName} {car.carModelName} ({car.rego})
                 {car.activeReminderCount > 0 && (
                   <span className={`inline-flex items-center gap-1 border-l border-slate-300 pl-1.5 font-medium ${URGENCY_TEXT[urgency]}`}>
                     <BellIcon className="h-3.5 w-3.5" />

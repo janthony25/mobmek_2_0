@@ -279,6 +279,7 @@ public class CustomerServiceTests
         var carSummary = Assert.Single(item.Cars);
         Assert.Equal("Toyota", carSummary.CarMakeName);
         Assert.Equal("Hilux", carSummary.CarModelName);
+        Assert.Equal("ABC123", carSummary.Rego);
         Assert.Equal(2, carSummary.ActiveReminderCount);
         Assert.Equal(new DateOnly(2026, 7, 10), carSummary.NextReminderDueDate); // earliest active
         Assert.Equal(1, item.ActiveNoteCount);

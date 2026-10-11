@@ -52,6 +52,7 @@ export interface CustomerCarSummary {
   year: number
   carMakeName: string | null
   carModelName: string | null
+  rego: string
   activeReminderCount: number
   /** Earliest active reminder due date, "yyyy-mm-dd". */
   nextReminderDueDate: string | null

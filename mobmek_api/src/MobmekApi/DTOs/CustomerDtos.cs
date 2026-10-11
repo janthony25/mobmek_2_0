@@ -25,6 +25,7 @@ public record CustomerCarSummaryDto(
     int Year,
     string? CarMakeName,
     string? CarModelName,
+    string Rego,
     int ActiveReminderCount,
     DateOnly? NextReminderDueDate);
 

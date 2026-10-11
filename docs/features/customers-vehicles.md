@@ -42,6 +42,8 @@ Despite being framed as "email the customer," the button only ever appears on `I
 ### Search / filtering / pagination — Working (hybrid server-side, confirmed here)
 `GET /api/customers/paged` (`CustomersController.cs:22-35` → `CustomerService.GetPagedAsync`, lines 22-88): server-side skip/take, search across name+phone+email+car rego, sort, date-range filter, `MaxPageSize=200`. Frontend `CrudSection.tsx:114-146` debounces search and refetches server-side on page/search/sort change. List items carry pre-aggregated car/note/reminder counts computed server-side — no N+1 on the card view.
 
+**Fixed 2026-10-11 — customer-list car tags now show the rego:** each vehicle tag on `CustomerCard.tsx:76` previously showed only "Year Make Model" (e.g. "2020 Mazda CX-30"), ambiguous when a customer has two cars of the same make/model. Added `Rego` to `CustomerCarSummaryDto` (`DTOs/CustomerDtos.cs:23-30`) and the projection in `CustomerService.cs:71-81`, and `rego` to the frontend `CustomerCarSummary` type — now renders "2020 Mazda CX-30 (NCJ955)". `CarDetailPage.tsx`/`CustomerDetailPage.tsx`'s own vehicle lists already showed rego separately and were left unchanged — this was a customer-list-card-only request.
+
 ### Duplicate detection — Working (fixed 2026-10-07)
 Two different policies by design, per owner decision: customer phone/email is a **soft warning** (people legitimately share phones/emails — e.g. a family); car rego/VIN is a **hard block** (one physical car, one record — a collision is always a data-entry mistake).
 

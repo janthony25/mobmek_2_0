@@ -4,6 +4,10 @@ A running, human-readable log of what shipped and why — reverse-chronological,
 date. One entry per commit, added in the same commit that makes the change. See the rule in
 the root `CLAUDE.md` ("Rule: log every commit in `CHANGELOG.md`") for how this is kept current.
 
+## 2026-10-11
+
+- **Show rego on customer-list vehicle tags** — "2020 Mazda CX-30" is ambiguous when a customer owns two similar cars; now renders "2020 Mazda CX-30 (NCJ955)". Added `Rego` to `CustomerCarSummaryDto` and the frontend `CustomerCarSummary` type.
+
 ## 2026-10-07
 
 - **Guard irreversible deletes behind `ConfirmDialog`; fix four mobile/touch nav bugs** — job-photo, business-logo, and cash-transaction-attachment "Remove" buttons no longer delete instantly on click (new app-wide rule in `mobmek_frontend/CLAUDE.md`, found via a user report on job photos then audited into two more instances). Separately, fixed four bugs reported live from a phone against production: the mobile shell used `h-screen` instead of `h-dvh`, so the top bar felt "stuck" behind Safari's collapsing address bar; dropdown/combobox menus (`DropdownMenu`, `Combobox`, `AsyncCombobox`, the customer invoice date filter) could stay stuck open on iOS since they only listened for `mousedown`, not `touchstart`; the `CrudSection` list-page header didn't wrap on narrow screens; and the desktop sidebar's icon-only collapse preference was leaking into the mobile/tablet drawer, hiding all nav labels. None of the four nav fixes were re-verified on a real device this session (no browser automation available) — worth a real-phone/tablet pass.
