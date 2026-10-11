@@ -131,7 +131,12 @@ export function CustomerForm({ initial, onSubmit, onCancel }: CustomerFormProps)
           <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value.toUpperCase())} className={controlClass} />
         </Field>
         <Field label="Phone number" required>
-          <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className={controlClass} />
+          <input
+            type="tel"
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value.replace(/[^\d+\-\s]/g, ''))}
+            className={controlClass}
+          />
         </Field>
         <Field label="Email">
           <input type="email" value={emailAddress} onChange={(e) => setEmailAddress(e.target.value)} className={controlClass} />
