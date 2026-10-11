@@ -98,6 +98,28 @@ export interface CreateCarRequest {
 
 export type UpdateCarRequest = Omit<CreateCarRequest, 'customerId'>
 
+/** Payload for creating a customer together with their first car, in one atomic request. */
+export interface CreateCustomerWithCarRequest {
+  firstName: string
+  lastName: string
+  phoneNumber: string
+  emailAddress: string | null
+  physicalAddress: string | null
+  notes: string | null
+  carMakeId: string
+  carModelId: string
+  year: number
+  rego: string
+  vin: string | null
+  color: string | null
+  engineType: string | null
+}
+
+export interface CustomerWithCar {
+  customer: Customer
+  car: Car
+}
+
 // --- Car makes & models ------------------------------------------------------
 
 export interface CarMake {

@@ -20,7 +20,7 @@ public class InvoiceServiceTests
     // Seeds a job carrying one item ($110), labour ($200) and one service line ($150) -> subtotal $460.
     private static async Task<(InvoiceService Invoices, JobService Jobs, Guid JobId)> SeedFullJobAsync(AppDbContext db)
     {
-        var customer = await new CustomerService(db).CreateAsync(new CreateCustomerRequest("O", "P", "0", null, null, null));
+        var customer = await new CustomerService(db, new CarService(db)).CreateAsync(new CreateCustomerRequest("O", "P", "0", null, null, null));
         var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Make"));
         var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Model"));
         var (car, _) = await new CarService(db).CreateAsync(new CreateCarRequest(customer.Id, make.Id, model!.Id, 2020, "R", null, null, null));
@@ -649,7 +649,7 @@ public class InvoiceServiceTests
     public async Task GetAllAsync_And_GetByIdAsync_PopulateCustomerAndCarContext()
     {
         await using var db = CreateContext();
-        var customer = await new CustomerService(db).CreateAsync(
+        var customer = await new CustomerService(db, new CarService(db)).CreateAsync(
             new CreateCustomerRequest("Jane", "Doe", "0", "jane@example.com", null, null));
         var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Toyota"));
         var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Hilux"));

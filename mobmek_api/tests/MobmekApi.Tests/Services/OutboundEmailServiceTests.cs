@@ -47,7 +47,7 @@ public class OutboundEmailServiceTests
 
     private static async Task<(Guid JobId, Guid InvoiceId)> SeedInvoiceAsync(AppDbContext db, string? customerEmail = "jane@example.com", string rego = "ABC123")
     {
-        var customer = await new CustomerService(db).CreateAsync(
+        var customer = await new CustomerService(db, new CarService(db)).CreateAsync(
             new CreateCustomerRequest("Jane", "Doe", "0", customerEmail, null, null));
         var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Toyota"));
         var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Hilux"));
@@ -381,7 +381,7 @@ public class OutboundEmailServiceTests
     public async Task SendReminderEmailAsync_Success_SetsKindAndReminderId()
     {
         await using var db = CreateContext();
-        var customer = await new CustomerService(db).CreateAsync(
+        var customer = await new CustomerService(db, new CarService(db)).CreateAsync(
             new CreateCustomerRequest("Jane", "Doe", "0", "jane@example.com", null, null));
         var reminder = new Reminder { CustomerId = customer.Id, Title = "WOF due", DueDate = DateOnly.FromDateTime(DateTime.UtcNow) };
         db.Reminders.Add(reminder);
@@ -417,7 +417,7 @@ public class OutboundEmailServiceTests
     public async Task SendAppointmentEmailAsync_Success_SetsKindAndAppointmentId()
     {
         await using var db = CreateContext();
-        var customer = await new CustomerService(db).CreateAsync(
+        var customer = await new CustomerService(db, new CarService(db)).CreateAsync(
             new CreateCustomerRequest("Jane", "Doe", "0", "jane@example.com", null, null));
         var appointment = new Appointment
         {

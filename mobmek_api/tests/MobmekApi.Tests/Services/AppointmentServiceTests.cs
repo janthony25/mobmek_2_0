@@ -19,7 +19,7 @@ public class AppointmentServiceTests
 
     private static async Task<(Guid CustomerId, Guid CarId)> SeedCustomerWithCarAsync(AppDbContext db, string rego = "ABC123")
     {
-        var customer = await new CustomerService(db).CreateAsync(
+        var customer = await new CustomerService(db, new CarService(db)).CreateAsync(
             new CreateCustomerRequest("Owner", "Person", "000", null, null, null));
         var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Toyota"));
         var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Hilux"));
@@ -502,7 +502,7 @@ public class AppointmentServiceTests
     {
         await using var db = CreateContext();
         var service = new AppointmentService(db, new FakeGoogleCalendarClient(), new FakeAppointmentChangeNotifier(), new CarService(db));
-        var customer = await new CustomerService(db).CreateAsync(new CreateCustomerRequest("Dave", "Miller", "0215551234", null, null, null));
+        var customer = await new CustomerService(db, new CarService(db)).CreateAsync(new CreateCustomerRequest("Dave", "Miller", "0215551234", null, null, null));
         var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Toyota"));
         var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Hilux"));
         var (created, _) = await service.CreateAsync(NewCallerBooking() with { CustomerId = customer.Id });

@@ -57,6 +57,30 @@ public record CreateCustomerRequest(
     [MaxLength(500)] string? PhysicalAddress,
     [MaxLength(2000)] string? Notes);
 
+/// <summary>
+/// Payload for creating a customer together with their first car, in one atomic operation —
+/// used by the main "Add Customer" flow so a customer can never be created without a vehicle
+/// on file. If the car fields fail validation (duplicate rego/VIN, bad make/model), nothing is
+/// saved — not even the customer — so retrying never leaves an orphan customer-with-no-car behind.
+/// </summary>
+public record CreateCustomerWithCarRequest(
+    [Required, MaxLength(100)] string FirstName,
+    [Required, MaxLength(100)] string LastName,
+    [Required, Phone, MaxLength(30)] string PhoneNumber,
+    [EmailAddress, MaxLength(200)] string? EmailAddress,
+    [MaxLength(500)] string? PhysicalAddress,
+    [MaxLength(2000)] string? Notes,
+    [Required] Guid CarMakeId,
+    [Required] Guid CarModelId,
+    [Range(1900, 2100)] int Year,
+    [Required, MaxLength(20)] string Rego,
+    [MaxLength(17)] string? Vin,
+    [MaxLength(50)] string? Color,
+    [MaxLength(50)] string? EngineType);
+
+/// <summary>Result of <see cref="CreateCustomerWithCarRequest"/> — the new customer and their new car.</summary>
+public record CustomerWithCarDto(CustomerDto Customer, CarDto Car);
+
 /// <summary>Payload for updating an existing customer.</summary>
 public record UpdateCustomerRequest(
     [Required, MaxLength(100)] string FirstName,

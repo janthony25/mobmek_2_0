@@ -17,6 +17,7 @@ Covers customer records, vehicle records, the make/model lookup tables, customer
 | Search / filtering / pagination | Working | `CustomerService.GetPagedAsync`, `CrudSection.tsx` |
 | Duplicate-customer detection (phone/email) | Working — soft warning | `CustomerService.CheckDuplicatesAsync`, `CustomerForm.tsx` |
 | Duplicate-vehicle detection (rego/VIN) | Working — hard block | `CarService.ValidateUniqueAsync` |
+| Customer creation requires a car | Working — atomic, since 2026-10-11 | `POST /api/customers/with-car`, `CustomerService.CreateWithCarAsync` |
 | Customer notes/reminders linkage | Working | `CarId`-belongs-to-customer enforced; notes panel added to `CustomerDetailPage.tsx` |
 
 ## Details
@@ -52,6 +53,13 @@ Two different policies by design, per owner decision: customer phone/email is a 
 
 7 new backend tests on `CarServiceTests`/`CustomerServiceTests`.
 
+### Customer creation requires a car — Working, atomic (added 2026-10-11)
+The main "Add Customer" flow can no longer create a customer with zero vehicles — the strongest available guard against duplicate customers, since rego uniqueness is already a hard block: if a customer can't exist without a car, and that car's rego is already taken, staff are forced to find the real existing customer instead of creating a new one. (This doesn't fully replace the phone/email soft check above — it doesn't catch "same person, genuinely different car each visit.")
+
+- **Backend:** new `POST /api/customers/with-car` (`CreateCustomerWithCarRequest` → `CustomerService.CreateWithCarAsync`) creates the `Customer` and `Car` in one unit of work — nothing is saved to either table until a single final `SaveChangesAsync`. `CarService.BuildAsync`'s customer-existence check was extended to also accept a `Customer` that's `Added` but not yet saved in the current change tracker (previously only checked the database), which is what lets this reuse the exact same make/model + rego/VIN validation `CarsController`'s own create path uses, with zero duplicated logic. On any car-side validation failure (bad make/model, duplicate rego/VIN), the tracked customer is detached and nothing is persisted — not even the customer — so a rejected attempt never leaves an orphan customer-with-no-car behind. 3 new tests, including the atomicity regression (`CreateWithCarAsync_DuplicateRego_PersistsNeitherCustomerNorCar`); 650/650 backend tests passing.
+- **Frontend:** `CustomerForm.tsx` now also collects a full car (make → model cascading select, year, rego, VIN/color/engine optional) whenever `initial === null` (creating), reusing the exact same cascading-select pattern as `CarForm.tsx`. Editing an existing customer is unchanged — no car fields shown, since cars are managed from the customer's own detail page. `CustomersPage.tsx`'s `onCreate` now calls `createCustomerWithCar` instead of the old plain `createCustomer`.
+- **Verification:** `dotnet build`/`dotnet test` (650/650) and `tsc`/`build`/`lint` all clean. Not live-browser-verified this session — local Postgres now mirrors a real EC2 snapshot (via `scripts/sync-ec2-to-local.sh`) whose admin login isn't a known dev password, and fabricating a login via raw SQL into the Identity tables was correctly blocked rather than worked around. Relying on the automated coverage (including the atomicity regression test) until a real login is available for a browser pass.
+
 ### Notes/reminders linkage — Partial
 `Reminder` requires `CustomerId` (optional `CarId`). **Correction (2026-10-07):** the "car must belong to that customer" invariant IS enforced server-side — `ReminderService.ValidateReferencesAsync` (`Services/ReminderService.cs:130-158`) checks `car.CustomerId != customerId` and returns `ReminderWriteError.CarNotOwnedByCustomer`, covered by `ReminderServiceTests.CreateAsync_ReturnsCarNotOwnedByCustomer_WhenCarBelongsToAnother`. The earlier audit claiming this was unenforced was wrong — verified directly against current code.
 
@@ -65,5 +73,6 @@ Two different policies by design, per owner decision: customer phone/email is a 
 - ~~Add duplicate-detection for customer phone/email and car rego/VIN~~ — done 2026-10-07.
 - ~~Enforce Reminder.CarId-belongs-to-Customer invariant server-side~~ — already done, prior audit note was wrong (corrected 2026-10-07).
 - ~~Add a notes panel to `CustomerDetailPage.tsx`~~ — done 2026-10-07.
+- Live-browser-verify the new "Add Customer" combined form (2026-10-11 work above) once there's a way to log into the locally-synced data — right now local's admin credentials are the real EC2 ones, not a known dev password.
 
-All known gaps in this feature area are now resolved or deliberately deferred (`car-make-model.md`).
+All known gaps in this feature area are now resolved or deliberately deferred (`car-make-model.md`), aside from the live-browser-verification item just above.

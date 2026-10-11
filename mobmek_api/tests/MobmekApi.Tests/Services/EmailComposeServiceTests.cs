@@ -21,7 +21,7 @@ public class EmailComposeServiceTests
     private static async Task<(EmailComposeService Compose, Guid JobId, Guid InvoiceId)> SeedInvoiceAsync(
         AppDbContext db, string? customerEmail = "jane@example.com")
     {
-        var customer = await new CustomerService(db).CreateAsync(
+        var customer = await new CustomerService(db, new CarService(db)).CreateAsync(
             new CreateCustomerRequest("Jane", "Doe", "0", customerEmail, null, null));
         var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Toyota"));
         var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Hilux"));
@@ -88,7 +88,7 @@ public class EmailComposeServiceTests
             "12 345 678 901", null, "Account: Jun Garage\nBank: ANZ\n12-3456-7890123-00",
             "INV", "QUO"));
 
-        var customer = await new CustomerService(db).CreateAsync(
+        var customer = await new CustomerService(db, new CarService(db)).CreateAsync(
             new CreateCustomerRequest("Jane", "Doe", "0", "jane@example.com", null, null));
         var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Toyota"));
         var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Hilux"));
@@ -144,7 +144,7 @@ public class EmailComposeServiceTests
     public async Task ComposeReminderEmailAsync_DefaultsRecipient_AndRendersTemplateIntro()
     {
         await using var db = CreateContext();
-        var customer = await new CustomerService(db).CreateAsync(
+        var customer = await new CustomerService(db, new CarService(db)).CreateAsync(
             new CreateCustomerRequest("Jane", "Doe", "0", "jane@example.com", null, null));
         var reminder = new Reminder { CustomerId = customer.Id, Title = "WOF due", DueDate = new DateOnly(2026, 11, 1) };
         db.Reminders.Add(reminder);
@@ -165,7 +165,7 @@ public class EmailComposeServiceTests
     public async Task ComposeReminderEmailAsync_CustomIntro_OverridesTemplateDefault()
     {
         await using var db = CreateContext();
-        var customer = await new CustomerService(db).CreateAsync(
+        var customer = await new CustomerService(db, new CarService(db)).CreateAsync(
             new CreateCustomerRequest("Jane", "Doe", "0", "jane@example.com", null, null));
         var reminder = new Reminder { CustomerId = customer.Id, Title = "WOF due", DueDate = new DateOnly(2026, 11, 1) };
         db.Reminders.Add(reminder);
@@ -192,7 +192,7 @@ public class EmailComposeServiceTests
     public async Task ComposeAppointmentEmailAsync_DefaultsRecipient_FromLinkedCustomer()
     {
         await using var db = CreateContext();
-        var customer = await new CustomerService(db).CreateAsync(
+        var customer = await new CustomerService(db, new CarService(db)).CreateAsync(
             new CreateCustomerRequest("Jane", "Doe", "0", "jane@example.com", null, null));
         var startUtc = new DateTime(2026, 11, 1, 22, 0, 0, DateTimeKind.Utc);
         var appointment = new Appointment

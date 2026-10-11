@@ -23,6 +23,8 @@ Checkbox = unresolved. Strike-through + `(fixed <date>)` when closed — keep cl
 - [~] `car-make-model.md` reference file is dead — never consumed by the seeder, which only has ~10 hardcoded makes. **Decision (2026-10-07): leave as-is** — not wiring it in, not deleting it. Revisit only if the 10-make seed list becomes a real problem in practice.
 - [x] ~~`CustomerDetailPage` has no notes panel~~ (fixed 2026-10-07) — `NotesSection.tsx` added (mirrors `RemindersSection.tsx`), backend `GET /api/notes?customerId=` filter added. Live-verified in-browser.
 - [x] ~~`Reminder.CarId` "must belong to the same customer" is documented as an invariant but not enforced server-side~~ — **not actually a gap**, corrected 2026-10-07. `ReminderService.ValidateReferencesAsync` already enforces this and has test coverage; the original audit note was wrong.
+- [x] ~~Customers could be created with zero cars, weakening the rego-uniqueness guard against duplicates~~ (fixed 2026-10-11) — `POST /api/customers/with-car` creates customer+car atomically (nothing saved on car-side validation failure, not even the customer); `CustomerForm.tsx` requires a full car when creating. 3 new tests incl. the atomicity regression.
+- [ ] New "Add Customer + Car" flow (above) not live-browser-verified — local Postgres now mirrors a real EC2 snapshot with no known admin password; relying on automated test coverage until a real login is available.
 
 ## Jobs / Workshop Floor
 *(detail: [jobs-workshop-floor.md](jobs-workshop-floor.md))*

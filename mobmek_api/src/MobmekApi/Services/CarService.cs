@@ -59,7 +59,12 @@ public class CarService(AppDbContext db) : ICarService
     /// single SaveChangesAsync call instead of this method committing on its own.</summary>
     public async Task<(Car? Car, CarWriteError Error)> BuildAsync(CreateCarRequest request, CancellationToken cancellationToken = default)
     {
-        if (!await db.Customers.AnyAsync(c => c.Id == request.CustomerId, cancellationToken))
+        // Also accept a customer that's been Added to the context but not saved yet — lets a
+        // caller build a new customer and its first car in one atomic unit of work (see
+        // CustomerService.CreateWithCarAsync) without an extra round trip just to satisfy this check.
+        var customerExists = await db.Customers.AnyAsync(c => c.Id == request.CustomerId, cancellationToken)
+            || db.ChangeTracker.Entries<Customer>().Any(e => e.State == EntityState.Added && e.Entity.Id == request.CustomerId);
+        if (!customerExists)
         {
             return (null, CarWriteError.CustomerNotFound);
         }

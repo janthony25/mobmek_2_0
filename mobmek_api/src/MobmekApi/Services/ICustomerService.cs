@@ -21,6 +21,12 @@ public interface ICustomerService
 
     Task<CustomerDto> CreateAsync(CreateCustomerRequest request, CancellationToken cancellationToken = default);
 
+    /// <summary>Creates a customer and their first car atomically — see
+    /// <see cref="DTOs.CreateCustomerWithCarRequest"/>. On a car-side validation failure, nothing
+    /// is saved, including the customer.</summary>
+    Task<(CustomerWithCarDto? Result, CarWriteError Error)> CreateWithCarAsync(
+        CreateCustomerWithCarRequest request, CancellationToken cancellationToken = default);
+
     Task<CustomerDto?> UpdateAsync(Guid id, UpdateCustomerRequest request, CancellationToken cancellationToken = default);
 
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);

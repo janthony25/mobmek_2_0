@@ -4,6 +4,10 @@ A running, human-readable log of what shipped and why — reverse-chronological,
 date. One entry per commit, added in the same commit that makes the change. See the rule in
 the root `CLAUDE.md` ("Rule: log every commit in `CHANGELOG.md`") for how this is kept current.
 
+## 2026-10-12
+
+- **Require a car when creating a customer, atomically** — the main "Add Customer" flow can no longer create a customer with zero vehicles, closing the biggest gap in duplicate-customer prevention: since rego is already a hard-blocked unique field, a customer that can't exist without a car means staff can't create a duplicate for a car that's already in the system. New `POST /api/customers/with-car` creates both in one unit of work — nothing is saved, not even the customer, if the car fails validation (duplicate rego/VIN, bad make/model). `CustomerForm.tsx` now collects a full car (reusing `CarForm.tsx`'s cascading make/model select) whenever creating; editing is unchanged. 3 new backend tests including the atomicity regression; 650/650 passing. Not live-browser-verified — local Postgres now mirrors a real EC2 snapshot with no known admin password.
+
 ## 2026-10-11
 
 - **Add `scripts/sync-ec2-to-local.sh`** — pulls a full snapshot of EC2's production database down into local Postgres (schema + data + users + settings) so manual testing happens against real production-shaped data before publishing, closing the gap CI can't: CI proves build+test pass, not that a change actually behaves correctly against real data. Backs up local's prior state first, verified for real — row counts matched exactly between local and EC2 after running it.

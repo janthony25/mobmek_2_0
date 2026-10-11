@@ -14,7 +14,7 @@ public class NoteServiceTests
 
     private static async Task<Guid> SeedCustomerAsync(AppDbContext db)
     {
-        var customer = await new CustomerService(db).CreateAsync(
+        var customer = await new CustomerService(db, new CarService(db)).CreateAsync(
             new CreateCustomerRequest("Owner", "Person", "000", null, null, null));
         return customer.Id;
     }

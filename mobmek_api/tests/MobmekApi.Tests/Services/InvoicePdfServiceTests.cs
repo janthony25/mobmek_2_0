@@ -19,7 +19,7 @@ public class InvoicePdfServiceTests
 
     private static async Task<(InvoicePdfService Pdf, InvoiceService Invoices, Guid JobId)> SeedJobAsync(AppDbContext db)
     {
-        var customer = await new CustomerService(db).CreateAsync(
+        var customer = await new CustomerService(db, new CarService(db)).CreateAsync(
             new CreateCustomerRequest("Jane", "Doe", "0", "jane@example.com", null, null));
         var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Toyota"));
         var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Hilux"));

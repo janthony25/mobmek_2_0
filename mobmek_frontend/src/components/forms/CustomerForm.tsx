@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import { checkCustomerDuplicates } from '@/api/customers'
+import { getCarMakes } from '@/api/carMakes'
+import { getCarModels } from '@/api/carModels'
 import { Button } from '@/components/ui/Button'
 import { Field, controlClass } from './controls'
-import type { Customer, CustomerDuplicateMatch } from '@/types'
+import { Combobox } from './Combobox'
+import type { CarMake, CarModel, Customer, CustomerDuplicateMatch } from '@/types'
 
 interface CustomerFormProps {
   initial: Customer | null
@@ -11,8 +14,14 @@ interface CustomerFormProps {
 }
 
 /** Bespoke customer form (rather than the generic schema form) so phone/email can run a
- * debounced, non-blocking duplicate check as the user types — see docs/features/customers-vehicles.md. */
+ * debounced, non-blocking duplicate check as the user types — see docs/features/customers-vehicles.md.
+ * When creating a brand-new customer (no `initial`), also collects their first car — a customer
+ * can never be created without a vehicle on file, since that's the strongest available guard
+ * against duplicate customers (rego is already globally unique). Editing an existing customer
+ * doesn't touch cars at all; that's managed from their detail page. */
 export function CustomerForm({ initial, onSubmit, onCancel }: CustomerFormProps) {
+  const isNew = initial === null
+
   const [firstName, setFirstName] = useState(initial?.firstName ?? '')
   const [lastName, setLastName] = useState(initial?.lastName ?? '')
   const [phoneNumber, setPhoneNumber] = useState(initial?.phoneNumber ?? '')
@@ -20,10 +29,40 @@ export function CustomerForm({ initial, onSubmit, onCancel }: CustomerFormProps)
   const [physicalAddress, setPhysicalAddress] = useState(initial?.physicalAddress ?? '')
   const [notes, setNotes] = useState(initial?.notes ?? '')
 
+  // First-car fields — only collected/shown when creating (isNew).
+  const [makes, setMakes] = useState<CarMake[]>([])
+  const [models, setModels] = useState<CarModel[]>([])
+  const [makeId, setMakeId] = useState('')
+  const [modelId, setModelId] = useState('')
+  const [year, setYear] = useState('')
+  const [rego, setRego] = useState('')
+  const [vin, setVin] = useState('')
+  const [color, setColor] = useState('')
+  const [engineType, setEngineType] = useState('')
+
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [duplicates, setDuplicates] = useState<CustomerDuplicateMatch[]>([])
   const [dismissedDuplicates, setDismissedDuplicates] = useState(false)
+
+  useEffect(() => {
+    if (!isNew) return
+    getCarMakes().then(setMakes).catch(() => setMakes([]))
+  }, [isNew])
+
+  // Load models whenever the selected make changes.
+  useEffect(() => {
+    if (!makeId) {
+      setModels([])
+      return
+    }
+    getCarModels(makeId).then(setModels).catch(() => setModels([]))
+  }, [makeId])
+
+  const handleMakeChange = (value: string) => {
+    setMakeId(value)
+    setModelId('') // model no longer valid under a different make
+  }
 
   // Advisory only — never blocks the save, just helps catch "didn't realize we already have
   // this customer" before it happens. Debounced so it doesn't hit the API on every keystroke.
@@ -49,6 +88,10 @@ export function CustomerForm({ initial, onSubmit, onCancel }: CustomerFormProps)
       setError('First name, last name and phone number are required.')
       return
     }
+    if (isNew && (!makeId || !modelId || !year.trim() || !rego.trim())) {
+      setError('Make, model, year and rego are required — every customer needs a car on file.')
+      return
+    }
     setBusy(true)
     setError(null)
     try {
@@ -59,6 +102,17 @@ export function CustomerForm({ initial, onSubmit, onCancel }: CustomerFormProps)
         emailAddress: emailAddress.trim() || null,
         physicalAddress: physicalAddress.trim() || null,
         notes: notes.trim() || null,
+        ...(isNew
+          ? {
+              carMakeId: makeId,
+              carModelId: modelId,
+              year: Number(year),
+              rego: rego.trim(),
+              vin: vin.trim() || null,
+              color: color.trim() || null,
+              engineType: engineType.trim() || null,
+            }
+          : {}),
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -89,6 +143,55 @@ export function CustomerForm({ initial, onSubmit, onCancel }: CustomerFormProps)
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className={controlClass} />
         </Field>
       </div>
+
+      {isNew && (
+        <div className="border-t border-slate-100 pt-4">
+          <p className="mb-3 text-sm font-medium text-slate-700">
+            First car<span className="text-red-500"> *</span>
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Make" required>
+              <select value={makeId} onChange={(e) => handleMakeChange(e.target.value)} className={controlClass}>
+                <option value="">Select…</option>
+                {makes.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Model" required>
+              {/* Keyed by makeId so switching make clears the typed text along with the models. */}
+              <Combobox
+                key={makeId}
+                options={models.map((m) => ({ value: m.id, label: m.name }))}
+                value={modelId}
+                onChange={setModelId}
+                disabled={!makeId}
+                placeholder={makeId ? 'Type to search…' : 'Pick a make first'}
+                emptyText="No matching models"
+              />
+            </Field>
+
+            <Field label="Year" required>
+              <input type="number" value={year} min={1900} max={2100} onChange={(e) => setYear(e.target.value)} className={controlClass} />
+            </Field>
+            <Field label="Rego" required>
+              <input type="text" value={rego} onChange={(e) => setRego(e.target.value.toUpperCase())} className={controlClass} />
+            </Field>
+            <Field label="VIN">
+              <input type="text" value={vin} onChange={(e) => setVin(e.target.value.toUpperCase())} className={controlClass} />
+            </Field>
+            <Field label="Color">
+              <input type="text" value={color} onChange={(e) => setColor(e.target.value.toUpperCase())} className={controlClass} />
+            </Field>
+            <Field label="Engine type">
+              <input type="text" value={engineType} onChange={(e) => setEngineType(e.target.value.toUpperCase())} className={controlClass} />
+            </Field>
+          </div>
+        </div>
+      )}
 
       {duplicates.length > 0 && !dismissedDuplicates && (
         <div className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">

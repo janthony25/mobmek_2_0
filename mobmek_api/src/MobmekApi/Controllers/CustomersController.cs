@@ -67,6 +67,24 @@ public class CustomersController(ICustomerService customerService) : ControllerB
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
+    /// <summary>Creates a new customer together with their first car, atomically — the main
+    /// "Add Customer" flow, so a customer can never be created without a vehicle on file (the
+    /// strongest available guard against duplicate customers, since rego is already globally
+    /// unique). On a car-side error, nothing is saved, not even the customer.</summary>
+    [HttpPost("with-car")]
+    [ProducesResponseType(typeof(CustomerWithCarDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<CustomerWithCarDto>> CreateWithCar(CreateCustomerWithCarRequest request, CancellationToken cancellationToken)
+    {
+        var (result, error) = await customerService.CreateWithCarAsync(request, cancellationToken);
+        if (error != CarWriteError.None)
+        {
+            return MapCarError(error);
+        }
+
+        return CreatedAtAction(nameof(GetById), new { id = result!.Customer.Id }, result);
+    }
+
     /// <summary>Updates an existing customer.</summary>
     [HttpPut("{id:guid}")]
     [ProducesResponseType(typeof(CustomerDto), StatusCodes.Status200OK)]
@@ -87,4 +105,14 @@ public class CustomersController(ICustomerService customerService) : ControllerB
         var deleted = await customerService.DeleteAsync(id, cancellationToken);
         return deleted ? NoContent() : NotFound();
     }
+
+    private ActionResult MapCarError(CarWriteError error) => error switch
+    {
+        CarWriteError.MakeNotFound => Problem(detail: "Car make does not exist.", statusCode: StatusCodes.Status400BadRequest),
+        CarWriteError.ModelNotFound => Problem(detail: "Car model does not exist.", statusCode: StatusCodes.Status400BadRequest),
+        CarWriteError.ModelNotInMake => Problem(detail: "The selected model does not belong to the selected make.", statusCode: StatusCodes.Status400BadRequest),
+        CarWriteError.DuplicateRego => Problem(detail: "A car with this rego already exists.", statusCode: StatusCodes.Status400BadRequest),
+        CarWriteError.DuplicateVin => Problem(detail: "A car with this VIN already exists.", statusCode: StatusCodes.Status400BadRequest),
+        _ => Problem(statusCode: StatusCodes.Status500InternalServerError),
+    };
 }

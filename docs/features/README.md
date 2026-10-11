@@ -24,7 +24,7 @@ Baseline audit performed 2026-10-07 by reading the actual backend (`mobmek_api/s
 | Area | File | One-line state |
 |---|---|---|
 | Auth & Staff Management | [auth-staff-management.md](auth-staff-management.md) | Full admin-editable RBAC, account lifecycle, login audit — ahead of its own design doc |
-| Customers & Vehicles | [customers-vehicles.md](customers-vehicles.md) | All known gaps closed 2026-10-07 — duplicate detection, notes panel shipped |
+| Customers & Vehicles | [customers-vehicles.md](customers-vehicles.md) | Duplicate detection, notes panel (2026-10-07); customer creation now requires a car, atomically (2026-10-11), not yet live-browser-verified |
 | Jobs / Workshop Floor | [jobs-workshop-floor.md](jobs-workshop-floor.md) | Core job/labour/invoice flow works; no status state machine, no real DVI, no parts inventory, no reminder delivery; photo delete now confirms (fixed 2026-10-07, was instant) |
 | Invoices, Quotes & Public Booking | [invoices-quotes-public-booking.md](invoices-quotes-public-booking.md) | Invoicing/GST/payment-ledger/PDF/sequence-numbering all solid; public booking API built but deliberately has no consuming UI yet |
 | Appointments & Google Calendar Sync | [appointments-calendar-sync.md](appointments-calendar-sync.md) | One-way push to Google via service account works well; convert-on-arrival now fully atomic; no OAuth, no pull-back, no appointment reminders |

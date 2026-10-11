@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace MobmekApi.Services;
 
-public class CustomerService(AppDbContext db) : ICustomerService
+public class CustomerService(AppDbContext db, ICarService carService) : ICustomerService
 {
     private const int MaxPageSize = 200;
 
@@ -132,6 +132,40 @@ public class CustomerService(AppDbContext db) : ICustomerService
         await db.SaveChangesAsync(cancellationToken);
 
         return ToDto(customer);
+    }
+
+    public async Task<(CustomerWithCarDto? Result, CarWriteError Error)> CreateWithCarAsync(
+        CreateCustomerWithCarRequest request, CancellationToken cancellationToken = default)
+    {
+        var customer = new Customer
+        {
+            FirstName = request.FirstName,
+            LastName = request.LastName,
+            PhoneNumber = request.PhoneNumber,
+            EmailAddress = request.EmailAddress,
+            PhysicalAddress = request.PhysicalAddress,
+            Notes = request.Notes,
+        };
+        db.Customers.Add(customer);
+
+        var (car, carError) = await carService.BuildAsync(
+            new CreateCarRequest(
+                customer.Id, request.CarMakeId, request.CarModelId, request.Year,
+                request.Rego, request.Vin, request.Color, request.EngineType),
+            cancellationToken);
+
+        if (carError != CarWriteError.None)
+        {
+            // Nothing's been saved yet — just stop tracking the customer so a retry doesn't
+            // leave an orphan customer-with-no-car behind.
+            db.Entry(customer).State = EntityState.Detached;
+            return (null, carError);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        var carDto = await carService.GetByIdAsync(car!.Id, cancellationToken);
+        return (new CustomerWithCarDto(ToDto(customer), carDto!), CarWriteError.None);
     }
 
     public async Task<CustomerDto?> UpdateAsync(Guid id, UpdateCustomerRequest request, CancellationToken cancellationToken = default)

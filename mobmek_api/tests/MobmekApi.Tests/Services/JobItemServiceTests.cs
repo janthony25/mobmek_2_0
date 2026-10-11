@@ -16,7 +16,7 @@ public class JobItemServiceTests
 
     private static async Task<(JobService Jobs, Guid JobId)> SeedJobAsync(AppDbContext db)
     {
-        var customer = await new CustomerService(db).CreateAsync(new CreateCustomerRequest("O", "P", "0", null, null, null));
+        var customer = await new CustomerService(db, new CarService(db)).CreateAsync(new CreateCustomerRequest("O", "P", "0", null, null, null));
         var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Make"));
         var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Model"));
         var (car, _) = await new CarService(db).CreateAsync(new CreateCarRequest(customer.Id, make.Id, model!.Id, 2020, "R", null, null, null));

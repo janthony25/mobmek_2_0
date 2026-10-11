@@ -1,5 +1,13 @@
 import { apiDelete, apiGet, apiPost, apiPut } from './client'
-import type { Customer, CustomerDuplicateMatch, CustomerListItem, CustomerRequest, PagedResult } from '@/types'
+import type {
+  Customer,
+  CustomerDuplicateMatch,
+  CustomerListItem,
+  CustomerRequest,
+  CreateCustomerWithCarRequest,
+  CustomerWithCar,
+  PagedResult,
+} from '@/types'
 
 export interface CustomerPagedFilters {
   sortBy?: 'newest' | 'oldest' | 'name'
@@ -23,6 +31,10 @@ export const getCustomersPaged = (
 }
 export const getCustomer = (id: string) => apiGet<Customer>(`/customers/${id}`)
 export const createCustomer = (body: CustomerRequest) => apiPost<Customer>('/customers', body)
+/** Creates a customer and their first car atomically — the main "Add Customer" flow, so a
+ * customer can never be created without a vehicle on file. */
+export const createCustomerWithCar = (body: CreateCustomerWithCarRequest) =>
+  apiPost<CustomerWithCar>('/customers/with-car', body)
 export const updateCustomer = (id: string, body: CustomerRequest) =>
   apiPut<Customer>(`/customers/${id}`, body)
 export const deleteCustomer = (id: string) => apiDelete(`/customers/${id}`)

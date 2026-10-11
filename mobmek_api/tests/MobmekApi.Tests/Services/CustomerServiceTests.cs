@@ -16,7 +16,7 @@ public class CustomerServiceTests
     public async Task CreateAsync_PersistsCustomer_AndReturnsDto()
     {
         await using var db = CreateContext();
-        var service = new CustomerService(db);
+        var service = new CustomerService(db, new CarService(db));
 
         var result = await service.CreateAsync(
             new CreateCustomerRequest("Ada", "Lovelace", "+1-555-0100", "ada@example.com", "1 Analytical Way", "VIP"));
@@ -31,7 +31,7 @@ public class CustomerServiceTests
     public async Task CreateAsync_AllowsNullOptionalFields()
     {
         await using var db = CreateContext();
-        var service = new CustomerService(db);
+        var service = new CustomerService(db, new CarService(db));
 
         var result = await service.CreateAsync(
             new CreateCustomerRequest("Grace", "Hopper", "+1-555-0199", null, null, null));
@@ -45,7 +45,7 @@ public class CustomerServiceTests
     public async Task GetByIdAsync_ReturnsNull_WhenMissing()
     {
         await using var db = CreateContext();
-        var service = new CustomerService(db);
+        var service = new CustomerService(db, new CarService(db));
 
         var result = await service.GetByIdAsync(Guid.NewGuid());
 
@@ -56,7 +56,7 @@ public class CustomerServiceTests
     public async Task GetAllAsync_ReturnsCustomersOrderedByLastThenFirstName()
     {
         await using var db = CreateContext();
-        var service = new CustomerService(db);
+        var service = new CustomerService(db, new CarService(db));
         await service.CreateAsync(new CreateCustomerRequest("Bob", "Zephyr", "1", null, null, null));
         await service.CreateAsync(new CreateCustomerRequest("Carol", "Adams", "2", null, null, null));
         await service.CreateAsync(new CreateCustomerRequest("Alice", "Adams", "3", null, null, null));
@@ -73,7 +73,7 @@ public class CustomerServiceTests
     public async Task UpdateAsync_ModifiesFields_AndStampsUpdatedAt()
     {
         await using var db = CreateContext();
-        var service = new CustomerService(db);
+        var service = new CustomerService(db, new CarService(db));
         var created = await service.CreateAsync(
             new CreateCustomerRequest("Old", "Name", "000", "old@example.com", null, null));
 
@@ -92,7 +92,7 @@ public class CustomerServiceTests
     public async Task UpdateAsync_ReturnsNull_WhenMissing()
     {
         await using var db = CreateContext();
-        var service = new CustomerService(db);
+        var service = new CustomerService(db, new CarService(db));
 
         var result = await service.UpdateAsync(
             Guid.NewGuid(), new UpdateCustomerRequest("X", "Y", "0", null, null, null));
@@ -104,7 +104,7 @@ public class CustomerServiceTests
     public async Task DeleteAsync_RemovesCustomer_AndReturnsTrue()
     {
         await using var db = CreateContext();
-        var service = new CustomerService(db);
+        var service = new CustomerService(db, new CarService(db));
         var created = await service.CreateAsync(
             new CreateCustomerRequest("Temp", "Customer", "0", null, null, null));
 
@@ -118,7 +118,7 @@ public class CustomerServiceTests
     public async Task DeleteAsync_ReturnsFalse_WhenMissing()
     {
         await using var db = CreateContext();
-        var service = new CustomerService(db);
+        var service = new CustomerService(db, new CarService(db));
 
         var deleted = await service.DeleteAsync(Guid.NewGuid());
 
@@ -129,7 +129,7 @@ public class CustomerServiceTests
     public async Task GetPagedAsync_OrdersNewestFirst_AndSlices()
     {
         await using var db = CreateContext();
-        var service = new CustomerService(db);
+        var service = new CustomerService(db, new CarService(db));
         var lastNames = new[] { "Adams", "Baker", "Clark", "Davis", "Evans" };
         for (var i = 0; i < lastNames.Length; i++)
         {
@@ -155,7 +155,7 @@ public class CustomerServiceTests
     public async Task GetPagedAsync_SortByOldest_ReversesTheDefaultNewestFirstOrder()
     {
         await using var db = CreateContext();
-        var service = new CustomerService(db);
+        var service = new CustomerService(db, new CarService(db));
         var lastNames = new[] { "Adams", "Baker", "Clark" };
         for (var i = 0; i < lastNames.Length; i++)
         {
@@ -176,7 +176,7 @@ public class CustomerServiceTests
     public async Task GetPagedAsync_SortByName_OrdersByLastThenFirstName()
     {
         await using var db = CreateContext();
-        var service = new CustomerService(db);
+        var service = new CustomerService(db, new CarService(db));
         await service.CreateAsync(new CreateCustomerRequest("Zed", "Adams", "0", null, null, null));
         await service.CreateAsync(new CreateCustomerRequest("Ann", "Baker", "0", null, null, null));
 
@@ -191,7 +191,7 @@ public class CustomerServiceTests
     public async Task GetPagedAsync_DateRangeFiltersByCreatedDate()
     {
         await using var db = CreateContext();
-        var service = new CustomerService(db);
+        var service = new CustomerService(db, new CarService(db));
         var lastNames = new[] { "Adams", "Baker", "Clark" };
         for (var i = 0; i < lastNames.Length; i++)
         {
@@ -211,7 +211,7 @@ public class CustomerServiceTests
     public async Task GetPagedAsync_PageBeyondEnd_ReturnsEmptyWithTotal()
     {
         await using var db = CreateContext();
-        var service = new CustomerService(db);
+        var service = new CustomerService(db, new CarService(db));
         await service.CreateAsync(new CreateCustomerRequest("Solo", "Customer", "0", null, null, null));
 
         var result = await service.GetPagedAsync(page: 3, pageSize: 10, search: null);
@@ -224,7 +224,7 @@ public class CustomerServiceTests
     public async Task GetPagedAsync_SearchMatchesNamePhoneAndEmail_CaseInsensitively()
     {
         await using var db = CreateContext();
-        var service = new CustomerService(db);
+        var service = new CustomerService(db, new CarService(db));
         await service.CreateAsync(new CreateCustomerRequest("Ada", "Lovelace", "021-555-777", "ada@example.com", null, null));
         await service.CreateAsync(new CreateCustomerRequest("Grace", "Hopper", "09-1234", null, null, null));
 
@@ -240,7 +240,7 @@ public class CustomerServiceTests
     public async Task GetPagedAsync_SearchMatchesRego_CaseInsensitively()
     {
         await using var db = CreateContext();
-        var service = new CustomerService(db);
+        var service = new CustomerService(db, new CarService(db));
         var owner = await service.CreateAsync(new CreateCustomerRequest("Ada", "Lovelace", "0", null, null, null));
         await service.CreateAsync(new CreateCustomerRequest("Grace", "Hopper", "1", null, null, null));
 
@@ -259,7 +259,7 @@ public class CustomerServiceTests
     public async Task GetPagedAsync_ReturnsCardAggregates_ExcludingDoneItems()
     {
         await using var db = CreateContext();
-        var service = new CustomerService(db);
+        var service = new CustomerService(db, new CarService(db));
         var customer = await service.CreateAsync(new CreateCustomerRequest("Ada", "Lovelace", "0", null, null, null));
 
         var make = new Entities.CarMake { Name = "Toyota" };
@@ -290,7 +290,7 @@ public class CustomerServiceTests
     public async Task CheckDuplicatesAsync_NeitherFieldGiven_ReturnsEmpty_WithoutQuerying()
     {
         await using var db = CreateContext();
-        var service = new CustomerService(db);
+        var service = new CustomerService(db, new CarService(db));
         await service.CreateAsync(new CreateCustomerRequest("Ada", "Lovelace", "+1-555-0100", "ada@example.com", null, null));
 
         var matches = await service.CheckDuplicatesAsync(null, "  ", null);
@@ -302,7 +302,7 @@ public class CustomerServiceTests
     public async Task CheckDuplicatesAsync_MatchesOnPhone_IgnoringSpacesAndDashes()
     {
         await using var db = CreateContext();
-        var service = new CustomerService(db);
+        var service = new CustomerService(db, new CarService(db));
         var existing = await service.CreateAsync(new CreateCustomerRequest("Ada", "Lovelace", "021-234-5678", null, null, null));
 
         var matches = await service.CheckDuplicatesAsync("0212345678", null, null);
@@ -315,7 +315,7 @@ public class CustomerServiceTests
     public async Task CheckDuplicatesAsync_MatchesOnEmail_CaseInsensitive()
     {
         await using var db = CreateContext();
-        var service = new CustomerService(db);
+        var service = new CustomerService(db, new CarService(db));
         var existing = await service.CreateAsync(new CreateCustomerRequest("Ada", "Lovelace", "0211111111", "Ada@Example.com", null, null));
 
         var matches = await service.CheckDuplicatesAsync(null, "ada@example.com", null);
@@ -328,7 +328,7 @@ public class CustomerServiceTests
     public async Task CheckDuplicatesAsync_ExcludesTheGivenId_SoEditingDoesNotMatchItself()
     {
         await using var db = CreateContext();
-        var service = new CustomerService(db);
+        var service = new CustomerService(db, new CarService(db));
         var existing = await service.CreateAsync(new CreateCustomerRequest("Ada", "Lovelace", "0211111111", "ada@example.com", null, null));
 
         var matches = await service.CheckDuplicatesAsync("0211111111", "ada@example.com", existing.Id);
@@ -340,11 +340,78 @@ public class CustomerServiceTests
     public async Task CheckDuplicatesAsync_NoMatch_ReturnsEmpty()
     {
         await using var db = CreateContext();
-        var service = new CustomerService(db);
+        var service = new CustomerService(db, new CarService(db));
         await service.CreateAsync(new CreateCustomerRequest("Ada", "Lovelace", "0211111111", "ada@example.com", null, null));
 
         var matches = await service.CheckDuplicatesAsync("0299999999", "nobody@example.com", null);
 
         Assert.Empty(matches);
+    }
+
+    private static async Task<(Guid MakeId, Guid ModelId)> SeedMakeModelAsync(AppDbContext db, string make = "Toyota", string model = "Hilux")
+    {
+        var carMake = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest(make));
+        var carModel = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(carMake.Id, model));
+        return (carMake.Id, carModel!.Id);
+    }
+
+    [Fact]
+    public async Task CreateWithCarAsync_PersistsBoth_AndReturnsBothDtos()
+    {
+        await using var db = CreateContext();
+        var (makeId, modelId) = await SeedMakeModelAsync(db);
+        var service = new CustomerService(db, new CarService(db));
+
+        var (result, error) = await service.CreateWithCarAsync(
+            new CreateCustomerWithCarRequest("New", "Customer", "0211234567", "new@example.com", null, null,
+                makeId, modelId, 2020, "NEW123", null, null, null));
+
+        Assert.Equal(CarWriteError.None, error);
+        Assert.NotNull(result);
+        Assert.Equal("New", result!.Customer.FirstName);
+        Assert.Equal(result.Customer.Id, result.Car.CustomerId);
+        Assert.Equal("NEW123", result.Car.Rego);
+        Assert.Equal("Toyota", result.Car.CarMakeName);
+        Assert.Equal(1, await db.Customers.CountAsync());
+        Assert.Equal(1, await db.Cars.CountAsync());
+    }
+
+    [Fact]
+    public async Task CreateWithCarAsync_DuplicateRego_PersistsNeitherCustomerNorCar()
+    {
+        await using var db = CreateContext();
+        var (makeId, modelId) = await SeedMakeModelAsync(db);
+        var carService = new CarService(db);
+        var service = new CustomerService(db, carService);
+        var existingCustomer = await service.CreateAsync(new CreateCustomerRequest("Existing", "Owner", "0", null, null, null));
+        await carService.CreateAsync(new CreateCarRequest(existingCustomer.Id, makeId, modelId, 2019, "DUP123", null, null, null));
+
+        var (result, error) = await service.CreateWithCarAsync(
+            new CreateCustomerWithCarRequest("Should", "NotExist", "0299999999", null, null, null,
+                makeId, modelId, 2020, "DUP123", null, null, null));
+
+        Assert.Equal(CarWriteError.DuplicateRego, error);
+        Assert.Null(result);
+        // The whole point: a rejected car must not leave an orphan customer behind.
+        Assert.Equal(1, await db.Customers.CountAsync());
+        Assert.Equal(1, await db.Cars.CountAsync());
+    }
+
+    [Fact]
+    public async Task CreateWithCarAsync_ModelNotInMake_PersistsNeitherCustomerNorCar()
+    {
+        await using var db = CreateContext();
+        var (makeId, _) = await SeedMakeModelAsync(db, "Toyota", "Hilux");
+        var (_, otherModelId) = await SeedMakeModelAsync(db, "Honda", "Civic");
+        var service = new CustomerService(db, new CarService(db));
+
+        var (result, error) = await service.CreateWithCarAsync(
+            new CreateCustomerWithCarRequest("Should", "NotExist", "0299999999", null, null, null,
+                makeId, otherModelId, 2020, "ABC999", null, null, null));
+
+        Assert.Equal(CarWriteError.ModelNotInMake, error);
+        Assert.Null(result);
+        Assert.Equal(0, await db.Customers.CountAsync());
+        Assert.Equal(0, await db.Cars.CountAsync());
     }
 }

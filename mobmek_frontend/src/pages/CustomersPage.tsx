@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { createCustomer, deleteCustomer, getCustomersPaged, updateCustomer } from '@/api/customers'
+import { createCustomerWithCar, deleteCustomer, getCustomersPaged, updateCustomer } from '@/api/customers'
 import type { CustomerPagedFilters } from '@/api/customers'
 import { CrudSection } from '@/components/crud/CrudSection'
 import { CustomerCard } from '@/components/customers/CustomerCard'
 import { CustomerForm } from '@/components/forms/CustomerForm'
 import { DateRangeFilter } from '@/components/ui/DateRangeFilter'
 import { orDash } from '@/lib/format'
-import type { CustomerListItem, CustomerRequest } from '@/types'
+import type { CreateCustomerWithCarRequest, CustomerListItem, CustomerRequest } from '@/types'
 
 export function CustomersPage() {
   const [sortBy, setSortBy] = useState<NonNullable<CustomerPagedFilters['sortBy']>>('newest')
@@ -60,7 +60,7 @@ export function CustomersPage() {
         renderForm={({ initial, onSubmit, onCancel }) => (
           <CustomerForm initial={initial} onSubmit={onSubmit} onCancel={onCancel} />
         )}
-        onCreate={(v) => createCustomer(v as unknown as CustomerRequest).then(() => undefined)}
+        onCreate={(v) => createCustomerWithCar(v as unknown as CreateCustomerWithCarRequest).then(() => undefined)}
         onUpdate={(id, v) => updateCustomer(id, v as unknown as CustomerRequest).then(() => undefined)}
         onDelete={deleteCustomer}
       />
