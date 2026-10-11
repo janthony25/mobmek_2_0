@@ -1,0 +1,56 @@
+name: CI
+
+# Push-based, not PR-based: this repo pushes straight to main, so this runs as a signal
+# after every push rather than a merge gate. Check the result before running
+# ./scripts/publish.sh — a red run here means don't deploy.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:17
+        env:
+          POSTGRES_DB: mobmek
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        working-directory: mobmek_api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - run: dotnet build
+      - run: dotnet tool restore
+      # InvoiceSequenceIndexTests needs the real schema (incl. migrations) against the
+      # service Postgres above, not just a build — mirrors what docker compose up -d db
+      # + EF migrate gives you locally.
+      - run: dotnet dotnet-ef database update --project src/MobmekApi
+      - run: dotnet test
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobmek_frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - run: npm run build
+      - run: npm run lint

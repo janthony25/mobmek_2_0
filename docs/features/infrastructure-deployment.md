@@ -1,13 +1,14 @@
 # Infrastructure & Deployment
 
-**Last verified:** 2026-10-07 (read `infrastructure/README.md`, `infrastructure/docs/*`, root `docker-compose.yml`/`docker-compose.override.yml`/`Caddyfile`, `scripts/*.sh`, repo-wide grep for CI config and monitoring tools)
+**Last verified:** 2026-10-11 (added `.github/workflows/ci.yml` this session; verified build+test against a genuinely fresh Postgres, not just the pre-existing dev DB)
 
 ## Status summary
 
 | Sub-capability | Status |
 |---|---|
 | TLS | Working, live |
-| Deploy mechanism | **Partial — manual scripted SSH, no CI/CD** |
+| CI (build + test gate) | **Working, push-based** — see below |
+| Deploy mechanism | Manual scripted SSH, no auto-deploy (deliberate, see below) |
 | Nightly backup | Working |
 | Restore drill | Working, genuinely tested |
 | Docker Compose service topology | Working |
@@ -18,10 +19,15 @@
 ### TLS — Working
 `Caddyfile:6-8`: `workshop.mobmekauto.co.nz { reverse_proxy frontend:80 }`, automatic Let's Encrypt via the `caddy` compose service (profile `tls`, not started by default compose). Commit `470632f` states DNS propagated and a real cert was obtained with a verified `Secure` `Set-Cookie` header over the real domain — self-reported via commit message and `infrastructure/README.md`'s checklist, not independently re-verified live in this audit (no live network check performed).
 
-### Deploy mechanism — Partial, confirms the CI/CD gap is still open
-`scripts/publish.sh` SSHs to a hardcoded EC2 host, requires a clean/pushed `main`, runs `git pull && docker compose up -d --build api frontend` remotely, curls the domain for a 200. Explicitly does **not** touch the DB/migrations (that's a separate hand-run step via `scripts/generate-migration-script.sh` + `scp`/`psql`). **No `.github/` directory exists anywhere in the repo** — confirmed no GitHub Actions, and no other CI config (Travis/GitLab/Circle) either. `infrastructure/README.md` itself labels this "Deploy flow (Phase 1, manual — no CI/CD yet)" and lists GitHub Actions + ECR as a future, untriggered upgrade. **The industry-readiness doc's "CI/CD" gap is still fully open** — no build/test gate runs before `main` reaches prod other than the script's own clean-tree check.
+### CI (build + test gate) — Working, push-based, added 2026-10-11
+`.github/workflows/ci.yml`: two parallel jobs on every push to `main` (plus manual `workflow_dispatch`) — `backend` (`dotnet build`, `dotnet tool restore`, `dotnet dotnet-ef database update` against a service-container Postgres 17 on port 5433, then `dotnet test`) and `frontend` (`npm ci`, `npm run build`, `npm run lint`). Deliberately **push-based, not PR-gated**: this repo has always pushed straight to `main` (confirmed via `git branch -a` — no branches, no PRs, ever), so this runs as a post-push signal to check before running `publish.sh`, not a merge-blocking gate — switching to PR-based + branch protection is a real option later if the ceremony becomes worth it. Verified locally before committing by swapping the real dev DB for a genuinely empty `postgres:17` container on the same port and running the exact same step sequence — all 647 tests passed against a from-scratch schema, not just the already-migrated dev DB.
 
-**This gap caused a real production outage, 2026-10-07:** two commits shipped the same day each included an EF migration (`AddInvoiceSequenceNumberUniqueIndex`, `AddInvoiceQuotePrefixToBusinessDetails`, `AddEmailTemplate`, `AddReminderAndAppointmentEmailLinks`). Code was deployed via `publish.sh` as normal; the separate manual migration step was forgotten. The deployed code then read columns (`BusinessDetails.InvoicePrefix`/`QuotePrefix`) that didn't exist in the live DB, so every "Generate Invoice"/"Generate Quotation" click on the live site threw a generic 500 — caught only because the user happened to hit it on their phone and reported it. Fixed in the same session by running the documented `generate-migration-script.sh` → `pg_dump` backup → `psql` apply procedure; confirmed via `__EFMigrationsHistory`. See `invoices-quotes-public-booking.md` for the full incident detail.
+The Postgres service container matters specifically because of `InvoiceSequenceIndexTests.cs` (see `legacy-data-import.md`) — the first test in the suite needing a real Postgres, since EF Core's InMemory provider (used by the other 645) ignores partial/filtered unique indexes entirely.
+
+### Deploy mechanism — manual scripted SSH, no auto-deploy
+`scripts/publish.sh` SSHs to a hardcoded EC2 host, requires a clean/pushed `main`, runs `git pull && docker compose up -d --build api frontend` remotely, curls the domain for a 200. Explicitly does **not** touch the DB/migrations (that's a separate hand-run step via `scripts/generate-migration-script.sh` + `scp`/`psql`). This is a deliberate choice, not an oversight: a single EC2 box with effectively one deployer doesn't get much from fully automating the deploy step itself, and the manual script already prevents deploying an uncommitted/unpushed tree. The actual decision was CI (build+test, above) **without** wiring it to auto-deploy.
+
+**A real production outage happened here, 2026-10-07**, from a gap CI would *not* have caught: two commits shipped the same day each included an EF migration (`AddInvoiceSequenceNumberUniqueIndex`, `AddInvoiceQuotePrefixToBusinessDetails`, `AddEmailTemplate`, `AddReminderAndAppointmentEmailLinks`). Code was deployed via `publish.sh` as normal; the separate manual migration step was forgotten. The deployed code then read columns (`BusinessDetails.InvoicePrefix`/`QuotePrefix`) that didn't exist in the live DB, so every "Generate Invoice"/"Generate Quotation" click on the live site threw a generic 500 — caught only because the user happened to hit it on their phone and reported it. Fixed in the same session by running the documented `generate-migration-script.sh` → `pg_dump` backup → `psql` apply procedure; confirmed via `__EFMigrationsHistory`. See `invoices-quotes-public-booking.md` for the full incident detail. **This specific risk is still open** — the migration-drift check recommended below would catch it; CI's build/test gate would not, since tests apply migrations fresh rather than checking the live box's actual state.
 
 ### Nightly backup — Working
 `scripts/backup-to-s3.sh`: `pg_dump` via `docker compose exec`, gzip, size sanity check, uploads to S3 via instance IAM role (no credentials in the script). Matches `infrastructure/README.md` (daily cron at 13:00 UTC).
@@ -36,7 +42,7 @@ Services: `db` (postgres:17, host port 5433), `api` (ASP.NET, S3/local file-stor
 Repo-wide grep for Sentry/Datadog/New Relic/Grafana/Prometheus/Elastic APM/Rollbar/Bugsnag returns zero hits in actual code (one hit only in the gap-analysis doc describing the gap itself). `ILogger` usage exists in 6 service files, but there's no structured-logging framework (no Serilog) and no log aggregation. `infrastructure/README.md` plans only basic CloudWatch EC2 metrics (CPU/disk/status checks) and explicitly skips the CloudWatch Logs agent "for now" — and there's no evidence in-repo that even this was provisioned. **This gap, as flagged in the industry-readiness analysis, remains fully open.**
 
 ## Recommended follow-ups
-- If reliability starts mattering more than deploy speed, GitHub Actions (build+test gate before `publish.sh` is even reachable) is the natural next step — already scoped in `infrastructure/README.md`'s upgrade list.
+- **Highest-value next step:** add the migration-drift check to `publish.sh` (diff `dotnet ef migrations list` against the box's `__EFMigrationsHistory`, fail loudly on mismatch) — this is what would have actually caught the 2026-10-07 incident; CI does not.
 - Pick a minimal error-tracking tool (even just Sentry's free tier) before the next production incident makes the absence painful.
 - Confirm whether job-photo uploads (see `jobs-workshop-floor.md`) need their own backup path alongside the DB backup — currently uncovered if running on local file storage.
-- **New, from the 2026-10-07 incident above:** `publish.sh` has no check for pending migrations — it happily deploys code whose EF model has drifted from the live schema and says nothing. A cheap guard (e.g. `publish.sh` diffing `dotnet ef migrations list` output against the box's `__EFMigrationsHistory` and warning/failing loudly) would have caught this before a user did.
+- If branch/PR ceremony starts feeling worth it (more contributors, want a true merge gate), flip `ci.yml`'s trigger to `pull_request` + turn on branch protection — no workflow changes needed beyond that.

@@ -95,9 +95,9 @@ Checkbox = unresolved. Strike-through + `(fixed <date>)` when closed — keep cl
 ## Infrastructure & Deployment
 *(detail: [infrastructure-deployment.md](infrastructure-deployment.md))*
 
-- [ ] No CI/CD pipeline — no `.github/workflows` or any CI config at all; `main` reaches prod via a manual SSH script with no automated build/test gate.
+- [x] ~~No CI/CD pipeline — no `.github/workflows` or any CI config at all~~ (fixed 2026-10-11) — added `.github/workflows/ci.yml`: build+test on every push to `main` (backend against a real Postgres service container, frontend build+lint), deliberately push-based not PR-gated since this repo has never used branches/PRs. Verified against a from-scratch Postgres before committing, not just the pre-migrated dev DB.
 - [ ] No monitoring/alerting/error-tracking — no Sentry/APM/log-aggregation anywhere, no structured logging framework, minimal `ILogger` usage.
-- [x] ~~Deploy-mechanism gap caused a real outage~~ (fixed 2026-10-07) — two same-day commits' migrations were never applied to prod after `publish.sh` deployed their code, breaking invoice/quote generation live; fixed by running the documented migration procedure. **New follow-up gap surfaced by this incident:** `publish.sh` has no check for pending migrations before deploying — nothing warns when code has drifted ahead of the live schema.
+- [x] ~~Deploy-mechanism gap caused a real outage~~ (fixed 2026-10-07) — two same-day commits' migrations were never applied to prod after `publish.sh` deployed their code, breaking invoice/quote generation live; fixed by running the documented migration procedure. **Follow-up gap surfaced by this incident, still open:** `publish.sh` has no check for pending migrations before deploying — the new CI gate above does not cover this either (it applies migrations fresh in CI, it doesn't check the live box's actual state).
 
 ## UI Shell & Navigation
 *(detail: [ui-shell-navigation.md](ui-shell-navigation.md))*
@@ -110,5 +110,5 @@ Checkbox = unresolved. Strike-through + `(fixed <date>)` when closed — keep cl
 
 ## Cross-cutting (appear more than once above)
 - **No notification/delivery layer beyond outbound invoice email** — job reminders and appointment reminders both have zero SMS/email/push mechanism.
-- **CI/CD and observability are both fully absent**, system-wide.
+- **Observability (monitoring/alerting/error-tracking) is still fully absent**, system-wide — CI build/test gate is now in place (2026-10-11), but no deploy-automation or runtime-observability tooling.
 - **Several design/todo docs under `docs/` are stale** in both directions (describe less than what shipped, or more) — always cross-check the matching `docs/features/*.md` file before trusting them.
