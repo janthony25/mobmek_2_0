@@ -48,14 +48,14 @@ export function CustomersPage() {
           {
             header: 'Name',
             cell: (c) => (
-              <Link to={`/customers/${c.id}`} className="font-medium text-slate-900 hover:underline">
+              <Link to={`/customers/${c.id}`} className="font-medium uppercase text-slate-900 hover:underline">
                 {c.firstName} {c.lastName}
               </Link>
             ),
           },
           { header: 'Phone', cell: (c) => c.phoneNumber },
           { header: 'Email', cell: (c) => orDash(c.emailAddress) },
-          { header: 'Address', cell: (c) => orDash(c.physicalAddress) },
+          { header: 'Address', cell: (c) => <span className="uppercase">{orDash(c.physicalAddress)}</span> },
         ]}
         renderForm={({ initial, onSubmit, onCancel }) => (
           <CustomerForm initial={initial} onSubmit={onSubmit} onCancel={onCancel} />

@@ -239,7 +239,7 @@ export function CustomerDetailPage() {
             {initials(customer)}
           </div>
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">
+            <h1 className="text-2xl font-semibold uppercase text-slate-900">
               {customer.firstName} {customer.lastName}
             </h1>
             <p className="text-sm text-slate-500">Customer since {date(customer.createdAtUtc)}</p>
@@ -277,7 +277,7 @@ export function CustomerDetailPage() {
               </li>
               <li className="flex items-center gap-3">
                 <MapPinIcon className="h-4 w-4 text-slate-400" />
-                <span>{orDash(customer.physicalAddress)}</span>
+                <span className="uppercase">{orDash(customer.physicalAddress)}</span>
               </li>
             </ul>
             {customer.notes && (

@@ -29,7 +29,7 @@ export function CustomerCard({ customer }: CustomerCardProps) {
             {initials(customer)}
           </div>
           <div>
-            <p className="font-semibold text-slate-900">
+            <p className="font-semibold uppercase text-slate-900">
               {customer.firstName} {customer.lastName}
             </p>
             <p className="text-sm text-slate-500">Customer since {since}</p>

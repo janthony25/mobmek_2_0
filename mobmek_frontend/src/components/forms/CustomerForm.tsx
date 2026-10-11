@@ -125,10 +125,10 @@ export function CustomerForm({ initial, onSubmit, onCancel }: CustomerFormProps)
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="First name" required>
-          <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className={controlClass} />
+          <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value.toUpperCase())} className={controlClass} />
         </Field>
         <Field label="Last name" required>
-          <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className={controlClass} />
+          <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value.toUpperCase())} className={controlClass} />
         </Field>
         <Field label="Phone number" required>
           <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className={controlClass} />
@@ -137,7 +137,7 @@ export function CustomerForm({ initial, onSubmit, onCancel }: CustomerFormProps)
           <input type="email" value={emailAddress} onChange={(e) => setEmailAddress(e.target.value)} className={controlClass} />
         </Field>
         <Field label="Address" className="sm:col-span-2">
-          <input type="text" value={physicalAddress} onChange={(e) => setPhysicalAddress(e.target.value)} className={controlClass} />
+          <input type="text" value={physicalAddress} onChange={(e) => setPhysicalAddress(e.target.value.toUpperCase())} className={controlClass} />
         </Field>
         <Field label="Notes" className="sm:col-span-2">
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className={controlClass} />
