@@ -19,6 +19,8 @@ Singleton entity (`Entities/BusinessDetails.cs:7-33`): `Name`, `Address`, `Email
 
 **Bug fixed 2026-10-07:** the logo's "Remove" button called `deleteBusinessLogo` straight from `onClick` with zero confirmation — the page already had a `ConfirmDialog` for the unrelated "Save" action, which masked the fact logo removal bypassed one entirely. Found via an app-wide audit triggered by a user-reported instant-delete bug on job photos (see `jobs-workshop-floor.md`). Now gated behind its own `ConfirmDialog` (`confirmingLogoRemove` state). Not live-verified on a real device this session — type-checked and linted clean.
 
+**Bug fixed 2026-10-11 (`todo/miroboard-task.md`):** the Website input forced `.toUpperCase()` on every keystroke, unlike every other field (Email never did; the other uppercased fields — name, phone, GST No — are genuinely meant to be uppercase business-style text). A website like `www.example.co.nz` doesn't make sense uppercased. Removed the transform from that one field only.
+
 ### Invoice numbering prefix — Working (fixed 2026-10-07)
 `BusinessDetails.InvoicePrefix`/`QuotePrefix` (default `"INV"`/`"QUO"`, server-validated `^[A-Z0-9]{1,10}$` via `UpdateBusinessDetailsRequest`) now feed every place a document number is formatted: `InvoiceService.FormatDocumentNumber` (list/detail DTOs + the cash-ledger posting description), `InvoicePdfService.GenerateAsync` (PDF header/filename), and `EmailComposeService.ComposeInvoiceEmailAsync` (subject line). `BusinessDetailsSettingsPage.tsx` exposes both as required fields next to the rest of the letterhead. Migration `AddInvoiceQuotePrefixToBusinessDetails`. Covered by `InvoiceServiceTests.GenerateAsync_AndGenerateQuotationAsync_UseConfiguredPrefixes` and updated `BusinessDetailsServiceTests`.
 

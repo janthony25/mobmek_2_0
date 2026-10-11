@@ -159,7 +159,7 @@ export function BusinessDetailsSettingsPage() {
         </label>
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-slate-700">Website</span>
-          <input type="text" value={website} onChange={(e) => setWebsite(e.target.value.toUpperCase())} className={inputClass} />
+          <input type="text" value={website} onChange={(e) => setWebsite(e.target.value)} className={inputClass} />
         </label>
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-slate-700">Bank/payment details</span>

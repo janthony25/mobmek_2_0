@@ -46,7 +46,7 @@ public class InvoicePdfService(AppDbContext db, IBusinessDetailsService business
                 page.DefaultTextStyle(x => x.FontSize(10).FontColor(Colors.Grey.Darken3));
 
                 page.Header().Element(c => ComposeHeader(c, business, logoBytes, documentLabel, documentNumber));
-                page.Content().Element(c => ComposeContent(c, invoice, business, isQuotation, customer, carDescription));
+                page.Content().Element(c => ComposeContent(c, invoice, isQuotation, customer, carDescription));
                 page.Footer().AlignCenter().Text("Thank you for your business.").FontSize(9).FontColor(Colors.Grey.Medium);
             });
         }).GeneratePdf();
@@ -87,11 +87,25 @@ public class InvoicePdfService(AppDbContext db, IBusinessDetailsService business
                     column.Item().Text(business.Address).FontSize(9).FontColor(Colors.Grey.Medium);
                 }
 
-                var contact = string.Join(" · ", new[] { business.BusinessPhone, business.Telephone, business.Email, business.Website }
+                var contact = string.Join(" · ", new[] { business.BusinessPhone, business.Telephone, business.Email }
                     .Where(v => !string.IsNullOrWhiteSpace(v)));
                 if (contact.Length > 0)
                 {
                     column.Item().Text(contact).FontSize(9).FontColor(Colors.Grey.Medium);
+                }
+
+                if (!string.IsNullOrWhiteSpace(business.BankDetails))
+                {
+                    column.Item().PaddingTop(4).Column(bank =>
+                    {
+                        bank.Item().Text("Payment details").FontSize(8).FontColor(Colors.Grey.Medium);
+                        bank.Item().Text(business.BankDetails).FontSize(9).FontColor(Colors.Grey.Medium);
+                    });
+                }
+
+                if (!string.IsNullOrWhiteSpace(business.Website))
+                {
+                    column.Item().Text(business.Website).FontSize(9).FontColor(Colors.Grey.Medium);
                 }
             });
 
@@ -108,7 +122,7 @@ public class InvoicePdfService(AppDbContext db, IBusinessDetailsService business
     }
 
     private static void ComposeContent(
-        IContainer container, Invoice invoice, BusinessDetailsDto business, bool isQuotation, Customer? customer, string? carDescription)
+        IContainer container, Invoice invoice, bool isQuotation, Customer? customer, string? carDescription)
     {
         string Money(decimal amount) => "$" + amount.ToString("N2", CultureInfo.InvariantCulture);
 
@@ -122,7 +136,20 @@ public class InvoicePdfService(AppDbContext db, IBusinessDetailsService business
                 {
                     billTo.Item().Text("Bill to").FontSize(8).FontColor(Colors.Grey.Medium);
                     billTo.Item().Text(customer is null ? "—" : $"{customer.FirstName} {customer.LastName}").Bold();
+                    if (customer is not null)
+                    {
+                        var customerContact = string.Join(" · ", new[] { customer.PhoneNumber, customer.EmailAddress }
+                            .Where(v => !string.IsNullOrWhiteSpace(v)));
+                        if (customerContact.Length > 0)
+                        {
+                            billTo.Item().Text(customerContact).FontSize(9).FontColor(Colors.Grey.Darken1);
+                        }
+                    }
                     billTo.Item().Text(carDescription ?? "—").FontColor(Colors.Grey.Darken1);
+                    if (invoice.Job is { Odometer: > 0 } job)
+                    {
+                        billTo.Item().Text($"Odometer: {job.Odometer}").FontSize(9).FontColor(Colors.Grey.Darken1);
+                    }
                 });
 
                 row.ConstantItem(180).Column(dates =>
@@ -212,15 +239,6 @@ public class InvoicePdfService(AppDbContext db, IBusinessDetailsService business
             {
                 column.Item().Background(Colors.Grey.Lighten4).Padding(10)
                     .Text("This quotation is valid only for 30 days after the issue date.").FontSize(9);
-            }
-
-            if (!string.IsNullOrWhiteSpace(business.BankDetails))
-            {
-                column.Item().Column(bank =>
-                {
-                    bank.Item().Text("Payment details").FontSize(8).FontColor(Colors.Grey.Medium);
-                    bank.Item().Text(business.BankDetails);
-                });
             }
         });
     }
