@@ -5,9 +5,12 @@
 # by hand over SSH — wrapped here so it can't be done with an uncommitted/unpushed tree or
 # with a forgotten `--build`.
 #
-# Deliberately does NOT touch the db or run migrations. A schema change is a separate,
-# reviewed-by-hand step — see infrastructure/docs/phase-1-plan.md, "Running migrations in
-# production" — never something an automatic script should run unattended.
+# Deliberately does NOT run migrations itself — a schema change is a separate, reviewed-
+# by-hand step (see infrastructure/docs/phase-1-plan.md, "Running migrations in production"),
+# never something an automatic script should run unattended. It DOES check, after pulling,
+# whether the migrations this commit expects are actually present in the box's own
+# `__EFMigrationsHistory` — added 2026-10-11 after a real outage where code shipped ahead
+# of a migration nobody ran, and every invoice/quote generation 500'd until someone noticed.
 #
 # Usage: ./scripts/publish.sh
 
@@ -31,8 +34,45 @@ REMOTE=$(git rev-parse origin/main)
 [[ "$LOCAL" == "$REMOTE" ]] || fail "Local main ($LOCAL) differs from origin/main ($REMOTE) — push first."
 ok "main matches origin/main (${LOCAL:0:7})"
 
+step "Pulling on $HOST and checking for pending migrations"
+if ! PENDING="$(ssh -i "$KEY" "$HOST" "REMOTE_DIR='$REMOTE_DIR' bash -s" <<'REMOTE_SCRIPT'
+set -euo pipefail
+cd "$REMOTE_DIR"
+git pull origin main 1>&2
+
+# Source of truth: every migration file in this commit's Migrations/ folder, vs. what
+# the box's own __EFMigrationsHistory says is actually applied. Anything in the first
+# list but not the second is drift that would silently break the newly deployed code.
+CODE_MIGRATIONS=$(ls mobmek_api/src/MobmekApi/Migrations/*.cs 2>/dev/null \
+  | grep -v -e 'Designer\.cs$' -e 'ModelSnapshot\.cs$' \
+  | xargs -n1 basename \
+  | sed 's/\.cs$//' \
+  | sort)
+
+APPLIED_MIGRATIONS=$(docker compose exec -T db psql -U postgres -d mobmek -tAc \
+  'SELECT "MigrationId" FROM "__EFMigrationsHistory";' \
+  | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
+  | grep -v '^$' \
+  | sort)
+
+comm -23 <(printf '%s\n' "$CODE_MIGRATIONS") <(printf '%s\n' "$APPLIED_MIGRATIONS")
+REMOTE_SCRIPT
+)"; then
+  fail "Could not check for pending migrations on $HOST (SSH or the remote check itself failed) — see output above."
+fi
+
+if [[ -n "$PENDING" ]]; then
+  fail "Pending migration(s) on $HOST — this commit's code expects a schema the live DB doesn't have yet:
+$PENDING
+
+Run ./scripts/generate-migration-script.sh, then apply it on the box (see that script's
+header for the exact commands) before deploying — see infrastructure/docs/phase-1-plan.md,
+\"Running migrations in production\"."
+fi
+ok "No pending migrations — $HOST's schema matches this commit."
+
 step "Deploying to $HOST"
-ssh -i "$KEY" "$HOST" "cd $REMOTE_DIR && git pull origin main && docker compose up -d --build api frontend"
+ssh -i "$KEY" "$HOST" "cd $REMOTE_DIR && docker compose up -d --build api frontend"
 
 step "Verifying the site is back up"
 sleep 2

@@ -1,6 +1,6 @@
 # Infrastructure & Deployment
 
-**Last verified:** 2026-10-11 (added `.github/workflows/ci.yml` this session; verified build+test against a genuinely fresh Postgres, not just the pre-existing dev DB)
+**Last verified:** 2026-10-11 (added `.github/workflows/ci.yml` and the migration-drift check in `publish.sh` this session; verified both against EC2/synthetic data, not just reasoned about)
 
 ## Status summary
 
@@ -8,7 +8,7 @@
 |---|---|
 | TLS | Working, live |
 | CI (build + test gate) | **Working, push-based** — see below |
-| Deploy mechanism | Manual scripted SSH, no auto-deploy (deliberate, see below) |
+| Deploy mechanism | Manual scripted SSH, no auto-deploy (deliberate) — now with a migration-drift check, see below |
 | Nightly backup | Working |
 | Restore drill | Working, genuinely tested |
 | Docker Compose service topology | Working |
@@ -27,7 +27,9 @@ The Postgres service container matters specifically because of `InvoiceSequenceI
 ### Deploy mechanism — manual scripted SSH, no auto-deploy
 `scripts/publish.sh` SSHs to a hardcoded EC2 host, requires a clean/pushed `main`, runs `git pull && docker compose up -d --build api frontend` remotely, curls the domain for a 200. Explicitly does **not** touch the DB/migrations (that's a separate hand-run step via `scripts/generate-migration-script.sh` + `scp`/`psql`). This is a deliberate choice, not an oversight: a single EC2 box with effectively one deployer doesn't get much from fully automating the deploy step itself, and the manual script already prevents deploying an uncommitted/unpushed tree. The actual decision was CI (build+test, above) **without** wiring it to auto-deploy.
 
-**A real production outage happened here, 2026-10-07**, from a gap CI would *not* have caught: two commits shipped the same day each included an EF migration (`AddInvoiceSequenceNumberUniqueIndex`, `AddInvoiceQuotePrefixToBusinessDetails`, `AddEmailTemplate`, `AddReminderAndAppointmentEmailLinks`). Code was deployed via `publish.sh` as normal; the separate manual migration step was forgotten. The deployed code then read columns (`BusinessDetails.InvoicePrefix`/`QuotePrefix`) that didn't exist in the live DB, so every "Generate Invoice"/"Generate Quotation" click on the live site threw a generic 500 — caught only because the user happened to hit it on their phone and reported it. Fixed in the same session by running the documented `generate-migration-script.sh` → `pg_dump` backup → `psql` apply procedure; confirmed via `__EFMigrationsHistory`. See `invoices-quotes-public-booking.md` for the full incident detail. **This specific risk is still open** — the migration-drift check recommended below would catch it; CI's build/test gate would not, since tests apply migrations fresh rather than checking the live box's actual state.
+**A real production outage happened here, 2026-10-07**, from a gap CI would *not* have caught: two commits shipped the same day each included an EF migration (`AddInvoiceSequenceNumberUniqueIndex`, `AddInvoiceQuotePrefixToBusinessDetails`, `AddEmailTemplate`, `AddReminderAndAppointmentEmailLinks`). Code was deployed via `publish.sh` as normal; the separate manual migration step was forgotten. The deployed code then read columns (`BusinessDetails.InvoicePrefix`/`QuotePrefix`) that didn't exist in the live DB, so every "Generate Invoice"/"Generate Quotation" click on the live site threw a generic 500 — caught only because the user happened to hit it on their phone and reported it. Fixed in the same session by running the documented `generate-migration-script.sh` → `pg_dump` backup → `psql` apply procedure; confirmed via `__EFMigrationsHistory`. See `invoices-quotes-public-booking.md` for the full incident detail.
+
+**Fixed 2026-10-11 — `publish.sh` now checks for this before every deploy.** After `git pull` on the box, it diffs every migration file in the pulled commit's `Migrations/` folder against what the box's own `__EFMigrationsHistory` table actually has (via the same SSH session — `docker compose exec -T db psql`, no new tooling on the box), and fails loudly *before* rebuilding containers if anything's missing. Verified both directions before relying on it: ran for real against EC2 (correctly found zero pending, since that migration was already applied earlier this session) and against synthetic data with a deliberately-missing entry (correctly flagged it via `comm -23`).
 
 ### Nightly backup — Working
 `scripts/backup-to-s3.sh`: `pg_dump` via `docker compose exec`, gzip, size sanity check, uploads to S3 via instance IAM role (no credentials in the script). Matches `infrastructure/README.md` (daily cron at 13:00 UTC).
@@ -42,7 +44,6 @@ Services: `db` (postgres:17, host port 5433), `api` (ASP.NET, S3/local file-stor
 Repo-wide grep for Sentry/Datadog/New Relic/Grafana/Prometheus/Elastic APM/Rollbar/Bugsnag returns zero hits in actual code (one hit only in the gap-analysis doc describing the gap itself). `ILogger` usage exists in 6 service files, but there's no structured-logging framework (no Serilog) and no log aggregation. `infrastructure/README.md` plans only basic CloudWatch EC2 metrics (CPU/disk/status checks) and explicitly skips the CloudWatch Logs agent "for now" — and there's no evidence in-repo that even this was provisioned. **This gap, as flagged in the industry-readiness analysis, remains fully open.**
 
 ## Recommended follow-ups
-- **Highest-value next step:** add the migration-drift check to `publish.sh` (diff `dotnet ef migrations list` against the box's `__EFMigrationsHistory`, fail loudly on mismatch) — this is what would have actually caught the 2026-10-07 incident; CI does not.
 - Pick a minimal error-tracking tool (even just Sentry's free tier) before the next production incident makes the absence painful.
 - Confirm whether job-photo uploads (see `jobs-workshop-floor.md`) need their own backup path alongside the DB backup — currently uncovered if running on local file storage.
 - If branch/PR ceremony starts feeling worth it (more contributors, want a true merge gate), flip `ci.yml`'s trigger to `pull_request` + turn on branch protection — no workflow changes needed beyond that.
