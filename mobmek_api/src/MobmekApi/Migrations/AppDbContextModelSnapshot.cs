@@ -1289,7 +1289,8 @@ namespace MobmekApi.Migrations
                     b.HasIndex("JobId");
 
                     b.HasIndex("DocumentType", "SequenceNumber")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"SequenceNumber\" > 0");
 
                     b.ToTable("Invoices");
                 });

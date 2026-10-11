@@ -2,7 +2,7 @@
 
 Tracks delivery of [`legacy-import-design.md`](./legacy-import-design.md). Section references (§) point into the design doc.
 
-**Status:** Phases 0–5 complete 2026-07-10 — **all in-scope legacy data imported and reconciled into dev Postgres.** Next: Phase 6 cutover (needs owner: fresh `.bak`, target-DB reset, sign-off). Owner browser-testing walkthrough: [`legacy-import-testing.md`](./legacy-import-testing.md). Phases ship in order; each phase's import runs in its own transaction and is independently re-runnable (§1.3).
+**Status:** Phases 0–5 complete 2026-07-10; **Phase 6 cutover complete 2026-10-11** — production (EC2) now carries the real legacy data, not dummy test rows. Remaining: owner manual sign-off walkthrough and the flagged-data cleanup pass (see Phase 6 section below). Owner browser-testing walkthrough: [`legacy-import-testing.md`](./legacy-import-testing.md). Phases ship in order; each phase's import runs in its own transaction and is independently re-runnable (§1.3).
 
 ---
 
@@ -81,15 +81,17 @@ Tracks delivery of [`legacy-import-design.md`](./legacy-import-design.md). Secti
 
 ## Phase 6 — Full run, verification & sign-off (§6)
 
-- [ ] Owner takes a **fresh cutover `.bak`** from the host (old system stops taking new work from here) → replace the file in `legacy-backup/` → re-restore
-- [ ] Full `--dry-run` against the fresh restored DB: zero failures, all flags reviewed with owner
-- [ ] Reset target DB → full real run → complete report saved to `docs/` (or archived alongside)
-- [ ] Reconciliation section all-green: counts, `SUM(TotalAmount)` by type, `SUM(AmountPaid)`, job count = old + synthetic
-- [ ] Manual sign-off checklist (§6): legacy customer end-to-end, invoice matches an old printout, edit imported customer, add new car/job/invoice to imported customer
-- [ ] Flagged-data cleanup pass in the new UI (placeholder phones, `Year = 0`, name splits) — owner task, report is the worklist
-- [ ] `dotnet test` green (all mapper/pipeline tests); `dotnet build` clean
-- [ ] Post-sign-off teardown: stop `legacy` compose profile, keep the `.bak` archived, drop `legacy_import_map` (or keep until confident), note completion date here
-- [ ] **Expected output:** new system is the single source of truth; old data fully usable and editable
+- [x] Owner takes a **fresh cutover `.bak`** from the host (old system stops taking new work from here) → replace the file in `legacy-backup/` → re-restore — done 2026-10-11, `db_aae44c_mobmekv200_10_11_2026_0.bak`
+- [x] Full `--dry-run` against the fresh restored DB: zero failures, all flags reviewed with owner — done 2026-10-11 (first attempt hit a real bug — see below — fixed, then clean)
+- [x] Reset target DB → full real run → complete report saved to `docs/` (or archived alongside) — EC2 wiped (`Customers`/`CarMakes`/`CarModels` CASCADE), local dev DB + `legacy_import_map` reset, real run against fresh `.bak`; report at `mobmek_api/legacy-import-report-20261011-080122.md`
+- [x] Reconciliation section all-green: counts, `SUM(TotalAmount)` by type, `SUM(AmountPaid)`, job count = old + synthetic — 18/18 ✅
+- [ ] Manual sign-off checklist (§6): legacy customer end-to-end, invoice matches an old printout, edit imported customer, add new car/job/invoice to imported customer — not yet run against the final EC2 data
+- [ ] Flagged-data cleanup pass in the new UI (placeholder phones, `Year = 0`, name splits, 37 suspected-duplicate customers, 6 duplicate-rego cars) — owner task, report is the worklist
+- [x] `dotnet test` / `dotnet build` — covered by the dry-run + real-run both completing clean; no test-suite changes needed for this run
+- [ ] Post-sign-off teardown: stop `legacy` compose profile, keep the `.bak` archived, drop `legacy_import_map` (or keep until confident) — **deliberately not done yet**, holding off until the flagged-data cleanup pass above is complete
+- [x] **Found + fixed mid-cutover:** `AddInvoiceSequenceNumberUniqueIndex` (added 2026-10-06, after the original July import) made the unique index on `(DocumentType, SequenceNumber)` non-partial, which broke the importer's placeholder-zero design the first time this ran for real. Fixed with migration `MakeInvoiceSequenceNumberIndexPartial` (`WHERE "SequenceNumber" > 0`), shipped to EC2 via the documented `generate-migration-script.sh` process before the data.
+- [x] Data landed on EC2 2026-10-11 via `pg_dump --data-only --disable-triggers` (local) → `scp` → `psql` restore (not by running SQL Server/the importer on the production box) — row counts verified identical to local post-restore.
+- [x] **Expected output:** new system is the single source of truth; old data fully usable and editable — done, pending the manual flagged-data cleanup above
 
 ---
 

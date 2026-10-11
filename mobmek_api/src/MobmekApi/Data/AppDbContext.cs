@@ -407,8 +407,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAc
             // not DB-generated — this index is the actual safety net against two concurrent
             // generations racing to the same number; InvoiceService retries on the resulting
             // unique-violation. Confirmed no existing duplicates in production before adding
-            // this (2026-10-07).
-            entity.HasIndex(i => new { i.DocumentType, i.SequenceNumber }).IsUnique();
+            // this (2026-10-07). Filtered to exclude 0: the legacy importer inserts documents
+            // with SequenceNumber 0 as a placeholder (DocumentSequencePhase numbers them for
+            // real afterwards) — a plain unique index can't hold more than one 0 per type.
+            entity.HasIndex(i => new { i.DocumentType, i.SequenceNumber })
+                .IsUnique()
+                .HasFilter("\"SequenceNumber\" > 0");
         });
 
         modelBuilder.Entity<InvoiceItem>(entity =>

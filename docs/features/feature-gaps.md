@@ -85,8 +85,12 @@ Checkbox = unresolved. Strike-through + `(fixed <date>)` when closed — keep cl
 ## Legacy Data Import
 *(detail: [legacy-data-import.md](legacy-data-import.md))*
 
-- [ ] `docs/legacy-import-{design,todo,testing}.md` are stale — they don't reflect the real import run that happened 2026-08-08 against a newer backup.
-- [ ] Phase 6 cutover not done — no final dev-data wipe, no sign-off, `legacy_import_map` table and the `legacy-mssql` container are both still present.
+- [x] ~~Phase 6 cutover not done~~ (done 2026-10-11) — EC2 dummy data wiped, fresh `.bak` imported (18/18 reconciliation ✅), data shipped to EC2. Found/fixed a real bug in the process: `AddInvoiceSequenceNumberUniqueIndex` (2026-10-06) broke the importer's placeholder-zero sequence numbers — fixed with a partial index.
+- [ ] `docs/legacy-import-{design,todo,testing}.md` are stale — still frozen at 2026-07-10 content, not rewritten even after the 2026-08-08 and 2026-10-11 real runs.
+- [ ] `legacy_import_map` table and the `legacy-mssql` compose service/importer project were not torn down after the 2026-10-11 cutover — left in place pending a deliberate cleanup pass.
+- [ ] 34 of 37 suspected-duplicate customers + 6 duplicate-rego cars from the 2026-10-11 import are still flagged, not reviewed/merged (owner task, see `legacy-import-report-20261011-080122.md`). 3 merged on EC2 so far: Joseph Gilliard (`#2468`/`#2469`), Aaron (`#2159`/`#2278`), Jhovan/Jovan (`#2372`/`#2376`) — tracked in `docs/legacy-import-duplicate-customers.md`.
+- [x] ~~`dotnet test` suite is 100% EF InMemory, can't catch relational-only bugs like partial unique indexes~~ (fixed 2026-10-11) — added `tests/MobmekApi.Tests/Data/InvoiceSequenceIndexTests.cs`, the first real-Postgres test in the suite (needs `docker compose up -d db`), pinning the exact `AddInvoiceSequenceNumberUniqueIndex`/partial-index behavior above.
+- [ ] `car-make-model.md` (new, more exhaustive NZ make/model reference) not yet merged into `CarMakes`/`CarModels` — needs a find-or-create seeder so it doesn't duplicate the 32 makes/212 models the legacy import created.
 
 ## Infrastructure & Deployment
 *(detail: [infrastructure-deployment.md](infrastructure-deployment.md))*
