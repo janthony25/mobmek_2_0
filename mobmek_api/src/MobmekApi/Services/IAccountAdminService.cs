@@ -30,6 +30,11 @@ public interface IAccountAdminService
     Task<AccountAdminError> ConfirmAccountAsync(
         ConfirmAccountRequest request, CancellationToken cancellationToken = default);
 
+    /// <summary>Issues a fresh invite token (invalidating any still-pending one) and re-sends the
+    /// activation email — for when the original link expired before the new hire used it. Fails
+    /// with <see cref="AccountAdminError.AlreadyConfirmed"/> if the account is already active.</summary>
+    Task<AccountAdminError> ResendConfirmationAsync(Guid userId, CancellationToken cancellationToken = default);
+
     /// <summary>Blocks sign-in immediately (via Identity's own lockout) and starts the 30-day
     /// countdown to <see cref="AccountPurgeJob"/> hard-deleting the account. Fails with
     /// <see cref="AccountAdminError.CannotDeactivateSelf"/> for your own account, or

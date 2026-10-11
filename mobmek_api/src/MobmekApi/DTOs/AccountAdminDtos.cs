@@ -16,10 +16,20 @@ public record AccountListItemDto(
     bool IsActive,
     DateTime? DeactivatedAtUtc);
 
+/// <summary>
+/// <paramref name="Password"/> is optional — leave it out to get a random password the new hire
+/// never sees (the normal case, where they set their own via the emailed link). Set it to give
+/// the account a known password up front; the new hire can change it later either way.
+/// <paramref name="ActivateImmediately"/> skips the email/link entirely and confirms the account
+/// at creation, so it can sign in right away — use when email isn't configured/reachable or
+/// speed matters more than the invite-link flow.
+/// </summary>
 public record CreateAccountRequest(
     [Required] Guid EmployeeId,
     [Required, EmailAddress, MaxLength(256)] string Email,
-    [Required] string Role);
+    [Required] string Role,
+    [MinLength(1)] string? Password = null,
+    bool ActivateImmediately = false);
 
 public record UpdateAccountRoleRequest([Required] string Role);
 
@@ -50,4 +60,5 @@ public enum AccountAdminError
     InvalidToken,
     TokenExpired,
     WeakPassword,
+    AlreadyConfirmed,
 }

@@ -1,6 +1,13 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { createAccount, deactivateAccount, getAccounts, reactivateAccount, updateAccountRole } from '@/api/accounts'
+import {
+  createAccount,
+  deactivateAccount,
+  getAccounts,
+  reactivateAccount,
+  resendConfirmation,
+  updateAccountRole,
+} from '@/api/accounts'
 import { getEmployees } from '@/api/employees'
 import { getRoles } from '@/api/roles'
 import { Button } from '@/components/ui/Button'
@@ -31,10 +38,13 @@ export function AccountsPage() {
   const [employeeId, setEmployeeId] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<AccountRole>('')
+  const [password, setPassword] = useState('')
+  const [activateImmediately, setActivateImmediately] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [roleBusyUserId, setRoleBusyUserId] = useState<string | null>(null)
   const [actionBusyUserId, setActionBusyUserId] = useState<string | null>(null)
+  const [resendBusyUserId, setResendBusyUserId] = useState<string | null>(null)
   const [deactivating, setDeactivating] = useState<AccountListItem | null>(null)
 
   if ((accounts.loading && !accounts.data) || (employees.loading && !employees.data) || (roles.loading && !roles.data)) {
@@ -61,6 +71,8 @@ export function AccountsPage() {
     setEmployeeId(first?.id ?? '')
     setEmail(first?.emailAddress ?? '')
     setRole(defaultRole)
+    setPassword('')
+    setActivateImmediately(false)
     setFormError(null)
     setAddOpen(true)
   }
@@ -80,8 +92,14 @@ export function AccountsPage() {
     setSubmitting(true)
     setFormError(null)
     try {
-      await createAccount({ employeeId, email, role })
-      toast.success(`Activation link sent to ${email}`)
+      await createAccount({
+        employeeId,
+        email,
+        role,
+        password: password || undefined,
+        activateImmediately,
+      })
+      toast.success(activateImmediately ? `Account activated and emailed to ${email}` : `Activation link sent to ${email}`)
       setAddOpen(false)
       accounts.reload()
     } catch (err) {
@@ -122,6 +140,18 @@ export function AccountsPage() {
       toast.error(err instanceof Error ? err.message : String(err))
     } finally {
       setActionBusyUserId(null)
+    }
+  }
+
+  const handleResend = async (account: AccountListItem) => {
+    setResendBusyUserId(account.userId)
+    try {
+      await resendConfirmation(account.userId)
+      toast.success(`New activation link sent to ${account.email}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setResendBusyUserId(null)
     }
   }
 
@@ -211,9 +241,21 @@ export function AccountsPage() {
                       Reactivate
                     </Button>
                   ) : (
-                    <Button variant="danger" size="sm" onClick={() => setDeactivating(account)}>
-                      Deactivate
-                    </Button>
+                    <div className="flex justify-end gap-2">
+                      {!account.isActive && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={resendBusyUserId === account.userId}
+                          onClick={() => handleResend(account)}
+                        >
+                          {resendBusyUserId === account.userId ? 'Sending…' : 'Resend confirmation'}
+                        </Button>
+                      )}
+                      <Button variant="danger" size="sm" onClick={() => setDeactivating(account)}>
+                        Deactivate
+                      </Button>
+                    </div>
                   )}
                 </td>
               </tr>
@@ -263,6 +305,24 @@ export function AccountsPage() {
               ))}
             </select>
           </Field>
+          <Field label="Password (optional)">
+            <input
+              type="text"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Leave blank for a random one — they'll set their own via the emailed link"
+              className={controlClass}
+            />
+          </Field>
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={activateImmediately}
+              onChange={(e) => setActivateImmediately(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300"
+            />
+            Activate immediately — skip the emailed link, account can sign in right away
+          </label>
 
           {formError && <p className="text-sm text-red-600">{formError}</p>}
 
@@ -271,7 +331,7 @@ export function AccountsPage() {
               Cancel
             </Button>
             <Button type="submit" disabled={submitting || !employeeId}>
-              {submitting ? 'Sending…' : 'Create & send activation link'}
+              {submitting ? 'Sending…' : activateImmediately ? 'Create & activate' : 'Create & send activation link'}
             </Button>
           </div>
         </form>

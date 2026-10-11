@@ -192,6 +192,128 @@ public class AccountAdminServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_WithPasswordNotActivated_UsesGivenPasswordAndEmailsItAlongsideTheLink()
+    {
+        var (db, userManager, roleManager) = CreateContext();
+        await using var _ = db;
+        await SeedRolesAsync(roleManager);
+        var employee = await SeedEmployeeAsync(db);
+        var sender = new FakeEmailSender();
+        var service = BuildService(db, userManager, roleManager, sender);
+
+        var (account, error) = await service.CreateAsync(
+            new CreateAccountRequest(employee.Id, "new.hire@example.com", "Employee", Password: "AdminChosenPassw0rd!1"));
+
+        Assert.Equal(AccountAdminError.None, error);
+        Assert.False(account!.IsActive);
+        var message = Assert.Single(sender.SentMessages);
+        Assert.Contains("AdminChosenPassw0rd!1", message.Html);
+        Assert.Contains("token=", message.Html);
+        var user = await userManager.FindByEmailAsync("new.hire@example.com");
+        Assert.False(user!.EmailConfirmed);
+        Assert.True(await userManager.CheckPasswordAsync(user, "AdminChosenPassw0rd!1"));
+    }
+
+    [Fact]
+    public async Task CreateAsync_ActivateImmediately_ConfirmsAccountAndSkipsTheInviteLink()
+    {
+        var (db, userManager, roleManager) = CreateContext();
+        await using var _ = db;
+        await SeedRolesAsync(roleManager);
+        var employee = await SeedEmployeeAsync(db);
+        var sender = new FakeEmailSender();
+        var service = BuildService(db, userManager, roleManager, sender);
+
+        var (account, error) = await service.CreateAsync(
+            new CreateAccountRequest(employee.Id, "new.hire@example.com", "Employee", Password: "AdminChosenPassw0rd!1", ActivateImmediately: true));
+
+        Assert.Equal(AccountAdminError.None, error);
+        Assert.True(account!.IsActive);
+        var message = Assert.Single(sender.SentMessages);
+        Assert.Contains("AdminChosenPassw0rd!1", message.Html);
+        Assert.DoesNotContain("token=", message.Html);
+        var user = await userManager.FindByEmailAsync("new.hire@example.com");
+        Assert.True(user!.EmailConfirmed);
+        Assert.True(await userManager.CheckPasswordAsync(user, "AdminChosenPassw0rd!1"));
+    }
+
+    [Fact]
+    public async Task CreateAsync_WeakAdminChosenPassword_ReturnsWeakPasswordAndCreatesNoAccount()
+    {
+        var (db, userManager, roleManager) = CreateContext();
+        await using var _ = db;
+        await SeedRolesAsync(roleManager);
+        var employee = await SeedEmployeeAsync(db);
+        var service = BuildService(db, userManager, roleManager, new FakeEmailSender());
+
+        var (account, error) = await service.CreateAsync(
+            new CreateAccountRequest(employee.Id, "new.hire@example.com", "Employee", Password: "short"));
+
+        Assert.Equal(AccountAdminError.WeakPassword, error);
+        Assert.Null(account);
+        Assert.Null(await userManager.FindByEmailAsync("new.hire@example.com"));
+    }
+
+    [Fact]
+    public async Task ResendConfirmationAsync_PendingAccount_IssuesFreshTokenAndEmailsIt()
+    {
+        var (db, userManager, roleManager) = CreateContext();
+        await using var _ = db;
+        await SeedRolesAsync(roleManager);
+        var employee = await SeedEmployeeAsync(db);
+        var sender = new FakeEmailSender();
+        var service = BuildService(db, userManager, roleManager, sender);
+        await service.CreateAsync(new CreateAccountRequest(employee.Id, "new.hire@example.com", "Employee"));
+        var originalToken = ExtractToken(sender.SentMessages[0].Html);
+        var user = (await userManager.FindByEmailAsync("new.hire@example.com"))!;
+
+        var error = await service.ResendConfirmationAsync(user.Id);
+
+        Assert.Equal(AccountAdminError.None, error);
+        Assert.Equal(2, sender.SentMessages.Count);
+        var newToken = ExtractToken(sender.SentMessages[1].Html);
+        Assert.NotEqual(originalToken, newToken);
+
+        // The original link must no longer work — only the freshly issued one should.
+        var oldResult = await service.ConfirmAccountAsync(new ConfirmAccountRequest(originalToken, "BrandNewPassw0rd!1"));
+        Assert.Equal(AccountAdminError.InvalidToken, oldResult);
+        var newResult = await service.ConfirmAccountAsync(new ConfirmAccountRequest(newToken, "BrandNewPassw0rd!1"));
+        Assert.Equal(AccountAdminError.None, newResult);
+    }
+
+    [Fact]
+    public async Task ResendConfirmationAsync_AlreadyConfirmedAccount_ReturnsAlreadyConfirmed()
+    {
+        var (db, userManager, roleManager) = CreateContext();
+        await using var _ = db;
+        await SeedRolesAsync(roleManager);
+        var employee = await SeedEmployeeAsync(db);
+        var sender = new FakeEmailSender();
+        var service = BuildService(db, userManager, roleManager, sender);
+        await service.CreateAsync(new CreateAccountRequest(employee.Id, "new.hire@example.com", "Employee"));
+        var token = ExtractToken(sender.SentMessages[0].Html);
+        await service.ConfirmAccountAsync(new ConfirmAccountRequest(token, "BrandNewPassw0rd!1"));
+        var user = (await userManager.FindByEmailAsync("new.hire@example.com"))!;
+
+        var error = await service.ResendConfirmationAsync(user.Id);
+
+        Assert.Equal(AccountAdminError.AlreadyConfirmed, error);
+        Assert.Single(sender.SentMessages);
+    }
+
+    [Fact]
+    public async Task ResendConfirmationAsync_UnknownUser_ReturnsUserNotFound()
+    {
+        var (db, userManager, roleManager) = CreateContext();
+        await using var _ = db;
+        var service = BuildService(db, userManager, roleManager, new FakeEmailSender());
+
+        var error = await service.ResendConfirmationAsync(Guid.NewGuid());
+
+        Assert.Equal(AccountAdminError.UserNotFound, error);
+    }
+
+    [Fact]
     public async Task ConfirmAccountAsync_CorrectToken_ActivatesAccountAndSetsPassword()
     {
         var (db, userManager, roleManager) = CreateContext();

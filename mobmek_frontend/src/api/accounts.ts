@@ -13,6 +13,8 @@ export const updateAccountRole = (userId: string, body: UpdateAccountRoleRequest
   apiPut<AccountListItem>(`/accounts/${userId}/role`, body)
 export const deactivateAccount = (userId: string) => apiPost<AccountListItem>(`/accounts/${userId}/deactivate`, {})
 export const reactivateAccount = (userId: string) => apiPost<AccountListItem>(`/accounts/${userId}/reactivate`, {})
+/** Re-sends the activation email with a fresh link, for when the original one expired. */
+export const resendConfirmation = (userId: string) => apiPost<void>(`/accounts/${userId}/resend-confirmation`, {})
 
 /** Public — reached from the emailed invite link, before the account can sign in at all. */
 export const getInvitePreview = (token: string) =>

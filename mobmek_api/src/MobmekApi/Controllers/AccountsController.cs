@@ -98,6 +98,28 @@ public class AccountsController(IAccountAdminService accountAdminService, UserMa
         };
     }
 
+    /// <summary>Re-sends the activation email with a fresh link — for an account whose original
+    /// invite link expired (the link is single-use and short-lived) before it was used.</summary>
+    [HttpPost("{userId:guid}/resend-confirmation")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ResendConfirmation(Guid userId, CancellationToken cancellationToken)
+    {
+        var error = await accountAdminService.ResendConfirmationAsync(userId, cancellationToken);
+        return error switch
+        {
+            AccountAdminError.None => NoContent(),
+            AccountAdminError.UserNotFound => NotFound(),
+            AccountAdminError.AlreadyConfirmed => Problem(
+                detail: "This account is already active — there's nothing to confirm.", statusCode: StatusCodes.Status400BadRequest),
+            AccountAdminError.NotConfigured => Problem(
+                detail: "Email sending isn't configured yet — set it up under Settings → Email first.", statusCode: StatusCodes.Status400BadRequest),
+            AccountAdminError.SendFailed => Problem(detail: "Couldn't send the confirmation email — try again in a moment.", statusCode: StatusCodes.Status400BadRequest),
+            _ => Problem(statusCode: StatusCodes.Status500InternalServerError),
+        };
+    }
+
     /// <summary>Previews whose account an invite link belongs to, before asking for a password.
     /// Anonymous: the link is reached before the account can sign in at all.</summary>
     [HttpGet("confirm/{token}")]
@@ -142,6 +164,7 @@ public class AccountsController(IAccountAdminService accountAdminService, UserMa
         AccountAdminError.EmployeeAlreadyHasAccount => Problem(detail: "That employee already has a login account.", statusCode: StatusCodes.Status400BadRequest),
         AccountAdminError.EmailInUse => Problem(detail: "That email is already in use by another account.", statusCode: StatusCodes.Status400BadRequest),
         AccountAdminError.InvalidRole => Problem(detail: "That role does not exist.", statusCode: StatusCodes.Status400BadRequest),
+        AccountAdminError.WeakPassword => Problem(detail: "That password doesn't meet the requirements.", statusCode: StatusCodes.Status400BadRequest),
         AccountAdminError.NotConfigured => Problem(
             detail: "Email sending isn't configured yet — set it up under Settings → Email first.", statusCode: StatusCodes.Status400BadRequest),
         AccountAdminError.SendFailed => Problem(detail: "Couldn't send the confirmation email — try again in a moment.", statusCode: StatusCodes.Status400BadRequest),

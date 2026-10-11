@@ -1,3 +1,4 @@
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using MobmekApi.Data;
@@ -71,39 +72,37 @@ public class AccountAdminService(
             return (null, AccountAdminError.EmailInUse);
         }
 
-        // Accounts start locked out of signing in (EmailConfirmed = false) until the new hire
-        // uses the emailed code to confirm and set their own password — this random password is
-        // never surfaced to anyone and is immediately superseded at confirmation time.
+        // Accounts start locked out of signing in (EmailConfirmed = false) unless the Admin opts
+        // into ActivateImmediately — the new hire otherwise uses the emailed link to confirm and
+        // (if no Password was given here) set their own password, which a random, never-surfaced
+        // password is immediately superseded by at confirmation time.
         var user = new ApplicationUser
         {
             UserName = request.Email,
             Email = request.Email,
-            EmailConfirmed = false,
+            EmailConfirmed = request.ActivateImmediately,
             EmployeeId = request.EmployeeId,
         };
 
-        var createResult = await userManager.CreateAsync(user, GenerateRandomPassword());
+        var createResult = await userManager.CreateAsync(user, request.Password ?? GenerateRandomPassword());
         if (!createResult.Succeeded)
         {
-            return (null, AccountAdminError.EmailInUse);
+            // Duplicate email/username is already ruled out above, so the only way UserManager
+            // itself can still fail here is an Admin-supplied Password that fails the policy.
+            var isPasswordError = createResult.Errors.Any(e => e.Code.StartsWith("Password", StringComparison.Ordinal));
+            return (null, isPasswordError ? AccountAdminError.WeakPassword : AccountAdminError.EmailInUse);
         }
 
         await userManager.AddToRoleAsync(user, request.Role);
 
-        var token = await IssueConfirmationTokenAsync(user.Id, cancellationToken);
-        var frontendBaseUrl = (configuration["Frontend:BaseUrl"] ?? "http://localhost:3000").TrimEnd('/');
-        var confirmUrl = $"{frontendBaseUrl}/confirm-account?token={token}";
+        string? confirmUrl = null;
+        if (!request.ActivateImmediately)
+        {
+            var token = await IssueConfirmationTokenAsync(user.Id, cancellationToken);
+            confirmUrl = $"{FrontendBaseUrl()}/confirm-account?token={token}";
+        }
 
-        var message = new OutboundEmailMessage(
-            To: user.Email!,
-            ToName: $"{employee.FirstName} {employee.LastName}",
-            Cc: null, Bcc: null,
-            ReplyTo: settings.ReplyToAddress,
-            FromName: settings.FromName, FromAddress: settings.FromAddress,
-            Subject: "Your Mobmek account is ready to activate",
-            Html: $"<p>An account has been created for you. " +
-                  $"<a href=\"{confirmUrl}\">Click here to set your password</a> and activate your account. " +
-                  "This link expires in 10 minutes.</p>");
+        var message = BuildAccountEmail(user, employee, settings, confirmUrl, $"{FrontendBaseUrl()}/forgot-password", request.Password);
 
         var sendResult = await emailSender.SendAsync(message, cancellationToken);
         if (!sendResult.Success)
@@ -290,6 +289,77 @@ public class AccountAdminService(
         await userManager.UpdateAsync(user);
 
         return AccountAdminError.None;
+    }
+
+    public async Task<AccountAdminError> ResendConfirmationAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var settings = await emailSettingsService.GetCurrentAsync(cancellationToken);
+        if (!settings.ResendConfigured)
+        {
+            return AccountAdminError.NotConfigured;
+        }
+
+        var user = await db.Users.AsNoTracking()
+            .Include(u => u.Employee)
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        if (user?.Employee is null)
+        {
+            return AccountAdminError.UserNotFound;
+        }
+
+        if (user.EmailConfirmed)
+        {
+            return AccountAdminError.AlreadyConfirmed;
+        }
+
+        var token = await IssueConfirmationTokenAsync(user.Id, cancellationToken);
+        var confirmUrl = $"{FrontendBaseUrl()}/confirm-account?token={token}";
+
+        // Whatever password (random or Admin-chosen) the account was created with only ever
+        // existed as a hash — there's nothing to re-show here, so a resend always gets the
+        // generic "click to set your password" copy, never the one-time username/password
+        // reminder CreateAsync sends on the very first invite.
+        var message = BuildAccountEmail(user, user.Employee, settings, confirmUrl, $"{FrontendBaseUrl()}/forgot-password", password: null);
+
+        var sendResult = await emailSender.SendAsync(message, cancellationToken);
+        return sendResult.Success ? AccountAdminError.None : AccountAdminError.SendFailed;
+    }
+
+    private string FrontendBaseUrl() => (configuration["Frontend:BaseUrl"] ?? "http://localhost:3000").TrimEnd('/');
+
+    // `confirmUrl` is null exactly when the account was already activated at creation
+    // (ActivateImmediately) — there's nothing left to confirm, so the email points at the
+    // forgot-password flow instead. `password` is the Admin-chosen plaintext password, only
+    // ever known here immediately after CreateAsync hashes it — never persisted or re-derivable,
+    // which is why ResendConfirmationAsync always passes null.
+    private static OutboundEmailMessage BuildAccountEmail(
+        ApplicationUser user, Employee employee, EmailSettingsDto settings,
+        string? confirmUrl, string forgotPasswordUrl, string? password)
+    {
+        var toName = $"{employee.FirstName} {employee.LastName}";
+        var encodedPassword = password is null ? null : WebUtility.HtmlEncode(password);
+
+        var (subject, html) = confirmUrl is not null
+            ? ("Your Mobmek account is ready to activate", encodedPassword is null
+                ? $"<p>An account has been created for you. " +
+                  $"<a href=\"{confirmUrl}\">Click here to set your password</a> and activate your account. " +
+                  "This link expires in 10 minutes.</p>"
+                : $"<p>An account has been created for you.</p>" +
+                  $"<p>Username: {user.Email}<br/>Password: {encodedPassword}</p>" +
+                  $"<p><a href=\"{confirmUrl}\">Click here to activate your account</a> — you can sign in with the " +
+                  "password above once it's active, or set your own there instead. This link expires in 10 minutes.</p>")
+            : ("Your Mobmek account is ready", encodedPassword is null
+                ? $"<p>Your Mobmek account has been activated.</p>" +
+                  $"<p>Username: {user.Email}</p>" +
+                  $"<p><a href=\"{forgotPasswordUrl}\">Click here to set your password</a>.</p>"
+                : $"<p>Your Mobmek account has been activated.</p>" +
+                  $"<p>Username: {user.Email}<br/>Password: {encodedPassword}</p>" +
+                  $"<p>You can change this anytime — <a href=\"{forgotPasswordUrl}\">reset your password here</a>.</p>");
+
+        return new OutboundEmailMessage(
+            To: user.Email!, ToName: toName, Cc: null, Bcc: null,
+            ReplyTo: settings.ReplyToAddress, FromName: settings.FromName, FromAddress: settings.FromAddress,
+            Subject: subject, Html: html);
     }
 
     // The token itself is the lookup key (hashed) — unlike a short user-typed code, it's long

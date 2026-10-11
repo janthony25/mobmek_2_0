@@ -1254,6 +1254,12 @@ export interface CreateAccountRequest {
   employeeId: string
   email: string
   role: AccountRole
+  /** Optional — leave unset for a random password the new hire never sees (they set their own
+   * via the emailed link). Set it to give the account a known password up front. */
+  password?: string
+  /** Confirms the account immediately, skipping the emailed activation link — use when email
+   * isn't configured/reachable, or the admin wants the account usable right away. */
+  activateImmediately?: boolean
 }
 
 export interface UpdateAccountRoleRequest {
