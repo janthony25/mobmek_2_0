@@ -94,6 +94,11 @@ public class InvoicePdfService(AppDbContext db, IBusinessDetailsService business
                     column.Item().Text(contact).FontSize(9).FontColor(Colors.Grey.Medium);
                 }
 
+                if (!string.IsNullOrWhiteSpace(business.Website))
+                {
+                    column.Item().Text(business.Website).FontSize(9).FontColor(Colors.Grey.Medium);
+                }
+
                 if (!string.IsNullOrWhiteSpace(business.BankDetails))
                 {
                     column.Item().PaddingTop(4).Column(bank =>
@@ -101,11 +106,6 @@ public class InvoicePdfService(AppDbContext db, IBusinessDetailsService business
                         bank.Item().Text("Payment details").FontSize(8).FontColor(Colors.Grey.Medium);
                         bank.Item().Text(business.BankDetails).FontSize(9).FontColor(Colors.Grey.Medium);
                     });
-                }
-
-                if (!string.IsNullOrWhiteSpace(business.Website))
-                {
-                    column.Item().Text(business.Website).FontSize(9).FontColor(Colors.Grey.Medium);
                 }
             });
 
