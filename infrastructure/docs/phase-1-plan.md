@@ -171,17 +171,15 @@ not EF).
 ```bash
 ./scripts/generate-migration-script.sh    # writes ./migrate.sql (gitignored — regenerate, don't commit)
 less migrate.sql                          # skim for anything beyond additive changes
-
-scp migrate.sql <box>:~/
-ssh <box>
-docker exec mobmek_db pg_dump -U postgres mobmek | gzip > "pre-migrate-$(date +%Y%m%d%H%M).sql.gz"
-docker compose exec -T db psql -U postgres -d mobmek -v ON_ERROR_STOP=1 < migrate.sql
+./scripts/apply-migration.sh              # backs up the box, copies, applies, verifies, cleans up
 ```
 
-The `pg_dump` line is the safety net until the nightly-backup-to-S3 and restore-drill checklist
-items above are done — an additive migration (new table, new nullable column) is low-risk, but
-anything that drops or rewrites data should wait for a tested restore path before it runs
-anywhere real.
+`apply-migration.sh` replaced what used to be a fully manual `scp`/`ssh`/`pg_dump`/`psql` dance
+(added 2026-10-12) — the `pg_dump` backup was previously just a documented recommendation in this
+doc, easy to skip under pressure or simply forget. It's not optional now: the script always takes
+it first and aborts before touching anything if the backup looks too small to be real. An additive
+migration (new table, new nullable column) is still low-risk, but anything that drops or rewrites
+data should wait for a tested restore path before it runs anywhere real.
 
 ## File storage configuration
 

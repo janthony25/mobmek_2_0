@@ -101,6 +101,7 @@ Checkbox = unresolved. Strike-through + `(fixed <date>)` when closed — keep cl
 - [ ] No monitoring/alerting/error-tracking — no Sentry/APM/log-aggregation anywhere, no structured logging framework, minimal `ILogger` usage.
 - [x] ~~Deploy-mechanism gap caused a real outage~~ (fixed 2026-10-07) — two same-day commits' migrations were never applied to prod after `deploy.sh` deployed their code, breaking invoice/quote generation live; fixed by running the documented migration procedure.
 - [x] ~~`deploy.sh` has no check for pending migrations before deploying~~ (fixed 2026-10-11) — after `git pull` on the box, diffs the migration files in the pulled commit against the box's own `__EFMigrationsHistory` (over the same SSH session, no new tooling needed) and fails loudly before rebuilding containers if anything's missing. Verified both ways: ran for real against EC2 (correctly found zero pending) and against synthetic data (correctly flagged a deliberately-missing migration).
+- [x] ~~Pre-migration backup was only a documented recommendation, not automatic~~ (fixed 2026-10-12) — new `scripts/apply-migration.sh` always takes a `pg_dump` before applying `migrate.sql`, aborting if it looks suspiciously small, replacing the old fully-manual `scp`/`ssh`/`pg_dump`/`psql` sequence.
 
 ## UI Shell & Navigation
 *(detail: [ui-shell-navigation.md](ui-shell-navigation.md))*

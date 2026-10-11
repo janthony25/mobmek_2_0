@@ -12,13 +12,8 @@
 # safe to run against a database on any migration, not just the one you tested against.
 #
 # Usage:
-#   ./scripts/generate-migration-script.sh
-#
-# Then, on the target box:
-#   scp migrate.sql <box>:~/
-#   ssh <box>
-#   docker exec mobmek_db pg_dump -U postgres mobmek | gzip > "pre-migrate-$(date +%Y%m%d%H%M).sql.gz"   # safety net
-#   docker compose exec -T db psql -U postgres -d mobmek -v ON_ERROR_STOP=1 < migrate.sql
+#   ./scripts/generate-migration-script.sh   # generates migrate.sql here, review it
+#   ./scripts/apply-migration.sh             # backs up the box, copies, applies, verifies
 
 set -euo pipefail
 
@@ -50,7 +45,7 @@ echo "    that drops a column or renames data, not just additive changes:"
 echo
 echo "      less $OUT"
 echo
-echo "    Then deploy it (see this script's header for the exact commands) — take a"
-echo "    pg_dump snapshot on the box first. An additive migration (new table, new"
-echo "    nullable column) is low-risk; anything that drops or rewrites data should wait"
-echo "    for a tested restore drill before it runs anywhere real."
+echo "    Then run ./scripts/apply-migration.sh — it backs up the box automatically before"
+echo "    applying anything. An additive migration (new table, new nullable column) is"
+echo "    low-risk; anything that drops or rewrites data should wait for a tested restore"
+echo "    drill before it runs anywhere real."

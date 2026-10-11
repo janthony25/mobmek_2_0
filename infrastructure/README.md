@@ -178,8 +178,8 @@ it's a newly launched region. Revisit that option later; it may appear over time
    will point at objects that don't exist.
 6. `docker compose up -d --build`.
 7. Run pending migrations as a separate step (production does not auto-migrate on startup):
-   `./scripts/generate-migration-script.sh` locally, then `scp` + `psql` on the box — see
-   `docs/phase-1-plan.md` → "Running migrations in production" for the exact commands.
+   `./scripts/generate-migration-script.sh` locally, then `./scripts/apply-migration.sh` — see
+   `docs/phase-1-plan.md` → "Running migrations in production" for detail.
 8. Verify `https://<domain>` loads, that Swagger is **not** reachable, and that uploading a job
    photo then reloading the page still shows it (proves the S3 path, not local disk, is live).
 
