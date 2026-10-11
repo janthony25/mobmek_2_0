@@ -12,7 +12,7 @@
 # `__EFMigrationsHistory` — added 2026-10-11 after a real outage where code shipped ahead
 # of a migration nobody ran, and every invoice/quote generation 500'd until someone noticed.
 #
-# Usage: ./scripts/publish.sh
+# Usage: ./scripts/deploy.sh
 
 set -euo pipefail
 
@@ -26,7 +26,7 @@ ok()    { printf '\033[0;32m    %s\033[0m\n' "$*"; }
 fail()  { printf '\033[0;31mERROR: %s\033[0m\n' "$*" >&2; exit 1; }
 
 step "Checking local repo state"
-[[ "$(git rev-parse --abbrev-ref HEAD)" == "main" ]] || fail "Not on main — check out main before publishing."
+[[ "$(git rev-parse --abbrev-ref HEAD)" == "main" ]] || fail "Not on main — check out main before deploying."
 [[ -z "$(git status --porcelain)" ]] || fail "Working tree has uncommitted changes — commit or stash first."
 git fetch origin main >/dev/null
 LOCAL=$(git rev-parse main)

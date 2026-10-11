@@ -6,6 +6,8 @@ the root `CLAUDE.md` ("Rule: log every commit in `CHANGELOG.md`") for how this i
 
 ## 2026-10-12
 
+- **Rename `scripts/publish.sh` to `deploy.sh`** — "deploy" is the accurate term for what it does (put the current `main` onto EC2); "publish" and "release" both imply things this project doesn't do (publishing a package/artifact, cutting a versioned release). References updated in the living docs (`docs/features/*.md`, `.github/workflows/ci.yml`); past `CHANGELOG.md` entries describing it as `publish.sh` are left as-is since that's what it was actually called at the time.
+
 - **Merge `car-make-model.md` into `CarMakes`/`CarModels`** — generated an idempotent SQL script from the file's 69 makes/1231 models using the same case-insensitive find-or-create semantics as the legacy importer's `MakeModelResolver` (`INSERT ... WHERE NOT EXISTS (... LOWER(...) = LOWER(...))`). Ran on local first (31→73 makes, 211→1319 models, verified zero case-insensitive duplicates), then the identical script on EC2 (same numbers, pre-merge `pg_dump` backup taken first). Purely additive — nothing deleted or updated, so no existing car's make/model reference was touched. Closes a gap open since the 2026-07 legacy import.
 
 - **Block letters from the customer phone input at the keystroke level** — `CustomerForm.tsx`'s phone field only had `type="tel"` (a mobile-keyboard hint, not an actual constraint), so a value like "GEORGE" wouldn't be rejected until the Save click hit the backend's existing `[Phone]` validation. Now strips anything that isn't a digit/`+`/`-`/space on every keystroke, matching what the backend already accepts.

@@ -2,7 +2,7 @@ name: CI
 
 # Push-based, not PR-based: this repo pushes straight to main, so this runs as a signal
 # after every push rather than a merge gate. Check the result before running
-# ./scripts/publish.sh — a red run here means don't deploy.
+# ./scripts/deploy.sh — a red run here means don't deploy.
 on:
   push:
     branches: [main]
