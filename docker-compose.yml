@@ -52,6 +52,11 @@ services:
       # Base URL of the deployed frontend, used to build absolute links in emails (e.g. the
       # new-account activation link) — override in .env for a real deployment.
       Frontend__BaseUrl: ${FRONTEND_BASE_URL:-http://localhost:3000}
+      # Origin(s) allowed to call the anonymous public booking endpoints in production (dev
+      # instead allows any loopback origin, see Program.cs) — override in .env for a real
+      # deployment. Unset in Production means no origin can reach the booking endpoints at all.
+      PublicSite__AllowedOrigins__0: ${PUBLIC_SITE_ORIGIN_1:-}
+      PublicSite__AllowedOrigins__1: ${PUBLIC_SITE_ORIGIN_2:-}
       # Where uploaded files go (job photos, receipts, business logo). Local disk by default;
       # set FILE_STORAGE_PROVIDER=S3 plus the bucket for a real deployment (see .env.example).
       # On EC2 the instance role supplies credentials — no access keys needed here.
