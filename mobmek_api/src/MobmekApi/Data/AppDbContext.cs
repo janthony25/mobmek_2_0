@@ -40,6 +40,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAc
 
     public DbSet<JobPhoto> JobPhotos => Set<JobPhoto>();
 
+    public DbSet<JobFile> JobFiles => Set<JobFile>();
+
     public DbSet<Invoice> Invoices => Set<Invoice>();
 
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
@@ -372,6 +374,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAc
             entity.HasOne(p => p.Job)
                 .WithMany(j => j.Photos)
                 .HasForeignKey(p => p.JobId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<JobFile>(entity =>
+        {
+            entity.HasKey(f => f.Id);
+            entity.Property(f => f.FileName).IsRequired().HasMaxLength(255);
+            entity.Property(f => f.ContentType).IsRequired().HasMaxLength(100);
+            entity.Property(f => f.StorageKey).IsRequired().HasMaxLength(500);
+
+            entity.HasOne(f => f.Job)
+                .WithMany(j => j.Files)
+                .HasForeignKey(f => f.JobId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

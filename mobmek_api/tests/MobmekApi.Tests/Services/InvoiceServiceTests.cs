@@ -38,6 +38,29 @@ public class InvoiceServiceTests
     }
 
     [Fact]
+    public async Task GenerateAsync_FoldsServiceLineAdditionalAmount_IntoOneConsolidatedPrice()
+    {
+        await using var db = CreateContext();
+        var customer = await new CustomerService(db, new CarService(db)).CreateAsync(new CreateCustomerRequest("O", "P", "0", null, null, null));
+        var make = await new CarMakeService(db).CreateAsync(new CreateCarMakeRequest("Make"));
+        var model = await new CarModelService(db).CreateAsync(new CreateCarModelRequest(make.Id, "Model"));
+        var (car, _) = await new CarService(db).CreateAsync(new CreateCarRequest(customer.Id, make.Id, model!.Id, 2020, "R", null, null, null));
+        var jobs = new JobService(db);
+        var (job, _) = await jobs.CreateAsync(new CreateJobRequest(customer.Id, car!.Id, "Service", JobStatus.Open, 1000, null, null));
+        var catalog = await new JobServiceCatalogService(db).CreateAsync(new CreateJobServiceRequest("General service", null, 200m, true));
+        await new JobServiceLineService(db, jobs).CreateAsync(job!.Id, new CreateJobServiceLineRequest(catalog.Id, 1, 50m)); // 200 + 50
+
+        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()));
+        var invoice = await invoices.GenerateAsync(job.Id, new CreateInvoiceRequest(null));
+
+        var line = Assert.Single(invoice!.Items);
+        Assert.Equal("General service", line.ItemName);
+        // Shown as one combined price ($250), never a separate "+ $50" breakdown.
+        Assert.Equal(250m, line.ItemPrice);
+        Assert.Equal(250m, line.ItemTotal);
+    }
+
+    [Fact]
     public async Task GenerateAsync_BuildsLines_AndSnapshotsTotalsAndGst()
     {
         await using var db = CreateContext();

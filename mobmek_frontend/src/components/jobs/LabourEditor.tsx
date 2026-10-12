@@ -25,7 +25,7 @@ export function LabourEditor({ labour, onAdd, onUpdate, onRemove }: LabourEditor
       ) : (
         <div className="space-y-3">
           {labour.map((l) => (
-            <div key={l.key} className="rounded-md border border-slate-200 p-3">
+            <div key={l.key} className="rounded-md border border-slate-300 p-3">
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <Field label="Hours">
                   <input type="number" step="0.1" min={0} value={l.hours} onChange={(e) => onUpdate(l.key, { hours: e.target.value })} className={controlClass} />

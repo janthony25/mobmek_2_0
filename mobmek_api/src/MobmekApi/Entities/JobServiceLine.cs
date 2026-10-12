@@ -19,6 +19,13 @@ public class JobServiceLine : BaseEntity
     /// <summary>Price captured from the catalog at the time the service was added.</summary>
     public decimal UnitPrice { get; set; }
 
+    /// <summary>
+    /// Optional surcharge on top of <see cref="UnitPrice"/>, for catalog services whose listed
+    /// price is a baseline that can run higher on a given job (e.g. "General Service: $200" but
+    /// this job's actually $250). Added once per line, not multiplied by <see cref="Quantity"/>.
+    /// </summary>
+    public decimal AdditionalAmount { get; set; }
+
     public int Quantity { get; set; } = 1;
 
     // --- Computed by the backend (UnitPrice × Quantity) ---

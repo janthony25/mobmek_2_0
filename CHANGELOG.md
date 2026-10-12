@@ -6,6 +6,13 @@ the root `CLAUDE.md` ("Rule: log every commit in `CHANGELOG.md`") for how this i
 
 ## 2026-10-12
 
+- **Add a surcharge ("+ Add amount") for catalog services on a job** — some catalog services (e.g. "General Service: $200") are a baseline price that can run higher on a given job; ticking a service in the new `ServicesEditor` now reveals a "+ Add amount" popup that adds a one-off surcharge on top of the catalog price. New `JobServiceLine.AdditionalAmount` field; the invoice/quotation line shows one consolidated price (e.g. $250), never a separate breakdown. 3 new backend tests.
+- **Add generic job file uploads (any type), stored in S3** — job photos were image-only; a new "Files" section (`JobFilesSection`/`JobFileDraftPicker`) accepts any file type up to 25 MB, going through the same `IFileStorage` abstraction photos already use so it lands in S3 in production. New `JobFile` entity/controller mirroring `JobPhoto`. 6 new backend tests.
+- **Hide the Invoices/Quotations sections while a job is being edited** — the whole list (not just the Generate button) is unnecessary clutter mid-edit; both sections now disappear entirely while `JobDetailPage` is in edit mode and reappear on Save/Cancel.
+- **Show Total profit beside Estimated total when creating/editing a job** — computed client-side with the same formula as the backend's `Job.TotalJobProfit`, so operators see margin before saving, not just after.
+- **Support multiple CC recipients when emailing an invoice/quotation** — `EmailComposeModal`'s single CC field is now an add/remove list, joined into the existing comma-separated `cc` field on send.
+- **Small job-editing polish** — item-name inputs uppercase as typed (matching Title); item-card borders darkened for clearer row separation; "+ Add part" now prepends the new row to the top of the list instead of the bottom.
+
 - **Fix generated invoice/quotation PDFs dropping line breaks in Notes** — `Invoice.Notes` (copied from the job's Invoice Notes, which shows line breaks fine on the job page) was rendered as a single QuestPDF text block, which silently collapses `\n` into one run-on line. Now split per-line before rendering; same fix covers both invoices and quotations (one shared renderer). Live-verified with `pypdf` against a real generated PDF.
 - **Fix job back-link losing customer/car context** — opening a job from Customer → Car → that car's jobs list always landed back on the general Job Center instead of the car page, because `CarDetailPage`'s job links were the one place in the app not passing the `location.state` the job page's back-link reads. Now passes it, matching the pattern already used from the customer page and the invoices/quotes list.
 

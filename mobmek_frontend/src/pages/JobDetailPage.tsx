@@ -10,6 +10,7 @@ import {
   createJobServiceLine,
   deleteJobServiceLine,
   getJobServiceLines,
+  updateJobServiceLine,
 } from '@/api/jobServiceLines'
 import { getJobServices } from '@/api/jobServices'
 import { AppointmentDetailModal } from '@/components/appointments/AppointmentDetailModal'
@@ -18,8 +19,10 @@ import { InvoicesSection } from '@/components/jobs/InvoicesSection'
 import { QuotationsSection } from '@/components/jobs/QuotationsSection'
 import { PartsEditor } from '@/components/jobs/PartsEditor'
 import { LabourEditor } from '@/components/jobs/LabourEditor'
+import { ServicesEditor } from '@/components/jobs/ServicesEditor'
 import { DiscountEditor } from '@/components/jobs/DiscountEditor'
 import { JobPhotosSection } from '@/components/jobs/JobPhotos'
+import { JobFilesSection } from '@/components/jobs/JobFiles'
 import { RemindersSection } from '@/components/reminders/RemindersSection'
 import { Button } from '@/components/ui/Button'
 import { CalendarIcon } from '@/components/ui/icons'
@@ -93,7 +96,9 @@ export function JobDetailPage() {
   const [invoiceNotes, setInvoiceNotes] = useState('')
   const [mechanicIds, setMechanicIds] = useState<string[]>([])
   const [mechanicPick, setMechanicPick] = useState('')
-  const [serviceIds, setServiceIds] = useState<Set<string>>(new Set())
+  // Ticked catalog services, keyed by service id. The value is that line's additional-amount
+  // draft string ('' means ticked with no extra amount set).
+  const [selectedServices, setSelectedServices] = useState<Map<string, string>>(new Map())
   const [parts, setParts] = useState<PartDraft[]>([])
   const [removedPartIds, setRemovedPartIds] = useState<string[]>([])
   const [labour, setLabour] = useState<LabourDraft[]>([])
@@ -120,17 +125,24 @@ export function JobDetailPage() {
     return all.filter((s) => s.isActive || usedIds.has(s.id))
   }, [servicesQuery.data, linesQuery.data])
 
+  // Existing service lines, keyed by catalog service id — used both to seed the edit draft
+  // and to show the real billed price (catalog + any additional amount) in view mode.
+  const lineByServiceId = useMemo(
+    () => new Map((linesQuery.data ?? []).map((l) => [l.jobServiceId, l])),
+    [linesQuery.data],
+  )
+
   const displayedServiceIds =
-    mode === 'edit' ? serviceIds : new Set((linesQuery.data ?? []).map((l) => l.jobServiceId))
+    mode === 'edit' ? new Set(selectedServices.keys()) : new Set(lineByServiceId.keys())
 
   const subtotalBeforeDiscount = useMemo(() => {
     const partsTotal = parts.reduce((sum, p) => sum + computePart(p).itemTotal, 0)
     const labourTotal = labour.reduce((sum, l) => sum + computeLabour(l), 0)
     const servicesTotal = (servicesQuery.data ?? [])
-      .filter((s) => serviceIds.has(s.id))
-      .reduce((sum, s) => sum + s.price, 0)
+      .filter((s) => selectedServices.has(s.id))
+      .reduce((sum, s) => sum + s.price + (num(selectedServices.get(s.id) ?? '') ?? 0), 0)
     return round2(partsTotal + labourTotal + servicesTotal)
-  }, [parts, labour, serviceIds, servicesQuery.data])
+  }, [parts, labour, selectedServices, servicesQuery.data])
 
   const discountAmount = useMemo(
     () => computeDiscountAmount(discountType, discountValue, subtotalBeforeDiscount),
@@ -139,13 +151,27 @@ export function JobDetailPage() {
 
   const estimatedTotal = round2(subtotalBeforeDiscount - discountAmount)
 
+  // Mirrors the backend's Job.TotalJobProfit: item profit + labour + services (both 100%
+  // profit, since neither tracks a cost) minus the discount.
+  const estimatedProfit = useMemo(() => {
+    const partsProfit = parts.reduce((sum, p) => sum + computePart(p).rowProfit, 0)
+    const labourTotal = labour.reduce((sum, l) => sum + computeLabour(l), 0)
+    const servicesTotal = (servicesQuery.data ?? [])
+      .filter((s) => selectedServices.has(s.id))
+      .reduce((sum, s) => sum + s.price + (num(selectedServices.get(s.id) ?? '') ?? 0), 0)
+    return round2(partsProfit + labourTotal + servicesTotal - discountAmount)
+  }, [parts, labour, selectedServices, servicesQuery.data, discountAmount])
+
   const toggleService = (serviceId: string) =>
-    setServiceIds((prev) => {
-      const next = new Set(prev)
+    setSelectedServices((prev) => {
+      const next = new Map(prev)
       if (next.has(serviceId)) next.delete(serviceId)
-      else next.add(serviceId)
+      else next.set(serviceId, '')
       return next
     })
+
+  const setServiceAmount = (serviceId: string, amount: string) =>
+    setSelectedServices((prev) => new Map(prev).set(serviceId, amount))
 
   const updatePart = (key: string, patch: Partial<PartDraft>) =>
     setParts((prev) => prev.map((p) => (p.key === key ? { ...p, ...patch } : p)))
@@ -175,7 +201,9 @@ export function JobDetailPage() {
     setInvoiceNotes(job.invoiceNotes ?? '')
     setMechanicIds(job.mechanics.map((m) => m.employeeId))
     setMechanicPick('')
-    setServiceIds(new Set((linesQuery.data ?? []).map((l) => l.jobServiceId)))
+    setSelectedServices(
+      new Map((linesQuery.data ?? []).map((l) => [l.jobServiceId, String(l.additionalAmount || '')])),
+    )
     setParts(
       (itemsQuery.data ?? []).map((i) => ({
         key: newKey(),
@@ -248,11 +276,21 @@ export function JobDetailPage() {
       await attempt(`Mechanic ${nameOf(empId)}`, () => removeJobMechanic(id, empId))
 
     const originalLines = linesQuery.data ?? []
-    for (const serviceId of serviceIds)
-      if (!originalLines.some((l) => l.jobServiceId === serviceId))
-        await attempt('Service', () => createJobServiceLine(id, { jobServiceId: serviceId, quantity: 1 }))
+    for (const [serviceId, amountStr] of selectedServices) {
+      const additionalAmount = num(amountStr) ?? 0
+      const existing = originalLines.find((l) => l.jobServiceId === serviceId)
+      if (!existing) {
+        await attempt('Service', () =>
+          createJobServiceLine(id, { jobServiceId: serviceId, quantity: 1, additionalAmount }),
+        )
+      } else if (existing.additionalAmount !== additionalAmount) {
+        await attempt('Service', () =>
+          updateJobServiceLine(id, existing.id, { quantity: existing.quantity, additionalAmount }),
+        )
+      }
+    }
     for (const line of originalLines)
-      if (!serviceIds.has(line.jobServiceId))
+      if (!selectedServices.has(line.jobServiceId))
         await attempt('Service', () => deleteJobServiceLine(id, line.id))
 
     for (const p of parts.filter((x) => x.itemName.trim() !== '')) {
@@ -333,9 +371,13 @@ export function JobDetailPage() {
         <UpdatedByTag className="mt-2 block" updatedAtUtc={job.updatedAtUtc} updatedByName={job.updatedByName} />
       </div>
 
-      <InvoicesSection jobId={id} reloadKey={invoicesReloadKey} />
+      {mode === 'view' && (
+        <>
+          <InvoicesSection jobId={id} reloadKey={invoicesReloadKey} />
 
-      <QuotationsSection jobId={id} onAccepted={() => setInvoicesReloadKey((k) => k + 1)} />
+          <QuotationsSection jobId={id} onAccepted={() => setInvoicesReloadKey((k) => k + 1)} />
+        </>
+      )}
 
       <div className="rounded-xl border border-slate-200 border-l-4 border-l-amber-500 bg-amber-50/40 p-5 shadow-md">
         <RemindersSection
@@ -493,28 +535,34 @@ export function JobDetailPage() {
 
       <JobPhotosSection jobId={job.id} />
 
+      <JobFilesSection jobId={job.id} />
+
       <section className="rounded-lg border border-slate-200 bg-white p-5">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Services</h2>
-        {serviceCatalog.length === 0 ? (
+        {mode === 'edit' ? (
+          <ServicesEditor
+            catalog={serviceCatalog}
+            selected={selectedServices}
+            onToggle={toggleService}
+            onSetAmount={setServiceAmount}
+          />
+        ) : serviceCatalog.length === 0 ? (
           <p className="text-sm text-slate-500">No active catalog services. Add some under Catalog → Services.</p>
         ) : (
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {serviceCatalog.map((s) => {
               const selected = displayedServiceIds.has(s.id)
+              // Reflects the real billed price (catalog + any additional amount), not just the
+              // catalog price, so a surcharged service shows its actual price here.
+              const displayPrice = lineByServiceId.get(s.id)?.lineTotal ?? s.price
               return (
                 <label
                   key={s.id}
                   className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
-                    mode === 'edit'
-                      ? 'border-slate-200 hover:bg-slate-50'
-                      : selected
-                        ? 'border-blue-300 bg-blue-50'
-                        : 'border-slate-200'
+                    selected ? 'border-blue-300 bg-blue-50' : 'border-slate-200'
                   }`}
                 >
-                  {mode === 'edit' ? (
-                    <input type="checkbox" checked={selected} onChange={() => toggleService(s.id)} />
-                  ) : selected ? (
+                  {selected ? (
                     // Disabled checkboxes render too faint to read; use an explicit tick instead.
                     <span
                       aria-hidden
@@ -525,12 +573,10 @@ export function JobDetailPage() {
                   ) : (
                     <span aria-hidden className="h-4 w-4 shrink-0 rounded border border-slate-300" />
                   )}
-                  <span className={`flex-1 ${selected && mode !== 'edit' ? 'font-medium text-slate-900' : 'text-slate-700'}`}>
+                  <span className={`flex-1 ${selected ? 'font-medium text-slate-900' : 'text-slate-700'}`}>
                     {s.name}
                   </span>
-                  <span className={selected && mode !== 'edit' ? 'text-slate-700' : 'text-slate-500'}>
-                    {currency(s.price)}
-                  </span>
+                  <span className={selected ? 'text-slate-700' : 'text-slate-500'}>{currency(displayPrice)}</span>
                 </label>
               )
             })}
@@ -539,7 +585,7 @@ export function JobDetailPage() {
       </section>
 
       {mode === 'edit' ? (
-        <PartsEditor parts={parts} onAdd={() => setParts((p) => [...p, emptyPart()])} onUpdate={updatePart} onRemove={removePart} />
+        <PartsEditor parts={parts} onAdd={() => setParts((p) => [emptyPart(), ...p])} onUpdate={updatePart} onRemove={removePart} />
       ) : (
         <PartsSummary items={itemsQuery.data ?? []} />
       )}
@@ -594,6 +640,7 @@ export function JobDetailPage() {
                 </>
               )}
               Estimated total: <strong className="text-slate-900">{currency(estimatedTotal)}</strong>
+              {' · '}Total profit: <strong className="text-slate-900">{currency(estimatedProfit)}</strong>
             </span>
             <div className="flex gap-2">
               <Button variant="secondary" onClick={cancelEdit} disabled={busy}>

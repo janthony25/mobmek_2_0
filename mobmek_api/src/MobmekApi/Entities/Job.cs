@@ -48,4 +48,6 @@ public class Job : BaseEntity
     public ICollection<JobServiceLine> ServiceLines { get; set; } = [];
 
     public ICollection<JobPhoto> Photos { get; set; } = [];
+
+    public ICollection<JobFile> Files { get; set; } = [];
 }

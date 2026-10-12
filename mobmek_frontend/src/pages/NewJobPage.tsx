@@ -10,14 +10,17 @@ import { createJobItem } from '@/api/jobItems'
 import { createLabour } from '@/api/labour'
 import { createJobServiceLine } from '@/api/jobServiceLines'
 import { addJobPhoto } from '@/api/jobPhotos'
+import { addJobFile } from '@/api/jobFiles'
 import { getGstSetting } from '@/api/gst'
 import { Button } from '@/components/ui/Button'
 import { Field, controlClass } from '@/components/forms/controls'
 import { Combobox } from '@/components/forms/Combobox'
 import { PartsEditor } from '@/components/jobs/PartsEditor'
+import { ServicesEditor } from '@/components/jobs/ServicesEditor'
 import { LabourEditor } from '@/components/jobs/LabourEditor'
 import { DiscountEditor } from '@/components/jobs/DiscountEditor'
 import { JobPhotoDraftPicker } from '@/components/jobs/JobPhotos'
+import { JobFileDraftPicker } from '@/components/jobs/JobFiles'
 import { RemindersSection } from '@/components/reminders/RemindersSection'
 import { useToast } from '@/components/ui/toast'
 import { currency, percent } from '@/lib/format'
@@ -27,9 +30,11 @@ import {
   computePart,
   emptyLabour,
   emptyPart,
+  fileDraft,
   num,
   photoDraft,
   round2,
+  type FileDraft,
   type LabourDraft,
   type PartDraft,
   type PhotoDraft,
@@ -86,10 +91,13 @@ export function NewJobPage() {
     appointment?.mechanicId ? [appointment.mechanicId] : [],
   )
   const [mechanicPick, setMechanicPick] = useState('')
-  const [serviceIds, setServiceIds] = useState<Set<string>>(new Set())
+  // Ticked catalog services, keyed by service id. The value is that line's additional-amount
+  // draft string ('' means ticked with no extra amount set).
+  const [selectedServices, setSelectedServices] = useState<Map<string, string>>(new Map())
   const [parts, setParts] = useState<PartDraft[]>([])
   const [labour, setLabour] = useState<LabourDraft[]>([])
   const [photos, setPhotos] = useState<PhotoDraft[]>([])
+  const [files, setFiles] = useState<FileDraft[]>([])
   const [discountType, setDiscountType] = useState<DiscountType>(DiscountType.None)
   const [discountValue, setDiscountValue] = useState('0')
 
@@ -131,10 +139,10 @@ export function NewJobPage() {
     const partsTotal = parts.reduce((sum, p) => sum + computePart(p).itemTotal, 0)
     const labourTotal = labour.reduce((sum, l) => sum + computeLabour(l), 0)
     const servicesTotal = services
-      .filter((s) => serviceIds.has(s.id))
-      .reduce((sum, s) => sum + s.price, 0)
+      .filter((s) => selectedServices.has(s.id))
+      .reduce((sum, s) => sum + s.price + (num(selectedServices.get(s.id) ?? '') ?? 0), 0)
     return round2(partsTotal + labourTotal + servicesTotal)
-  }, [parts, labour, services, serviceIds])
+  }, [parts, labour, services, selectedServices])
 
   const discountAmount = useMemo(
     () => computeDiscountAmount(discountType, discountValue, subtotalBeforeDiscount),
@@ -143,13 +151,27 @@ export function NewJobPage() {
 
   const estimatedTotal = round2(subtotalBeforeDiscount - discountAmount)
 
+  // Mirrors the backend's Job.TotalJobProfit: item profit + labour + services (both 100%
+  // profit, since neither tracks a cost) minus the discount.
+  const estimatedProfit = useMemo(() => {
+    const partsProfit = parts.reduce((sum, p) => sum + computePart(p).rowProfit, 0)
+    const labourTotal = labour.reduce((sum, l) => sum + computeLabour(l), 0)
+    const servicesTotal = services
+      .filter((s) => selectedServices.has(s.id))
+      .reduce((sum, s) => sum + s.price + (num(selectedServices.get(s.id) ?? '') ?? 0), 0)
+    return round2(partsProfit + labourTotal + servicesTotal - discountAmount)
+  }, [parts, labour, services, selectedServices, discountAmount])
+
   const toggleService = (id: string) =>
-    setServiceIds((prev) => {
-      const next = new Set(prev)
+    setSelectedServices((prev) => {
+      const next = new Map(prev)
       if (next.has(id)) next.delete(id)
-      else next.add(id)
+      else next.set(id, '')
       return next
     })
+
+  const setServiceAmount = (id: string, amount: string) =>
+    setSelectedServices((prev) => new Map(prev).set(id, amount))
 
   const updatePart = (key: string, patch: Partial<PartDraft>) =>
     setParts((prev) => prev.map((p) => (p.key === key ? { ...p, ...patch } : p)))
@@ -219,8 +241,10 @@ export function NewJobPage() {
     }
 
     for (const id of mechanicIds) await attempt(`Mechanic ${nameOf(id)}`, () => addJobMechanic(jobId, id))
-    for (const id of serviceIds)
-      await attempt('Service', () => createJobServiceLine(jobId, { jobServiceId: id, quantity: 1 }))
+    for (const [id, amount] of selectedServices)
+      await attempt('Service', () =>
+        createJobServiceLine(jobId, { jobServiceId: id, quantity: 1, additionalAmount: num(amount) ?? 0 }),
+      )
     for (const p of parts.filter((x) => x.itemName.trim() !== ''))
       await attempt(`Part ${p.itemName}`, () =>
         createJobItem(jobId, {
@@ -244,10 +268,12 @@ export function NewJobPage() {
         }),
       )
 
-    // Photos can only be uploaded once the job has an id, which is why they're held as
-    // drafts above rather than posted as the user picks them.
+    // Photos/files can only be uploaded once the job has an id, which is why they're held
+    // as drafts above rather than posted as the user picks them.
     for (const p of photos)
       await attempt(`Photo ${p.file.name}`, () => addJobPhoto(jobId, p.file))
+    for (const f of files)
+      await attempt(`File ${f.file.name}`, () => addJobFile(jobId, f.file))
 
     for (const p of photos) URL.revokeObjectURL(p.previewUrl)
 
@@ -442,6 +468,16 @@ export function NewJobPage() {
               }
             />
           </div>
+
+          <div className="space-y-3 border-t border-slate-100 pt-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Files</h2>
+            <JobFileDraftPicker
+              files={files}
+              disabled={busy}
+              onAdd={(picked) => setFiles((prev) => [...prev, ...picked.map(fileDraft)])}
+              onRemove={(key) => setFiles((prev) => prev.filter((f) => f.key !== key))}
+            />
+          </div>
         </div>
       </section>
 
@@ -465,27 +501,17 @@ export function NewJobPage() {
       {/* Services */}
       <section className="rounded-lg border border-slate-200 bg-white p-5">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Services</h2>
-        {services.length === 0 ? (
-          <p className="text-sm text-slate-500">No active catalog services. Add some under Catalog → Services.</p>
-        ) : (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {services.map((s) => (
-              <label
-                key={s.id}
-                className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50"
-              >
-                <input type="checkbox" checked={serviceIds.has(s.id)} onChange={() => toggleService(s.id)} />
-                <span className="flex-1 text-slate-700">{s.name}</span>
-                <span className="text-slate-500">{currency(s.price)}</span>
-              </label>
-            ))}
-          </div>
-        )}
+        <ServicesEditor
+          catalog={services}
+          selected={selectedServices}
+          onToggle={toggleService}
+          onSetAmount={setServiceAmount}
+        />
       </section>
 
       <PartsEditor
         parts={parts}
-        onAdd={() => setParts((p) => [...p, emptyPart()])}
+        onAdd={() => setParts((p) => [emptyPart(), ...p])}
         onUpdate={updatePart}
         onRemove={(key) => setParts((prev) => prev.filter((x) => x.key !== key))}
       />
@@ -525,6 +551,7 @@ export function NewJobPage() {
               </>
             )}
             Estimated total: <strong className="text-slate-900">{currency(estimatedTotal)}</strong>
+            {' · '}Total profit: <strong className="text-slate-900">{currency(estimatedProfit)}</strong>
             {gstRate != null && (
               <>
                 {' · '}GST ({percent(gstRate)}):{' '}

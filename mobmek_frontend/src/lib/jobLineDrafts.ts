@@ -36,6 +36,12 @@ export interface PhotoDraft {
   previewUrl: string
 }
 
+/** A generic file (any type) chosen before the job exists. */
+export interface FileDraft {
+  key: string
+  file: File
+}
+
 export interface LabourDraft {
   key: string
   id: string | null
@@ -43,6 +49,8 @@ export interface LabourDraft {
   ratePerHour: string
   fixedAmount: string
 }
+
+export const fileDraft = (file: File): FileDraft => ({ key: newKey(), file })
 
 export const photoDraft = (file: File): PhotoDraft => ({
   key: newKey(),

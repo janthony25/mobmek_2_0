@@ -31,7 +31,7 @@ export function DiscountEditor({ discountType, discountValue, subtotal, onAdd, o
       {!hasDiscount ? (
         <p className="text-sm text-slate-500">No discount applied.</p>
       ) : (
-        <div className="rounded-md border border-slate-200 p-3">
+        <div className="rounded-md border border-slate-300 p-3">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Field label="Type">
               <select

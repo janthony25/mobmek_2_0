@@ -28,10 +28,14 @@ export function PartsEditor({ parts, onAdd, onUpdate, onRemove }: PartsEditorPro
           {parts.map((p) => {
             const c = computePart(p)
             return (
-              <div key={p.key} className="rounded-md border border-slate-200 p-3">
+              <div key={p.key} className="rounded-md border border-slate-300 p-3">
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <Field label="Item name" required className="col-span-2">
-                    <input value={p.itemName} onChange={(e) => onUpdate(p.key, { itemName: e.target.value })} className={controlClass} />
+                    <input
+                      value={p.itemName}
+                      onChange={(e) => onUpdate(p.key, { itemName: e.target.value.toUpperCase() })}
+                      className={controlClass}
+                    />
                   </Field>
                   <Field label="Quantity">
                     <input type="number" min={1} value={p.itemQuantity} onChange={(e) => onUpdate(p.key, { itemQuantity: e.target.value })} className={controlClass} />

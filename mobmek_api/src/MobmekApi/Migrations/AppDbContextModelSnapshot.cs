@@ -1405,6 +1405,52 @@ namespace MobmekApi.Migrations
                     b.ToTable("Jobs");
                 });
 
+            modelBuilder.Entity("MobmekApi.Entities.JobFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<Guid>("JobId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JobId");
+
+                    b.ToTable("JobFiles");
+                });
+
             modelBuilder.Entity("MobmekApi.Entities.JobItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1568,6 +1614,9 @@ namespace MobmekApi.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<decimal>("AdditionalAmount")
+                        .HasColumnType("numeric");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -2552,6 +2601,17 @@ namespace MobmekApi.Migrations
                     b.Navigation("Customer");
                 });
 
+            modelBuilder.Entity("MobmekApi.Entities.JobFile", b =>
+                {
+                    b.HasOne("MobmekApi.Entities.Job", "Job")
+                        .WithMany("Files")
+                        .HasForeignKey("JobId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Job");
+                });
+
             modelBuilder.Entity("MobmekApi.Entities.JobItem", b =>
                 {
                     b.HasOne("MobmekApi.Entities.Job", "Job")
@@ -2794,6 +2854,8 @@ namespace MobmekApi.Migrations
 
             modelBuilder.Entity("MobmekApi.Entities.Job", b =>
                 {
+                    b.Navigation("Files");
+
                     b.Navigation("Items");
 
                     b.Navigation("Labour");

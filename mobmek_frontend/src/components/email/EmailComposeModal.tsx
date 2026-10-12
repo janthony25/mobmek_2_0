@@ -22,7 +22,7 @@ export function EmailComposeModal({ jobId, invoice, onSent, onClose }: EmailComp
   const toast = useToast()
   const [to, setTo] = useState(invoice.customerEmail ?? '')
   const [toName, setToName] = useState(invoice.customerName ?? '')
-  const [cc, setCc] = useState('')
+  const [ccList, setCcList] = useState<string[]>([''])
   const [subject, setSubject] = useState(`${invoice.documentType} ${invoice.invoiceNumber}`)
   const [intro, setIntro] = useState('')
   const [busy, setBusy] = useState(false)
@@ -34,6 +34,7 @@ export function EmailComposeModal({ jobId, invoice, onSent, onClose }: EmailComp
     setBusy(true)
     setError(null)
     try {
+      const cc = ccList.map((c) => c.trim()).filter(Boolean).join(',')
       const result = await sendInvoiceEmail(jobId, invoice.id, {
         to,
         toName: toName || null,
@@ -86,7 +87,34 @@ export function EmailComposeModal({ jobId, invoice, onSent, onClose }: EmailComp
           </Field>
         </div>
         <Field label="CC">
-          <input type="email" value={cc} onChange={(e) => setCc(e.target.value)} className={controlClass} />
+          <div className="space-y-2">
+            {ccList.map((value, index) => (
+              <div key={index} className="flex gap-2">
+                <input
+                  type="email"
+                  value={value}
+                  onChange={(e) =>
+                    setCcList((prev) => prev.map((c, i) => (i === index ? e.target.value : c)))
+                  }
+                  className={controlClass}
+                />
+                {ccList.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-600"
+                    onClick={() => setCcList((prev) => prev.filter((_, i) => i !== index))}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+            ))}
+            <Button type="button" variant="secondary" size="sm" onClick={() => setCcList((prev) => [...prev, ''])}>
+              + Add CC
+            </Button>
+          </div>
         </Field>
         <Field label="Subject" required>
           <input

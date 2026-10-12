@@ -99,6 +99,40 @@ public class JobServiceLineServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_AddsAdditionalAmountOnceToLineTotal_NotMultipliedByQuantity()
+    {
+        await using var db = CreateContext();
+        var (jobs, jobId) = await SeedJobAsync(db);
+        var catalog = await new JobServiceCatalogService(db).CreateAsync(new CreateJobServiceRequest("General service", null, 200m, true));
+        var service = new JobServiceLineService(db, jobs);
+
+        var (line, error) = await service.CreateAsync(jobId, new CreateJobServiceLineRequest(catalog.Id, 1, 50m));
+
+        Assert.Equal(JobServiceLineWriteError.None, error);
+        Assert.Equal(200m, line!.UnitPrice);
+        Assert.Equal(50m, line.AdditionalAmount);
+        Assert.Equal(250m, line.LineTotal);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_RecomputesLineTotal_FromNewAdditionalAmount()
+    {
+        await using var db = CreateContext();
+        var (jobs, jobId) = await SeedJobAsync(db);
+        var catalog = await new JobServiceCatalogService(db).CreateAsync(new CreateJobServiceRequest("General service", null, 200m, true));
+        var service = new JobServiceLineService(db, jobs);
+        var (line, _) = await service.CreateAsync(jobId, new CreateJobServiceLineRequest(catalog.Id, 1));
+
+        var updated = await service.UpdateAsync(jobId, line!.Id, new UpdateJobServiceLineRequest(1, 50m));
+
+        Assert.Equal(50m, updated!.AdditionalAmount);
+        Assert.Equal(250m, updated.LineTotal);
+
+        var job = await jobs.GetByIdAsync(jobId);
+        Assert.Equal(250m, job!.TotalJobPrice);
+    }
+
+    [Fact]
     public async Task DeleteAsync_RemovesLine_AndRecalculatesTotals()
     {
         await using var db = CreateContext();

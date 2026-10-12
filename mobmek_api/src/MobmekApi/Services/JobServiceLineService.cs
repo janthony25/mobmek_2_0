@@ -11,7 +11,7 @@ public class JobServiceLineService(AppDbContext db, IJobService jobService) : IJ
     // Inline projection so EF resolves the catalog service name via a join.
     private static readonly Expression<Func<JobServiceLine, JobServiceLineDto>> ToDto =
         l => new JobServiceLineDto(
-            l.Id, l.JobId, l.JobServiceId, l.JobService!.Name, l.UnitPrice, l.Quantity, l.LineTotal,
+            l.Id, l.JobId, l.JobServiceId, l.JobService!.Name, l.UnitPrice, l.AdditionalAmount, l.Quantity, l.LineTotal,
             l.CreatedAtUtc, l.UpdatedAtUtc);
 
     public async Task<IReadOnlyList<JobServiceLineDto>> GetAllAsync(Guid jobId, CancellationToken cancellationToken = default)
@@ -55,8 +55,9 @@ public class JobServiceLineService(AppDbContext db, IJobService jobService) : IJ
             JobId = jobId,
             JobServiceId = request.JobServiceId,
             UnitPrice = catalog.Price,   // snapshot
+            AdditionalAmount = request.AdditionalAmount,
             Quantity = request.Quantity,
-            LineTotal = Round(catalog.Price * request.Quantity),
+            LineTotal = Round(catalog.Price * request.Quantity) + request.AdditionalAmount,
         };
 
         db.JobServiceLines.Add(line);
@@ -75,7 +76,8 @@ public class JobServiceLineService(AppDbContext db, IJobService jobService) : IJ
         }
 
         line.Quantity = request.Quantity;
-        line.LineTotal = Round(line.UnitPrice * request.Quantity);
+        line.AdditionalAmount = request.AdditionalAmount;
+        line.LineTotal = Round(line.UnitPrice * request.Quantity) + request.AdditionalAmount;
 
         await db.SaveChangesAsync(cancellationToken);
         await jobService.RecalculateTotalsAsync(line.JobId, cancellationToken);

@@ -237,6 +237,19 @@ export interface JobPhoto {
   createdAtUtc: string
 }
 
+/**
+ * A general-purpose file attached to a job (not restricted to images, unlike `JobPhoto`).
+ * The file bytes are fetched from `jobFileUrl(jobId, id)`.
+ */
+export interface JobFile {
+  id: string
+  jobId: string
+  fileName: string
+  contentType: string
+  sizeBytes: number
+  createdAtUtc: string
+}
+
 // --- Appointments --------------------------------------------------------------
 
 export const AppointmentStatus = {
@@ -409,6 +422,8 @@ export interface JobServiceLine {
   jobServiceId: string
   serviceName: string | null
   unitPrice: number
+  /** Optional surcharge added once on top of the catalog price (e.g. a $200 service billed at $250). */
+  additionalAmount: number
   quantity: number
   lineTotal: number
   createdAtUtc: string
@@ -418,6 +433,12 @@ export interface JobServiceLine {
 export interface CreateJobServiceLineRequest {
   jobServiceId: string
   quantity: number
+  additionalAmount?: number
+}
+
+export interface UpdateJobServiceLineRequest {
+  quantity: number
+  additionalAmount?: number
 }
 
 // --- Invoices ----------------------------------------------------------------

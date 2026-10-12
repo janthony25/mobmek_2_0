@@ -223,7 +223,10 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
             {
                 ItemName = line.JobService?.Name ?? "Service",
                 Quantity = line.Quantity,
-                ItemPrice = line.UnitPrice,
+                // Any additional amount is folded into the displayed price so the invoice shows
+                // one combined figure (e.g. a $200 catalog service with a $50 top-up reads as
+                // $250), never a separate "+ $50" breakdown.
+                ItemPrice = line.UnitPrice + line.AdditionalAmount,
                 ItemTotal = line.LineTotal,
             });
         }
