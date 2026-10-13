@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { getAppointments } from '@/api/appointments'
 import { getCars } from '@/api/cars'
 import { getEmployeeSummaries } from '@/api/employees'
 import { addJobMechanic, getJob, removeJobMechanic, updateJob } from '@/api/jobs'
+import { getInvoices } from '@/api/invoices'
 import { createJobItem, deleteJobItem, getJobItems, updateJobItem } from '@/api/jobItems'
 import { createLabour, deleteLabour, getLabour, updateLabour } from '@/api/labour'
 import {
@@ -16,6 +17,7 @@ import { getJobServices } from '@/api/jobServices'
 import { AppointmentDetailModal } from '@/components/appointments/AppointmentDetailModal'
 import { Field, controlClass } from '@/components/forms/controls'
 import { InvoicesSection } from '@/components/jobs/InvoicesSection'
+import { PartialPaymentHistoryList, type PartialPaymentHistoryEntry } from '@/components/invoices/PartialPaymentHistoryList'
 import { QuotationsSection } from '@/components/jobs/QuotationsSection'
 import { PartsEditor } from '@/components/jobs/PartsEditor'
 import { LabourEditor } from '@/components/jobs/LabourEditor'
@@ -86,6 +88,23 @@ export function JobDetailPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   // Accepting a quotation creates an invoice; bump this to refresh the invoices list.
   const [invoicesReloadKey, setInvoicesReloadKey] = useState(0)
+
+  // Partial payments recorded against any of this job's invoices — shown read-only above
+  // Invoice notes (edit/delete go through their own buttons, never by hand-editing that field).
+  const [paymentEntries, setPaymentEntries] = useState<PartialPaymentHistoryEntry[]>([])
+  const loadPaymentEntries = async () => {
+    if (!id) return
+    const invoices = await getInvoices(id)
+    setPaymentEntries(
+      invoices.flatMap((inv) =>
+        inv.partialPayments.map((payment) => ({ payment, jobId: inv.jobId, invoiceId: inv.id, invoiceLabel: inv.invoiceNumber })),
+      ),
+    )
+  }
+  useEffect(() => {
+    loadPaymentEntries()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
 
   // Draft state, seeded from the loaded job when "Edit" is pressed.
   const [carId, setCarId] = useState('')
@@ -373,7 +392,7 @@ export function JobDetailPage() {
 
       {mode === 'view' && (
         <>
-          <InvoicesSection jobId={id} reloadKey={invoicesReloadKey} />
+          <InvoicesSection jobId={id} reloadKey={invoicesReloadKey} onInvoicesChanged={loadPaymentEntries} />
 
           <QuotationsSection jobId={id} onAccepted={() => setInvoicesReloadKey((k) => k + 1)} />
         </>
@@ -519,6 +538,7 @@ export function JobDetailPage() {
 
         <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-5">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Invoice notes</h2>
+          <PartialPaymentHistoryList entries={paymentEntries} onChanged={loadPaymentEntries} />
           {mode === 'edit' ? (
             <textarea
               value={invoiceNotes}

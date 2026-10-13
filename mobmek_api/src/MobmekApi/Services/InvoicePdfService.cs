@@ -17,6 +17,7 @@ public class InvoicePdfService(AppDbContext db, IBusinessDetailsService business
         // rendering of the same data, just as a PDF instead of an HTML email body.
         var invoice = await db.Invoices.AsNoTracking()
             .Include(i => i.Items)
+            .Include(i => i.PartialPayments)
             .Include(i => i.Job).ThenInclude(j => j!.Customer)
             .Include(i => i.Job).ThenInclude(j => j!.Car).ThenInclude(c => c!.CarMake)
             .Include(i => i.Job).ThenInclude(j => j!.Car).ThenInclude(c => c!.CarModel)
@@ -209,15 +210,28 @@ public class InvoicePdfService(AppDbContext db, IBusinessDetailsService business
                 });
             });
 
-            if (invoice.IsPaid)
+            // The "Paid" banner is disabled for now (2026-10-13): some invoices were paid long
+            // ago but are still unmarked in the system, and if staff start marking those paid
+            // today the banner would show today's date rather than when the customer actually
+            // paid — misleading on a customer-facing document. Re-enable once there's a real
+            // paid-date entry story for that backlog (ShowPaidBanner below is the single toggle).
+            const bool showPaidBanner = false;
+            if (showPaidBanner && invoice.IsPaid)
             {
+                // Mark Paid always settles the full remaining balance in one action — but when
+                // partial payments were taken first, that "remaining balance at the time" (never
+                // stored, always TotalAmount minus what partial payments already covered) is what
+                // was genuinely new money then, not the invoice's lifetime AmountPaid (always the
+                // full total). Showing AmountPaid here would otherwise claim the whole total was
+                // paid via this one mode, double-counting whatever Payment History already lists.
+                var settledAtMarkPaid = invoice.TotalAmount - invoice.PartialPayments.Sum(p => p.Amount);
                 column.Item().Background(Colors.Green.Lighten5).Padding(10).Column(paid =>
                 {
                     paid.Item().Text($"Paid {invoice.DatePaid:d MMM yyyy}").Bold().FontColor(Colors.Green.Darken2);
                     var details = string.Join(" · ", new[]
                     {
                         invoice.ModeOfPayment is { } mode ? $"Mode: {mode}" : null,
-                        invoice.AmountPaid is { } paidAmt ? $"Amount: {Money(paidAmt)}" : null,
+                        $"Amount: {Money(settledAtMarkPaid)}",
                     }.Where(v => v is not null));
                     if (details.Length > 0)
                     {
@@ -226,7 +240,14 @@ public class InvoicePdfService(AppDbContext db, IBusinessDetailsService business
                 });
             }
 
-            if (!string.IsNullOrWhiteSpace(invoice.Notes))
+            // Only partial payments explicitly toggled "show on invoice" print here — recording
+            // one never changes a customer-facing document on its own (opt-in per payment).
+            var visiblePayments = invoice.PartialPayments
+                .Where(p => p.ShowOnInvoice)
+                .OrderBy(p => p.PaymentDate).ThenBy(p => p.CreatedAtUtc)
+                .ToList();
+
+            if (!string.IsNullOrWhiteSpace(invoice.Notes) || visiblePayments.Count > 0)
             {
                 column.Item().Column(notes =>
                 {
@@ -234,9 +255,21 @@ public class InvoicePdfService(AppDbContext db, IBusinessDetailsService business
                     // QuestPDF's Text() renders a single string as one wrapped paragraph and
                     // ignores embedded "\n" — without splitting, line breaks the user typed in
                     // the job's Invoice Notes (preserved on-screen there via CSS) disappear here.
-                    foreach (var line in invoice.Notes.ReplaceLineEndings("\n").Split('\n'))
+                    if (!string.IsNullOrWhiteSpace(invoice.Notes))
                     {
-                        notes.Item().Text(line);
+                        foreach (var line in invoice.Notes.ReplaceLineEndings("\n").Split('\n'))
+                        {
+                            notes.Item().Text(line);
+                        }
+                    }
+
+                    // Partial payments as plain lines after the free-text notes — no sub-heading,
+                    // just a continuation of the same Notes block.
+                    foreach (var payment in visiblePayments)
+                    {
+                        var mode = string.IsNullOrWhiteSpace(payment.ModeOfPayment) ? "payment" : payment.ModeOfPayment;
+                        var note = string.IsNullOrWhiteSpace(payment.Notes) ? string.Empty : $" — {payment.Notes}";
+                        notes.Item().Text($"{payment.PaymentDate:d MMM yyyy} — {Money(payment.Amount)} via {mode}{note}");
                     }
                 });
             }

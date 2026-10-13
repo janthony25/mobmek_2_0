@@ -80,4 +80,7 @@ public class Invoice : BaseEntity
 
     // Lines (cascade-deleted with the invoice).
     public ICollection<InvoiceItem> Items { get; set; } = [];
+
+    /// <summary>Partial payments recorded before this invoice is fully settled (cascade-deleted with it).</summary>
+    public ICollection<InvoicePartialPayment> PartialPayments { get; set; } = [];
 }

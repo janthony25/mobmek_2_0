@@ -46,6 +46,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAc
 
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
 
+    public DbSet<InvoicePartialPayment> InvoicePartialPayments => Set<InvoicePartialPayment>();
+
     public DbSet<GstSetting> GstSettings => Set<GstSetting>();
 
     public DbSet<BusinessDetails> BusinessDetails => Set<BusinessDetails>();
@@ -441,6 +443,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAc
                 .WithMany(i => i.Items)
                 .HasForeignKey(ii => ii.InvoiceId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<InvoicePartialPayment>(entity =>
+        {
+            entity.HasKey(p => p.Id);
+            entity.Property(p => p.Amount).HasColumnType("numeric(18,2)");
+            entity.Property(p => p.ModeOfPayment).HasMaxLength(100);
+            entity.Property(p => p.Notes).HasMaxLength(4000);
+
+            entity.HasOne(p => p.Invoice)
+                .WithMany(i => i.PartialPayments)
+                .HasForeignKey(p => p.InvoiceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(p => p.InvoiceId);
         });
 
         modelBuilder.Entity<GstSetting>(entity =>

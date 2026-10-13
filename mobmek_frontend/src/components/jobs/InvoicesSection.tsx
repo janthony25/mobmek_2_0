@@ -13,6 +13,7 @@ import { useAsync } from '@/hooks/useAsync'
 import { currency, date, percent } from '@/lib/format'
 import { invoiceStatusLabel, invoiceStatusTone } from '@/lib/badges'
 import { MarkPaidForm } from '@/components/invoices/MarkPaidForm'
+import { PartialPaymentForm } from '@/components/invoices/PartialPaymentForm'
 import { EmailComposeModal } from '@/components/email/EmailComposeModal'
 import { EmailStatusBadge } from '@/components/email/EmailStatusBadge'
 import { Field, controlClass } from '@/components/forms/controls'
@@ -22,9 +23,11 @@ interface InvoicesSectionProps {
   jobId: string
   /** Bump to force a reload, e.g. after accepting a quotation creates an invoice. */
   reloadKey?: number
+  /** Fires after any mutation (pay, partial payment, reject, email) so a parent tracking its own derived state (e.g. partial-payment history) can refresh too. */
+  onInvoicesChanged?: () => void
 }
 
-export function InvoicesSection({ jobId, reloadKey = 0 }: InvoicesSectionProps) {
+export function InvoicesSection({ jobId, reloadKey = 0, onInvoicesChanged }: InvoicesSectionProps) {
   const toast = useToast()
   // Quotations share the invoices endpoint but live in their own QuotationsSection.
   const { data, loading, error, reload } = useAsync(
@@ -34,6 +37,7 @@ export function InvoicesSection({ jobId, reloadKey = 0 }: InvoicesSectionProps) 
   const [generating, setGenerating] = useState(false)
   const [rejecting, setRejecting] = useState<Invoice | null>(null)
   const [paying, setPaying] = useState<Invoice | null>(null)
+  const [partiallyPaying, setPartiallyPaying] = useState<Invoice | null>(null)
   const [emailing, setEmailing] = useState<Invoice | null>(null)
   // Collapsed until data proves there's something to show, unless the user has toggled it.
   const [collapsedOverride, setCollapsedOverride] = useState<boolean | null>(null)
@@ -48,6 +52,7 @@ export function InvoicesSection({ jobId, reloadKey = 0 }: InvoicesSectionProps) 
     toast.success('Invoice rejected')
     setRejecting(null)
     reload()
+    onInvoicesChanged?.()
   }
 
   return (
@@ -123,6 +128,11 @@ export function InvoicesSection({ jobId, reloadKey = 0 }: InvoicesSectionProps) 
                             onClick: () => window.open(apiUrl(`/jobs/${jobId}/invoices/${inv.id}/pdf?download=true`), '_blank'),
                           },
                           {
+                            label: 'Partial Payment',
+                            disabled: rejected || inv.isPaid,
+                            onClick: () => setPartiallyPaying(inv),
+                          },
+                          {
                             label: 'Mark as Paid',
                             disabled: rejected || inv.isPaid,
                             onClick: () => setPaying(inv),
@@ -166,8 +176,23 @@ export function InvoicesSection({ jobId, reloadKey = 0 }: InvoicesSectionProps) 
             onDone={() => {
               setPaying(null)
               reload()
+              onInvoicesChanged?.()
             }}
             onCancel={() => setPaying(null)}
+          />
+        )}
+      </Modal>
+
+      <Modal open={partiallyPaying !== null} title="Partial Payment" onClose={() => setPartiallyPaying(null)}>
+        {partiallyPaying && (
+          <PartialPaymentForm
+            invoice={partiallyPaying}
+            onDone={() => {
+              setPartiallyPaying(null)
+              reload()
+              onInvoicesChanged?.()
+            }}
+            onCancel={() => setPartiallyPaying(null)}
           />
         )}
       </Modal>

@@ -1,6 +1,7 @@
-import { apiGet, apiPost } from './client'
+import { apiDelete, apiGet, apiPost, apiPut } from './client'
 import type {
   AcceptQuotationRequest,
+  CreateInvoicePartialPaymentRequest,
   CreateInvoiceRequest,
   Invoice,
   InvoiceListItem,
@@ -8,6 +9,8 @@ import type {
   OutboundEmail,
   PagedResult,
   SendInvoiceEmailRequest,
+  SetPartialPaymentVisibilityRequest,
+  UpdateInvoicePartialPaymentRequest,
 } from '@/types'
 
 const base = (jobId: string) => `/jobs/${encodeURIComponent(jobId)}/invoices`
@@ -52,5 +55,13 @@ export const rejectInvoice = (jobId: string, id: string) =>
   apiPost<Invoice>(`${base(jobId)}/${id}/reject`, {})
 export const markInvoicePaid = (jobId: string, id: string, body: MarkInvoicePaidRequest) =>
   apiPost<Invoice>(`${base(jobId)}/${id}/pay`, body)
+export const addPartialPayment = (jobId: string, id: string, body: CreateInvoicePartialPaymentRequest) =>
+  apiPost<Invoice>(`${base(jobId)}/${id}/partial-payments`, body)
+export const updatePartialPaymentNotes = (jobId: string, id: string, paymentId: string, body: UpdateInvoicePartialPaymentRequest) =>
+  apiPut<Invoice>(`${base(jobId)}/${id}/partial-payments/${paymentId}`, body)
+export const setPartialPaymentVisibility = (jobId: string, id: string, paymentId: string, body: SetPartialPaymentVisibilityRequest) =>
+  apiPut<Invoice>(`${base(jobId)}/${id}/partial-payments/${paymentId}/visibility`, body)
+export const deletePartialPayment = (jobId: string, id: string, paymentId: string) =>
+  apiDelete(`${base(jobId)}/${id}/partial-payments/${paymentId}`)
 export const sendInvoiceEmail = (jobId: string, id: string, body: SendInvoiceEmailRequest) =>
   apiPost<OutboundEmail>(`${base(jobId)}/${id}/email`, body)

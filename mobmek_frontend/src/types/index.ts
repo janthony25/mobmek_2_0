@@ -478,6 +478,9 @@ export interface Invoice {
   datePaid: string | null
   cashAmount: number | null
   cardAmount: number | null
+  /** totalAmount minus the sum of partialPayments' amounts; equals totalAmount when there are none. */
+  remainingBalance: number
+  partialPayments: InvoicePartialPayment[]
   items: InvoiceItem[]
   createdAtUtc: string
   updatedAtUtc: string | null
@@ -505,6 +508,36 @@ export interface MarkInvoicePaidRequest {
   datePaid: string | null
 }
 
+/** A partial payment recorded against an invoice — record-keeping only, no cash-flow ledger entry (see docs/features/feature-gaps.md). */
+export interface InvoicePartialPayment {
+  id: string
+  invoiceId: string
+  amount: number
+  modeOfPayment: string | null
+  /** Editable after creation, same as showOnInvoice — amount/date/mode are locked once recorded. */
+  notes: string | null
+  paymentDate: string
+  /** Opt-in — this payment only prints on the invoice PDF once toggled on. Defaults false. */
+  showOnInvoice: boolean
+  createdAtUtc: string
+  updatedAtUtc: string | null
+}
+
+export interface CreateInvoicePartialPaymentRequest {
+  amount: number
+  modeOfPayment: string | null
+  notes: string | null
+  paymentDate: string | null
+}
+
+export interface UpdateInvoicePartialPaymentRequest {
+  notes: string | null
+}
+
+export interface SetPartialPaymentVisibilityRequest {
+  showOnInvoice: boolean
+}
+
 /** One row of the global Invoices/Quotations list — an invoice plus its job/customer/vehicle context. */
 export interface InvoiceListItem {
   id: string
@@ -519,6 +552,8 @@ export interface InvoiceListItem {
   dueDate: string | null
   totalAmount: number
   isPaid: boolean
+  /** totalAmount minus any partial payments recorded so far; equals totalAmount when there are none. */
+  remainingBalance: number
   createdAtUtc: string
 }
 

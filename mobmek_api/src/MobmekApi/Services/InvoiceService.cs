@@ -15,6 +15,7 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
         var invoices = await db.Invoices.AsNoTracking()
             .Where(i => i.JobId == jobId)
             .Include(i => i.Items)
+            .Include(i => i.PartialPayments)
             .Include(i => i.Job).ThenInclude(j => j!.Customer)
             .Include(i => i.Job).ThenInclude(j => j!.Car).ThenInclude(c => c!.CarMake)
             .Include(i => i.Job).ThenInclude(j => j!.Car).ThenInclude(c => c!.CarModel)
@@ -69,6 +70,7 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
         };
 
         var items = await query
+            .Include(i => i.PartialPayments)
             .Include(i => i.Job).ThenInclude(j => j!.Customer)
             .Include(i => i.Job).ThenInclude(j => j!.Car).ThenInclude(c => c!.CarMake)
             .Include(i => i.Job).ThenInclude(j => j!.Car).ThenInclude(c => c!.CarModel)
@@ -103,6 +105,7 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
     {
         var invoice = await db.Invoices.AsNoTracking()
             .Include(i => i.Items)
+            .Include(i => i.PartialPayments)
             .Include(i => i.Job).ThenInclude(j => j!.Customer)
             .Include(i => i.Job).ThenInclude(j => j!.Car).ThenInclude(c => c!.CarMake)
             .Include(i => i.Job).ThenInclude(j => j!.Car).ThenInclude(c => c!.CarModel)
@@ -289,15 +292,24 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
         return ToDto(invoice, business);
     }
 
-    public async Task<InvoiceDto?> RejectAsync(Guid jobId, Guid id, CancellationToken cancellationToken = default)
+    public async Task<(InvoiceDto? Invoice, InvoiceActionError Error)> RejectAsync(Guid jobId, Guid id, CancellationToken cancellationToken = default)
     {
         var invoice = await db.Invoices
             .Include(i => i.Items)
+            .Include(i => i.PartialPayments)
             .FirstOrDefaultAsync(i => i.Id == id && i.JobId == jobId, cancellationToken);
 
         if (invoice is null)
         {
-            return null;
+            return (null, InvoiceActionError.NotFound);
+        }
+
+        // Rejecting would otherwise silently reverse ledger postings for money that was
+        // actually, physically received — the partial payments must be removed first so a
+        // human explicitly decides what happens to that money.
+        if (invoice.PartialPayments.Count > 0)
+        {
+            return (null, InvoiceActionError.HasPartialPayments);
         }
 
         invoice.Status = "Rejected";
@@ -308,7 +320,7 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
         await db.SaveChangesAsync(cancellationToken);
 
         var business = await businessDetailsService.GetCurrentAsync(cancellationToken);
-        return ToDto(invoice, business);
+        return (ToDto(invoice, business), InvoiceActionError.None);
     }
 
     public async Task<InvoiceDto?> MarkPaidAsync(Guid jobId, Guid id, MarkInvoicePaidRequest request, CancellationToken cancellationToken = default)
@@ -337,6 +349,135 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
         await db.SaveChangesAsync(cancellationToken);
 
         return ToDto(invoice, business);
+    }
+
+    public async Task<(InvoiceDto? Invoice, InvoiceActionError Error)> AddPartialPaymentAsync(
+        Guid jobId, Guid id, CreateInvoicePartialPaymentRequest request, CancellationToken cancellationToken = default)
+    {
+        var invoice = await db.Invoices
+            .Include(i => i.Items)
+            .Include(i => i.PartialPayments)
+            .FirstOrDefaultAsync(i => i.Id == id && i.JobId == jobId, cancellationToken);
+
+        if (invoice is null)
+        {
+            return (null, InvoiceActionError.NotFound);
+        }
+
+        if (invoice.Status == "Rejected" || invoice.DocumentType == "Quotation")
+        {
+            return (null, InvoiceActionError.NotPayable);
+        }
+
+        if (invoice.IsPaid)
+        {
+            return (null, InvoiceActionError.AlreadyPaid);
+        }
+
+        var remainingBalance = invoice.TotalAmount - invoice.PartialPayments.Sum(p => p.Amount);
+        if (request.Amount <= 0 || request.Amount > remainingBalance)
+        {
+            return (null, InvoiceActionError.InvalidAmount);
+        }
+
+        var payment = new InvoicePartialPayment
+        {
+            InvoiceId = invoice.Id,
+            Amount = request.Amount,
+            ModeOfPayment = string.IsNullOrWhiteSpace(request.ModeOfPayment) ? null : request.ModeOfPayment,
+            Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes,
+            PaymentDate = request.PaymentDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
+        };
+        // Added via the DbSet (not invoice.PartialPayments.Add) — adding straight to an
+        // already-loaded collection navigation on a tracked parent trips a SaveChanges bug in
+        // EF Core's in-memory test provider ("entity does not exist in the store"); the
+        // in-memory collection still gets the fixup either way.
+        db.InvoicePartialPayments.Add(payment);
+        await db.SaveChangesAsync(cancellationToken);
+
+        var business = await businessDetailsService.GetCurrentAsync(cancellationToken);
+        return (ToDto(invoice, business), InvoiceActionError.None);
+    }
+
+    public async Task<(InvoiceDto? Invoice, InvoiceActionError Error)> UpdatePartialPaymentNotesAsync(
+        Guid jobId, Guid id, Guid paymentId, UpdateInvoicePartialPaymentRequest request, CancellationToken cancellationToken = default)
+    {
+        var invoice = await db.Invoices
+            .Include(i => i.Items)
+            .Include(i => i.PartialPayments)
+            .FirstOrDefaultAsync(i => i.Id == id && i.JobId == jobId, cancellationToken);
+
+        if (invoice is null)
+        {
+            return (null, InvoiceActionError.NotFound);
+        }
+
+        var payment = invoice.PartialPayments.FirstOrDefault(p => p.Id == paymentId);
+        if (payment is null)
+        {
+            return (null, InvoiceActionError.PaymentNotFound);
+        }
+
+        payment.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes;
+        await db.SaveChangesAsync(cancellationToken);
+
+        var business = await businessDetailsService.GetCurrentAsync(cancellationToken);
+        return (ToDto(invoice, business), InvoiceActionError.None);
+    }
+
+    public async Task<(InvoiceDto? Invoice, InvoiceActionError Error)> SetPartialPaymentVisibilityAsync(
+        Guid jobId, Guid id, Guid paymentId, SetPartialPaymentVisibilityRequest request, CancellationToken cancellationToken = default)
+    {
+        var invoice = await db.Invoices
+            .Include(i => i.Items)
+            .Include(i => i.PartialPayments)
+            .FirstOrDefaultAsync(i => i.Id == id && i.JobId == jobId, cancellationToken);
+
+        if (invoice is null)
+        {
+            return (null, InvoiceActionError.NotFound);
+        }
+
+        var payment = invoice.PartialPayments.FirstOrDefault(p => p.Id == paymentId);
+        if (payment is null)
+        {
+            return (null, InvoiceActionError.PaymentNotFound);
+        }
+
+        payment.ShowOnInvoice = request.ShowOnInvoice;
+        await db.SaveChangesAsync(cancellationToken);
+
+        var business = await businessDetailsService.GetCurrentAsync(cancellationToken);
+        return (ToDto(invoice, business), InvoiceActionError.None);
+    }
+
+    public async Task<(InvoiceDto? Invoice, InvoiceActionError Error)> DeletePartialPaymentAsync(
+        Guid jobId, Guid id, Guid paymentId, CancellationToken cancellationToken = default)
+    {
+        var invoice = await db.Invoices
+            .Include(i => i.Items)
+            .Include(i => i.PartialPayments)
+            .FirstOrDefaultAsync(i => i.Id == id && i.JobId == jobId, cancellationToken);
+
+        if (invoice is null)
+        {
+            return (null, InvoiceActionError.NotFound);
+        }
+
+        var payment = invoice.PartialPayments.FirstOrDefault(p => p.Id == paymentId);
+        if (payment is null)
+        {
+            return (null, InvoiceActionError.PaymentNotFound);
+        }
+
+        // Removed via the DbSet (not invoice.PartialPayments.Remove) — see AddPartialPaymentAsync's
+        // comment on the matching .Add() call for why that's needed for SaveChanges to work.
+        db.InvoicePartialPayments.Remove(payment);
+        invoice.PartialPayments.Remove(payment);
+        await db.SaveChangesAsync(cancellationToken);
+
+        var business = await businessDetailsService.GetCurrentAsync(cancellationToken);
+        return (ToDto(invoice, business), InvoiceActionError.None);
     }
 
     /// <summary>
@@ -474,16 +615,22 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
     private static string FormatDocumentNumber(Invoice i, DTOs.BusinessDetailsDto business) =>
         $"{(i.DocumentType == "Quotation" ? business.QuotePrefix : business.InvoicePrefix)}-{i.SequenceNumber:D4}";
 
+    private static decimal RemainingBalanceOf(Invoice i) => i.TotalAmount - i.PartialPayments.Sum(p => p.Amount);
+
     private static InvoiceListItemDto ToListItemDto(Invoice i, DTOs.BusinessDetailsDto business) =>
         new(i.Id, i.JobId, FormatDocumentNumber(i, business), i.IssueName, i.DocumentType, i.Status,
             i.Job?.Customer is { } customer ? $"{customer.FirstName} {customer.LastName}" : null,
             i.Job?.Car is { } car ? $"{car.CarMake?.Name} {car.CarModel?.Name} ({car.Rego})" : null,
-            i.DueDate, i.TotalAmount, i.IsPaid, i.CreatedAtUtc);
+            i.DueDate, i.TotalAmount, i.IsPaid, RemainingBalanceOf(i), i.CreatedAtUtc);
 
     private static InvoiceDto ToDto(Invoice i, DTOs.BusinessDetailsDto business, OutboundEmail? latestEmail = null) =>
         new(i.Id, i.JobId, FormatDocumentNumber(i, business), i.IssueName, i.Notes, i.DocumentType, i.Status, i.DueDate, i.PaymentTerm, i.ModeOfPayment,
             i.LabourPrice, i.SubTotal, i.GstRate, i.TaxAmount, i.Discount, i.ShippingFee, i.TotalAmount,
             i.IsPaid, i.AmountPaid, i.DatePaid, i.CashAmount, i.CardAmount,
+            RemainingBalanceOf(i),
+            i.PartialPayments.OrderBy(p => p.PaymentDate).ThenBy(p => p.CreatedAtUtc)
+                .Select(p => new InvoicePartialPaymentDto(p.Id, p.InvoiceId, p.Amount, p.ModeOfPayment, p.Notes, p.PaymentDate, p.ShowOnInvoice, p.CreatedAtUtc, p.UpdatedAtUtc))
+                .ToList(),
             i.Items.OrderBy(x => x.CreatedAtUtc)
                 .Select(x => new InvoiceItemDto(x.Id, x.InvoiceId, x.ItemName, x.Quantity, x.ItemPrice, x.ItemTotal))
                 .ToList(),

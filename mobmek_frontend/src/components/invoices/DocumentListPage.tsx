@@ -12,6 +12,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Spinner } from '@/components/ui/Spinner'
 import { useToast } from '@/components/ui/toast'
 import { MarkPaidForm } from './MarkPaidForm'
+import { PartialPaymentForm } from './PartialPaymentForm'
 import { AcceptQuotationForm } from './AcceptQuotationForm'
 import { EmailComposeModal } from '@/components/email/EmailComposeModal'
 import { currency, date, orDash } from '@/lib/format'
@@ -39,6 +40,7 @@ export function DocumentListPage({ documentType }: DocumentListPageProps) {
   const [reloadKey, setReloadKey] = useState(0)
   const [rejecting, setRejecting] = useState<InvoiceListItem | null>(null)
   const [paying, setPaying] = useState<InvoiceListItem | null>(null)
+  const [partiallyPaying, setPartiallyPaying] = useState<InvoiceListItem | null>(null)
   const [accepting, setAccepting] = useState<InvoiceListItem | null>(null)
   const [emailingItem, setEmailingItem] = useState<InvoiceListItem | null>(null)
   const [emailingInvoice, setEmailingInvoice] = useState<Invoice | null>(null)
@@ -199,7 +201,10 @@ export function DocumentListPage({ documentType }: DocumentListPageProps) {
                     },
                     ...(isQuotation
                       ? [{ label: 'Accept', disabled: !active, onClick: () => setAccepting(i) }]
-                      : [{ label: 'Mark as Paid', disabled: !active || i.isPaid, onClick: () => setPaying(i) }]),
+                      : [
+                          { label: 'Partial Payment', disabled: !active || i.isPaid, onClick: () => setPartiallyPaying(i) },
+                          { label: 'Mark as Paid', disabled: !active || i.isPaid, onClick: () => setPaying(i) },
+                        ]),
                     { label: 'Send Email', onClick: () => openEmail(i) },
                     { label: 'Reject', disabled: !active, tone: 'danger' as const, onClick: () => setRejecting(i) },
                   ]}
@@ -219,6 +224,19 @@ export function DocumentListPage({ documentType }: DocumentListPageProps) {
               setReloadKey((k) => k + 1)
             }}
             onCancel={() => setPaying(null)}
+          />
+        )}
+      </Modal>
+
+      <Modal open={partiallyPaying !== null} title="Partial Payment" onClose={() => setPartiallyPaying(null)}>
+        {partiallyPaying && (
+          <PartialPaymentForm
+            invoice={partiallyPaying}
+            onDone={() => {
+              setPartiallyPaying(null)
+              setReloadKey((k) => k + 1)
+            }}
+            onCancel={() => setPartiallyPaying(null)}
           />
         )}
       </Modal>

@@ -101,17 +101,25 @@ public class InvoicesController(
         return CreatedAtAction(nameof(GetById), new { jobId, id = created.Id }, created);
     }
 
-    /// <summary>Marks an invoice as rejected. The invoice is kept for the record, never deleted.</summary>
+    /// <summary>Marks an invoice as rejected. The invoice is kept for the record, never deleted. Blocked (400) while the invoice still has partial payments recorded.</summary>
     [HttpPost("{id:guid}/reject")]
     [ProducesResponseType(typeof(InvoiceDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<InvoiceDto>> Reject(Guid jobId, Guid id, CancellationToken cancellationToken)
     {
-        var rejected = await invoiceService.RejectAsync(jobId, id, cancellationToken);
-        return rejected is null ? NotFound() : Ok(rejected);
+        var (rejected, error) = await invoiceService.RejectAsync(jobId, id, cancellationToken);
+        return error switch
+        {
+            InvoiceActionError.None => Ok(rejected),
+            InvoiceActionError.HasPartialPayments => Problem(
+                detail: "This invoice still has partial payments recorded — delete them first, then reject.",
+                statusCode: StatusCodes.Status400BadRequest),
+            _ => NotFound(),
+        };
     }
 
-    /// <summary>Marks an invoice as paid, recording the payment date, mode of payment, payment term, and the cash/card split.</summary>
+    /// <summary>Marks an invoice as paid, recording the payment date, mode of payment, payment term, and the cash/card split. Settles only the remaining balance if partial payments were already recorded.</summary>
     [HttpPost("{id:guid}/pay")]
     [ProducesResponseType(typeof(InvoiceDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -119,6 +127,65 @@ public class InvoicesController(
     {
         var paid = await invoiceService.MarkPaidAsync(jobId, id, request, cancellationToken);
         return paid is null ? NotFound() : Ok(paid);
+    }
+
+    /// <summary>Records a partial payment against an invoice (record-keeping only — no cash-flow ledger posting yet). Never touches Invoice.Notes or the job's notes.</summary>
+    [HttpPost("{id:guid}/partial-payments")]
+    [ProducesResponseType(typeof(InvoiceDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<InvoiceDto>> AddPartialPayment(
+        Guid jobId, Guid id, CreateInvoicePartialPaymentRequest request, CancellationToken cancellationToken)
+    {
+        var (invoice, error) = await invoiceService.AddPartialPaymentAsync(jobId, id, request, cancellationToken);
+        return error switch
+        {
+            InvoiceActionError.None => Ok(invoice),
+            InvoiceActionError.NotFound => NotFound(),
+            InvoiceActionError.NotPayable => Problem(
+                detail: "This invoice can't be paid — it's rejected, or a quotation.",
+                statusCode: StatusCodes.Status400BadRequest),
+            InvoiceActionError.AlreadyPaid => Problem(
+                detail: "This invoice is already fully paid.",
+                statusCode: StatusCodes.Status400BadRequest),
+            InvoiceActionError.InvalidAmount => Problem(
+                detail: "Amount must be greater than zero and not more than the invoice's remaining balance.",
+                statusCode: StatusCodes.Status400BadRequest),
+            _ => Problem(statusCode: StatusCodes.Status500InternalServerError),
+        };
+    }
+
+    /// <summary>Edits a recorded partial payment's note text — amount, date, and mode of payment are locked once recorded.</summary>
+    [HttpPut("{id:guid}/partial-payments/{paymentId:guid}")]
+    [ProducesResponseType(typeof(InvoiceDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<InvoiceDto>> UpdatePartialPayment(
+        Guid jobId, Guid id, Guid paymentId, UpdateInvoicePartialPaymentRequest request, CancellationToken cancellationToken)
+    {
+        var (invoice, error) = await invoiceService.UpdatePartialPaymentNotesAsync(jobId, id, paymentId, request, cancellationToken);
+        return error == InvoiceActionError.None ? Ok(invoice) : NotFound();
+    }
+
+    /// <summary>Toggles whether a recorded partial payment prints on the invoice PDF — opt-in, defaults off.</summary>
+    [HttpPut("{id:guid}/partial-payments/{paymentId:guid}/visibility")]
+    [ProducesResponseType(typeof(InvoiceDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<InvoiceDto>> SetPartialPaymentVisibility(
+        Guid jobId, Guid id, Guid paymentId, SetPartialPaymentVisibilityRequest request, CancellationToken cancellationToken)
+    {
+        var (invoice, error) = await invoiceService.SetPartialPaymentVisibilityAsync(jobId, id, paymentId, request, cancellationToken);
+        return error == InvoiceActionError.None ? Ok(invoice) : NotFound();
+    }
+
+    /// <summary>Deletes a recorded partial payment.</summary>
+    [HttpDelete("{id:guid}/partial-payments/{paymentId:guid}")]
+    [ProducesResponseType(typeof(InvoiceDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<InvoiceDto>> DeletePartialPayment(
+        Guid jobId, Guid id, Guid paymentId, CancellationToken cancellationToken)
+    {
+        var (invoice, error) = await invoiceService.DeletePartialPaymentAsync(jobId, id, paymentId, cancellationToken);
+        return error == InvoiceActionError.None ? Ok(invoice) : NotFound();
     }
 
     /// <summary>Returns the invoice/quotation as a PDF — the same QuestPDF document attached to

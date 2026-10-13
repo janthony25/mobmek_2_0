@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { getCustomers } from '@/api/customers'
 import { getCars } from '@/api/cars'
+import { getInvoices } from '@/api/invoices'
 import { Button } from '@/components/ui/Button'
+import { PartialPaymentHistoryList, type PartialPaymentHistoryEntry } from '@/components/invoices/PartialPaymentHistoryList'
 import { Field, controlClass } from './controls'
 import { DiscountType, JOB_STATUS_LABELS, JobStatus } from '@/types'
 import type { Car, Customer, Job } from '@/types'
@@ -34,9 +36,28 @@ export function JobForm({ initial, onSubmit, onCancel }: JobFormProps) {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  // Partial payments recorded against any of this job's invoices — shown read-only above
+  // Invoice notes (edit/delete go through their own buttons, never by hand-editing this field).
+  const [paymentEntries, setPaymentEntries] = useState<PartialPaymentHistoryEntry[]>([])
+
+  const loadPaymentEntries = async () => {
+    if (!initial) return
+    const invoices = await getInvoices(initial.id)
+    setPaymentEntries(
+      invoices.flatMap((inv) =>
+        inv.partialPayments.map((payment) => ({ payment, jobId: inv.jobId, invoiceId: inv.id, invoiceLabel: inv.invoiceNumber })),
+      ),
+    )
+  }
+
   useEffect(() => {
     if (!isEdit) getCustomers().then(setCustomers).catch(() => setCustomers([]))
   }, [isEdit])
+
+  useEffect(() => {
+    loadPaymentEntries()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial?.id])
 
   // Load the selected customer's cars (cascade).
   useEffect(() => {
@@ -140,6 +161,9 @@ export function JobForm({ initial, onSubmit, onCancel }: JobFormProps) {
         <Field label="Job notes" className="sm:col-span-2">
           <textarea value={jobNotes ?? ''} rows={2} onChange={(e) => setJobNotes(e.target.value)} className={controlClass} />
         </Field>
+        <div className="sm:col-span-2">
+          <PartialPaymentHistoryList entries={paymentEntries} onChanged={loadPaymentEntries} />
+        </div>
         <Field label="Invoice notes" className="sm:col-span-2">
           <textarea value={invoiceNotes ?? ''} rows={2} onChange={(e) => setInvoiceNotes(e.target.value)} className={controlClass} />
         </Field>

@@ -350,8 +350,9 @@ public class InvoiceServiceTests
         var (invoices, _, jobId) = await SeedFullJobAsync(db);
         var quotation = await invoices.GenerateQuotationAsync(jobId, new CreateInvoiceRequest(null));
 
-        var rejected = await invoices.RejectAsync(jobId, quotation!.Id);
+        var (rejected, error) = await invoices.RejectAsync(jobId, quotation!.Id);
 
+        Assert.Equal(InvoiceActionError.None, error);
         Assert.Equal("Rejected", rejected!.Status);
         Assert.NotNull(await invoices.GetByIdAsync(jobId, quotation.Id)); // kept for the record
     }
@@ -424,8 +425,9 @@ public class InvoiceServiceTests
         var (invoices, _, jobId) = await SeedFullJobAsync(db);
         var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
 
-        var rejected = await invoices.RejectAsync(jobId, invoice!.Id);
+        var (rejected, error) = await invoices.RejectAsync(jobId, invoice!.Id);
 
+        Assert.Equal(InvoiceActionError.None, error);
         Assert.Equal("Rejected", rejected!.Status);
         Assert.NotNull(await invoices.GetByIdAsync(jobId, invoice.Id)); // still retrievable
     }
@@ -553,7 +555,7 @@ public class InvoiceServiceTests
         var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
 
         Assert.Null(await invoices.GetByIdAsync(otherJob!.Id, invoice!.Id));
-        Assert.Null(await invoices.RejectAsync(otherJob.Id, invoice.Id));
+        Assert.Null((await invoices.RejectAsync(otherJob.Id, invoice.Id)).Invoice);
     }
 
     // --- Cash-flow ledger posting on payment ---
@@ -666,6 +668,227 @@ public class InvoiceServiceTests
         await invoices.RejectAsync(jobId, invoice.Id);
 
         Assert.Empty(await db.CashTransactions.Where(t => t.InvoiceId == invoice.Id).ToListAsync());
+    }
+
+    // --- Partial payments ---
+
+    [Fact]
+    public async Task AddPartialPaymentAsync_ReducesRemainingBalance()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+
+        var paymentDate = new DateOnly(2026, 7, 1);
+        var (result, error) = await invoices.AddPartialPaymentAsync(
+            jobId, invoice!.Id, new CreateInvoicePartialPaymentRequest(200m, "Cash", "Deposit", paymentDate));
+
+        Assert.Equal(InvoiceActionError.None, error);
+        Assert.False(result!.IsPaid);
+        Assert.Equal(329m, result.RemainingBalance); // 529 total - 200
+        var payment = Assert.Single(result.PartialPayments);
+        Assert.Equal(200m, payment.Amount);
+        Assert.Equal("Cash", payment.ModeOfPayment);
+        Assert.Equal("Deposit", payment.Notes);
+        Assert.Equal(paymentDate, payment.PaymentDate);
+        Assert.False(payment.ShowOnInvoice); // opt-in, off by default
+    }
+
+    [Fact]
+    public async Task SetPartialPaymentVisibilityAsync_TogglesShowOnInvoice()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+        var (added, _) = await invoices.AddPartialPaymentAsync(
+            jobId, invoice!.Id, new CreateInvoicePartialPaymentRequest(100m, "Cash", null, null));
+        var paymentId = added!.PartialPayments[0].Id;
+
+        var (shown, error) = await invoices.SetPartialPaymentVisibilityAsync(
+            jobId, invoice.Id, paymentId, new SetPartialPaymentVisibilityRequest(true));
+        Assert.Equal(InvoiceActionError.None, error);
+        Assert.True(Assert.Single(shown!.PartialPayments).ShowOnInvoice);
+
+        var (hidden, _) = await invoices.SetPartialPaymentVisibilityAsync(
+            jobId, invoice.Id, paymentId, new SetPartialPaymentVisibilityRequest(false));
+        Assert.False(Assert.Single(hidden!.PartialPayments).ShowOnInvoice);
+    }
+
+    [Fact]
+    public async Task SetPartialPaymentVisibilityAsync_ReturnsPaymentNotFound_ForUnknownId()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+
+        var (result, error) = await invoices.SetPartialPaymentVisibilityAsync(
+            jobId, invoice!.Id, Guid.NewGuid(), new SetPartialPaymentVisibilityRequest(true));
+
+        Assert.Null(result);
+        Assert.Equal(InvoiceActionError.PaymentNotFound, error);
+    }
+
+    [Fact]
+    public async Task AddPartialPaymentAsync_DoesNotTouchInvoiceOrJobNotes()
+    {
+        // Partial payments are record-keeping only — the invoice's own Notes (which prints on
+        // the customer-facing PDF) and the job's JobNotes/InvoiceNotes must never be rewritten
+        // by this feature; history is surfaced purely via the PartialPayments list/API.
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db); // job created with JobNotes "Thanks!" (InvoiceNotes)
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+
+        var (result, _) = await invoices.AddPartialPaymentAsync(
+            jobId, invoice!.Id, new CreateInvoicePartialPaymentRequest(100m, "Cash", "First instalment", new DateOnly(2026, 7, 1)));
+
+        Assert.Equal("Thanks!", result!.Notes);
+        var job = await db.Jobs.AsNoTracking().FirstAsync(j => j.Id == jobId);
+        Assert.Equal("Thanks!", job.InvoiceNotes);
+        Assert.Null(job.JobNotes);
+    }
+
+    [Fact]
+    public async Task AddPartialPaymentAsync_RejectsAmount_ExceedingRemainingBalance()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+
+        var (result, error) = await invoices.AddPartialPaymentAsync(
+            jobId, invoice!.Id, new CreateInvoicePartialPaymentRequest(1000m, "Cash", null, null));
+
+        Assert.Null(result);
+        Assert.Equal(InvoiceActionError.InvalidAmount, error);
+    }
+
+    [Fact]
+    public async Task AddPartialPaymentAsync_RejectsZeroOrNegativeAmount()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+
+        Assert.Equal(InvoiceActionError.InvalidAmount,
+            (await invoices.AddPartialPaymentAsync(jobId, invoice!.Id, new CreateInvoicePartialPaymentRequest(0m, "Cash", null, null))).Error);
+        Assert.Equal(InvoiceActionError.InvalidAmount,
+            (await invoices.AddPartialPaymentAsync(jobId, invoice.Id, new CreateInvoicePartialPaymentRequest(-50m, "Cash", null, null))).Error);
+    }
+
+    [Fact]
+    public async Task AddPartialPaymentAsync_Blocked_WhenInvoiceAlreadyFullyPaid()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+        await invoices.MarkPaidAsync(jobId, invoice!.Id, new MarkInvoicePaidRequest("Cash", null, null, null, null));
+
+        var (result, error) = await invoices.AddPartialPaymentAsync(
+            jobId, invoice.Id, new CreateInvoicePartialPaymentRequest(10m, "Cash", null, null));
+
+        Assert.Null(result);
+        Assert.Equal(InvoiceActionError.AlreadyPaid, error);
+    }
+
+    [Fact]
+    public async Task AddPartialPaymentAsync_Blocked_WhenRejectedOrQuotation()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+        await invoices.RejectAsync(jobId, invoice!.Id);
+        var quotation = await invoices.GenerateQuotationAsync(jobId, new CreateInvoiceRequest(null));
+
+        Assert.Equal(InvoiceActionError.NotPayable,
+            (await invoices.AddPartialPaymentAsync(jobId, invoice.Id, new CreateInvoicePartialPaymentRequest(10m, "Cash", null, null))).Error);
+        Assert.Equal(InvoiceActionError.NotPayable,
+            (await invoices.AddPartialPaymentAsync(jobId, quotation!.Id, new CreateInvoicePartialPaymentRequest(10m, "Cash", null, null))).Error);
+    }
+
+    [Fact]
+    public async Task UpdatePartialPaymentNotesAsync_ChangesOnlyNotes()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+        var (added, _) = await invoices.AddPartialPaymentAsync(
+            jobId, invoice!.Id, new CreateInvoicePartialPaymentRequest(100m, "Cash", "Original note", new DateOnly(2026, 7, 1)));
+        var paymentId = added!.PartialPayments[0].Id;
+
+        var (result, error) = await invoices.UpdatePartialPaymentNotesAsync(
+            jobId, invoice.Id, paymentId, new UpdateInvoicePartialPaymentRequest("Updated note"));
+
+        Assert.Equal(InvoiceActionError.None, error);
+        var payment = Assert.Single(result!.PartialPayments);
+        Assert.Equal("Updated note", payment.Notes);
+        Assert.Equal(100m, payment.Amount);                       // amount unchanged
+        Assert.Equal(new DateOnly(2026, 7, 1), payment.PaymentDate); // date unchanged
+        Assert.Equal("Thanks!", result.Notes);                    // invoice's own Notes untouched
+    }
+
+    [Fact]
+    public async Task UpdatePartialPaymentNotesAsync_ReturnsPaymentNotFound_ForUnknownId()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+
+        var (result, error) = await invoices.UpdatePartialPaymentNotesAsync(
+            jobId, invoice!.Id, Guid.NewGuid(), new UpdateInvoicePartialPaymentRequest("x"));
+
+        Assert.Null(result);
+        Assert.Equal(InvoiceActionError.PaymentNotFound, error);
+    }
+
+    [Fact]
+    public async Task DeletePartialPaymentAsync_RestoresRemainingBalance()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+        var (added, _) = await invoices.AddPartialPaymentAsync(
+            jobId, invoice!.Id, new CreateInvoicePartialPaymentRequest(200m, "Cash", null, new DateOnly(2026, 7, 1)));
+        var paymentId = added!.PartialPayments[0].Id;
+
+        var (result, error) = await invoices.DeletePartialPaymentAsync(jobId, invoice.Id, paymentId);
+
+        Assert.Equal(InvoiceActionError.None, error);
+        Assert.Empty(result!.PartialPayments);
+        Assert.Equal(529m, result.RemainingBalance);
+    }
+
+    [Fact]
+    public async Task DeletePartialPaymentAsync_LeavesSiblingPaymentsUntouched()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+        var (first, _) = await invoices.AddPartialPaymentAsync(
+            jobId, invoice!.Id, new CreateInvoicePartialPaymentRequest(100m, "Cash", null, new DateOnly(2026, 7, 1)));
+        var (second, _) = await invoices.AddPartialPaymentAsync(
+            jobId, invoice.Id, new CreateInvoicePartialPaymentRequest(50m, "Card", null, new DateOnly(2026, 7, 2)));
+        var firstPaymentId = first!.PartialPayments[0].Id;
+
+        var (result, _) = await invoices.DeletePartialPaymentAsync(jobId, invoice.Id, firstPaymentId);
+
+        var remaining = Assert.Single(result!.PartialPayments);
+        Assert.Equal(50m, remaining.Amount);
+    }
+
+    [Fact]
+    public async Task RejectAsync_Blocked_WhenInvoiceHasPartialPayments()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+        await invoices.AddPartialPaymentAsync(
+            jobId, invoice!.Id, new CreateInvoicePartialPaymentRequest(50m, "Cash", null, null));
+
+        var (result, error) = await invoices.RejectAsync(jobId, invoice.Id);
+
+        Assert.Null(result);
+        Assert.Equal(InvoiceActionError.HasPartialPayments, error);
+        var refetched = await invoices.GetByIdAsync(jobId, invoice.Id);
+        Assert.Equal("Active", refetched!.Status); // unchanged
     }
 
     [Fact]

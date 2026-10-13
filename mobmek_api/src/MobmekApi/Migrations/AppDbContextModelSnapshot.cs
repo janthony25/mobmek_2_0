@@ -1337,6 +1337,51 @@ namespace MobmekApi.Migrations
                     b.ToTable("InvoiceItems");
                 });
 
+            modelBuilder.Entity("MobmekApi.Entities.InvoicePartialPayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("InvoiceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ModeOfPayment")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<DateOnly>("PaymentDate")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("ShowOnInvoice")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedByName")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.ToTable("InvoicePartialPayments");
+                });
+
             modelBuilder.Entity("MobmekApi.Entities.Job", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2582,6 +2627,17 @@ namespace MobmekApi.Migrations
                     b.Navigation("Invoice");
                 });
 
+            modelBuilder.Entity("MobmekApi.Entities.InvoicePartialPayment", b =>
+                {
+                    b.HasOne("MobmekApi.Entities.Invoice", "Invoice")
+                        .WithMany("PartialPayments")
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Invoice");
+                });
+
             modelBuilder.Entity("MobmekApi.Entities.Job", b =>
                 {
                     b.HasOne("MobmekApi.Entities.Car", "Car")
@@ -2850,6 +2906,8 @@ namespace MobmekApi.Migrations
             modelBuilder.Entity("MobmekApi.Entities.Invoice", b =>
                 {
                     b.Navigation("Items");
+
+                    b.Navigation("PartialPayments");
                 });
 
             modelBuilder.Entity("MobmekApi.Entities.Job", b =>

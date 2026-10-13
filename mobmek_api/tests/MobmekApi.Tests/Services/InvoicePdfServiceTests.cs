@@ -92,6 +92,59 @@ public class InvoicePdfServiceTests
     }
 
     [Fact]
+    public async Task GenerateAsync_DoesNotThrow_WhenInvoiceHasPartialPayments()
+    {
+        // Default ShowOnInvoice=false — this payment is recorded but not toggled visible.
+        await using var db = CreateContext();
+        var (pdf, invoices, jobId) = await SeedJobAsync(db);
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+        await invoices.AddPartialPaymentAsync(
+            jobId, invoice!.Id, new CreateInvoicePartialPaymentRequest(5m, "Card", "paid 5 dollars today", new DateOnly(2026, 10, 13)));
+
+        var result = await pdf.GenerateAsync(jobId, invoice.Id);
+
+        Assert.NotNull(result);
+        Assert.True(result!.Bytes.Length > 0);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_DoesNotThrow_WhenPartialPaymentIsToggledVisible()
+    {
+        await using var db = CreateContext();
+        var (pdf, invoices, jobId) = await SeedJobAsync(db);
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+        var (added, _) = await invoices.AddPartialPaymentAsync(
+            jobId, invoice!.Id, new CreateInvoicePartialPaymentRequest(5m, "Card", "paid 5 dollars today", new DateOnly(2026, 10, 13)));
+        await invoices.SetPartialPaymentVisibilityAsync(
+            jobId, invoice.Id, added!.PartialPayments[0].Id, new SetPartialPaymentVisibilityRequest(true));
+
+        var result = await pdf.GenerateAsync(jobId, invoice.Id);
+
+        Assert.NotNull(result);
+        Assert.True(result!.Bytes.Length > 0);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_DoesNotThrow_WhenPartiallyPaidInvoiceIsThenMarkedPaid()
+    {
+        // Regression: the "Paid" banner used to show the invoice's full lifetime AmountPaid
+        // (always TotalAmount) even when some of it was already collected earlier via a partial
+        // payment — implying the whole total was paid just now via whatever mode was chosen at
+        // Mark Paid, double-counting what Payment History already lists for the same money.
+        await using var db = CreateContext();
+        var (pdf, invoices, jobId) = await SeedJobAsync(db);
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null)); // 121 total (110 + 10% GST)
+        await invoices.AddPartialPaymentAsync(
+            jobId, invoice!.Id, new CreateInvoicePartialPaymentRequest(50m, "Cash", null, new DateOnly(2026, 10, 13)));
+        await invoices.MarkPaidAsync(jobId, invoice.Id, new MarkInvoicePaidRequest("Card", null, null, invoice.TotalAmount, null));
+
+        var result = await pdf.GenerateAsync(jobId, invoice.Id);
+
+        Assert.NotNull(result);
+        Assert.True(result!.Bytes.Length > 0);
+    }
+
+    [Fact]
     public async Task GenerateAsync_DoesNotThrow_WhenBusinessHasNoLogo()
     {
         await using var db = CreateContext();

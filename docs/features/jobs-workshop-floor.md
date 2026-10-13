@@ -52,6 +52,8 @@ Simple CRUD presets feeding the reminder form, write-gated by `ManageReminderTem
 ### Notes — Working
 Freeform sticky-note board (optional due date, color, pinned, done), optionally scoped to a customer. Deliberately not job-scoped — dated items are Reminders.
 
+**`Job.JobNotes`/`Job.InvoiceNotes` (2026-10-13):** these two plain-text fields stay purely free-editable via the job form — the invoice partial-payments feature (`invoices-quotes-public-booking.md`) does **not** write into them (an early version did, briefly, then was reverted the same day because it cluttered these fields and leaked onto the customer-facing invoice PDF via `Invoice.Notes`). `JobForm.tsx` instead renders a separate read-only `PartialPaymentHistoryList` directly above the Invoice Notes field, aggregated from the job's invoices' `partialPayments`, with its own per-row edit/delete controls.
+
 ### Job → Invoice — Working, but decoupled from status
 `InvoiceService` snapshots `job.Items`/`job.Labour`/`job.ServiceLines` into a new Invoice/Quotation at creation time. **No gate on `Job.Status`** — an invoice can be generated regardless of whether the job is Open, InProgress, or Completed, and `JobStatus.Invoiced` is never auto-set by invoice creation; it's purely an operator-chosen, unenforced value. Quotation acceptance correctly re-snapshots from the quotation (not the live job) and only accepts `Status == "Active"` quotations.
 

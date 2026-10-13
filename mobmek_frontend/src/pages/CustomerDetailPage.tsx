@@ -34,6 +34,7 @@ import { controlClass } from '@/components/forms/controls'
 import { NotesSection } from '@/components/notes/NotesSection'
 import { AcceptQuotationForm } from '@/components/invoices/AcceptQuotationForm'
 import { MarkPaidForm } from '@/components/invoices/MarkPaidForm'
+import { PartialPaymentForm } from '@/components/invoices/PartialPaymentForm'
 import { EmailComposeModal } from '@/components/email/EmailComposeModal'
 import { useAsync } from '@/hooks/useAsync'
 import {
@@ -150,6 +151,7 @@ export function CustomerDetailPage() {
   const [quotationDateMode, setQuotationDateMode] = useState<InvoiceDateMode>('day')
   const [quotationDateValue, setQuotationDateValue] = useState('')
   const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null)
+  const [partiallyPayingInvoice, setPartiallyPayingInvoice] = useState<Invoice | null>(null)
   const [rejectingInvoice, setRejectingInvoice] = useState<Invoice | null>(null)
   const [acceptingQuotation, setAcceptingQuotation] = useState<Invoice | null>(null)
   const [rejectingQuotation, setRejectingQuotation] = useState<Invoice | null>(null)
@@ -397,6 +399,7 @@ export function CustomerDetailPage() {
                     invoice={invoice}
                     onViewJob={() => navigate(`/jobs/${invoice.jobId}`, { state: backState })}
                     onPay={() => setPayingInvoice(invoice)}
+                    onPartialPay={() => setPartiallyPayingInvoice(invoice)}
                     onReject={() => setRejectingInvoice(invoice)}
                     onEmail={() => setEmailingInvoice(invoice)}
                   />
@@ -513,6 +516,19 @@ export function CustomerDetailPage() {
               invoicesState.reload()
             }}
             onCancel={() => setPayingInvoice(null)}
+          />
+        )}
+      </Modal>
+
+      <Modal open={partiallyPayingInvoice !== null} title="Partial Payment" onClose={() => setPartiallyPayingInvoice(null)}>
+        {partiallyPayingInvoice && (
+          <PartialPaymentForm
+            invoice={partiallyPayingInvoice}
+            onDone={() => {
+              setPartiallyPayingInvoice(null)
+              invoicesState.reload()
+            }}
+            onCancel={() => setPartiallyPayingInvoice(null)}
           />
         )}
       </Modal>
@@ -749,11 +765,12 @@ interface InvoiceRowProps {
   invoice: Invoice
   onViewJob: () => void
   onPay: () => void
+  onPartialPay: () => void
   onReject: () => void
   onEmail: () => void
 }
 
-function InvoiceRow({ invoice, onViewJob, onPay, onReject, onEmail }: InvoiceRowProps) {
+function InvoiceRow({ invoice, onViewJob, onPay, onPartialPay, onReject, onEmail }: InvoiceRowProps) {
   const active = invoice.status === 'Active'
   const pdfUrl = apiUrl(`/jobs/${invoice.jobId}/invoices/${invoice.id}/pdf`)
 
@@ -774,6 +791,7 @@ function InvoiceRow({ invoice, onViewJob, onPay, onReject, onEmail }: InvoiceRow
             { label: 'View Job', onClick: onViewJob },
             { label: 'View Invoice (PDF)', onClick: () => window.open(pdfUrl, '_blank') },
             { label: 'Download Invoice (PDF)', onClick: () => window.open(`${pdfUrl}?download=true`, '_blank') },
+            { label: 'Partial Payment', disabled: !active || invoice.isPaid, onClick: onPartialPay },
             { label: 'Mark as Paid', disabled: !active || invoice.isPaid, onClick: onPay },
             { label: 'Send Email', onClick: onEmail },
             { label: 'Reject', disabled: !active, tone: 'danger', onClick: onReject },

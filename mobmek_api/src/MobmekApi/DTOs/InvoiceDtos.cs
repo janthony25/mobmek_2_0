@@ -39,6 +39,10 @@ public record InvoiceDto(
     DateOnly? DatePaid,
     decimal? CashAmount,
     decimal? CardAmount,
+    /// <summary>TotalAmount minus the sum of <see cref="PartialPayments"/>' amounts — never stored,
+    /// always computed fresh. Equals TotalAmount when there are no partial payments.</summary>
+    decimal RemainingBalance,
+    IReadOnlyList<InvoicePartialPaymentDto> PartialPayments,
     IReadOnlyList<InvoiceItemDto> Items,
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc,
@@ -51,6 +55,40 @@ public record InvoiceDto(
     /// history, since the next list reload picks it up.</summary>
     OutboundEmailStatus? LatestEmailStatus,
     DateTime? LatestEmailedAtUtc);
+
+/// <summary>One partial payment recorded against an invoice. See <see cref="Entities.InvoicePartialPayment"/>.</summary>
+public record InvoicePartialPaymentDto(
+    Guid Id,
+    Guid InvoiceId,
+    decimal Amount,
+    string? ModeOfPayment,
+    string? Notes,
+    DateOnly PaymentDate,
+    /// <summary>Opt-in — this payment only prints on the invoice PDF once toggled on. Defaults false.</summary>
+    bool ShowOnInvoice,
+    DateTime CreatedAtUtc,
+    DateTime? UpdatedAtUtc);
+
+/// <summary>
+/// Payload for recording a partial payment. <see cref="Amount"/> must be greater than zero and
+/// no more than the invoice's current remaining balance. <see cref="PaymentDate"/> defaults to
+/// today when omitted, but can be backdated to log a payment taken earlier. Always starts with
+/// <see cref="Entities.InvoicePartialPayment.ShowOnInvoice"/> false — toggled separately.
+/// </summary>
+public record CreateInvoicePartialPaymentRequest(
+    decimal Amount,
+    [MaxLength(100)] string? ModeOfPayment,
+    [MaxLength(4000)] string? Notes,
+    DateOnly? PaymentDate);
+
+/// <summary>
+/// Payload for editing a recorded partial payment's note text. Only <see cref="Notes"/> can be
+/// changed here — amount, date, and mode of payment are locked once the payment is recorded.
+/// </summary>
+public record UpdateInvoicePartialPaymentRequest([MaxLength(4000)] string? Notes);
+
+/// <summary>Payload for toggling whether a recorded partial payment prints on the invoice PDF.</summary>
+public record SetPartialPaymentVisibilityRequest(bool ShowOnInvoice);
 
 /// <summary>
 /// One row of the global Invoices/Quotations list — an invoice plus the job/customer/vehicle
@@ -68,6 +106,8 @@ public record InvoiceListItemDto(
     DateOnly? DueDate,
     decimal TotalAmount,
     bool IsPaid,
+    /// <summary>TotalAmount minus any partial payments recorded so far; equals TotalAmount when there are none.</summary>
+    decimal RemainingBalance,
     DateTime CreatedAtUtc);
 
 /// <summary>
@@ -94,3 +134,24 @@ public record MarkInvoicePaidRequest(
     decimal? CashAmount,
     decimal? CardAmount,
     DateOnly? DatePaid);
+
+/// <summary>
+/// Failure reasons for invoice actions that have more than one way to fail — partial payment
+/// create/edit/delete and reject — so the controller can return a specific status/message
+/// instead of a generic 404. Same shape as <see cref="EmailWriteError"/>.
+/// </summary>
+public enum InvoiceActionError
+{
+    None,
+    NotFound,
+    /// <summary>The invoice is rejected or a quotation — never payable.</summary>
+    NotPayable,
+    /// <summary>The invoice is already fully paid — nothing left to partially pay.</summary>
+    AlreadyPaid,
+    /// <summary>Amount is not greater than zero, or exceeds the invoice's remaining balance.</summary>
+    InvalidAmount,
+    /// <summary>The partial payment id does not exist on this invoice.</summary>
+    PaymentNotFound,
+    /// <summary>Reject is blocked while the invoice still has partial payments recorded against it.</summary>
+    HasPartialPayments,
+}
