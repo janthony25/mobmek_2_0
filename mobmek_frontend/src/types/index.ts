@@ -1287,6 +1287,7 @@ export const PERMISSIONS = {
   ManageReminderTemplates: 'ManageReminderTemplates',
   AccessCashFlow: 'AccessCashFlow',
   ViewJobMargins: 'ViewJobMargins',
+  AddCustomerAndCar: 'AddCustomerAndCar',
 } as const
 
 // --- Account / role management (Admin only) -------------------------------------
@@ -1363,6 +1364,11 @@ export const PERMISSION_INFO: Record<string, { label: string; description: strin
   ManageReminderTemplates: { label: 'Manage reminder templates', description: 'Create and edit recurring reminder templates (e.g. WOF, service).' },
   AccessCashFlow: { label: 'Access cash flow & finance', description: 'Cash accounts, transactions, forecasting, GST, and related settings.' },
   ViewJobMargins: { label: 'View job cost & margins', description: 'See trade price, markup, and profit on jobs and job items — hidden otherwise.' },
+  AddCustomerAndCar: {
+    label: 'Add Customer + Car (kiosk)',
+    description:
+      'Standalone self-service page for entering a new customer and their first vehicle, with no other access. Intended for a dedicated account logged in on a tablet — give a role ONLY this permission to have it take over the whole screen with no sidebar/navigation.',
+  },
 }
 
 export interface LoginRequest {

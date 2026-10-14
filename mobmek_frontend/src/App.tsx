@@ -3,8 +3,10 @@ import { useNumberInputWheelGuard } from '@/hooks/useNumberInputWheelGuard'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { RequireAuth } from '@/components/auth/RequireAuth'
 import { RequirePermission } from '@/components/auth/RequirePermission'
+import { KioskRedirect } from '@/components/auth/KioskRedirect'
 import { PERMISSIONS } from '@/types'
 import { LoginPage } from '@/pages/LoginPage'
+import { AddCustomerCarPage } from '@/pages/AddCustomerCarPage'
 import { ConfirmAccountPage } from '@/pages/ConfirmAccountPage'
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
 import { AccountsPage } from '@/pages/AccountsPage'
@@ -49,59 +51,67 @@ function App() {
       <Route path="confirm-account" element={<ConfirmAccountPage />} />
 
       <Route element={<RequireAuth />}>
-        <Route element={<AppLayout />}>
-          <Route index element={<Navigate to="/customers" replace />} />
-          <Route path="customers" element={<CustomersPage />} />
-          <Route path="customers/:id" element={<CustomerDetailPage />} />
-          <Route path="customers/:customerId/cars/:carId" element={<CarDetailPage />} />
-          <Route path="appointments" element={<AppointmentsPage />} />
-          <Route path="notes-reminders" element={<NotesRemindersPage />} />
-          <Route path="jobs" element={<JobCenterPage />} />
-          <Route path="jobs/new" element={<NewJobPage />} />
-          <Route path="jobs/:id" element={<JobDetailPage />} />
-          <Route path="invoices" element={<InvoicesPage />} />
-          <Route path="quotations" element={<QuotationsPage />} />
-          <Route path="car-makes" element={<CarMakesPage />} />
-          <Route path="products" element={<ProductsPage />} />
-          <Route path="services" element={<JobServicesPage />} />
-          <Route path="reminder-templates" element={<ReminderTemplatesPage />} />
-          <Route path="profile" element={<ProfileSettingsPage />} />
+        {/* Standalone, nav-free page for a dedicated kiosk/tablet account — see KioskRedirect
+            below, which sends such an account here from every other path. */}
+        <Route element={<RequirePermission permission={PERMISSIONS.AddCustomerAndCar} />}>
+          <Route path="add-customer-car" element={<AddCustomerCarPage />} />
+        </Route>
 
-          {/* Each group mirrors the matching [Authorize(Policy = Permissions.X)] on the API —
-              keep them in sync; see Services/Permissions.cs for the fixed catalog. */}
-          <Route element={<RequirePermission permission={PERMISSIONS.ManageAccounts} />}>
-            <Route path="accounts" element={<AccountsPage />} />
-            <Route path="roles" element={<RolesPage />} />
+        <Route element={<KioskRedirect />}>
+          <Route element={<AppLayout />}>
+            <Route index element={<Navigate to="/customers" replace />} />
+            <Route path="customers" element={<CustomersPage />} />
+            <Route path="customers/:id" element={<CustomerDetailPage />} />
+            <Route path="customers/:customerId/cars/:carId" element={<CarDetailPage />} />
+            <Route path="appointments" element={<AppointmentsPage />} />
+            <Route path="notes-reminders" element={<NotesRemindersPage />} />
+            <Route path="jobs" element={<JobCenterPage />} />
+            <Route path="jobs/new" element={<NewJobPage />} />
+            <Route path="jobs/:id" element={<JobDetailPage />} />
+            <Route path="invoices" element={<InvoicesPage />} />
+            <Route path="quotations" element={<QuotationsPage />} />
+            <Route path="car-makes" element={<CarMakesPage />} />
+            <Route path="products" element={<ProductsPage />} />
+            <Route path="services" element={<JobServicesPage />} />
+            <Route path="reminder-templates" element={<ReminderTemplatesPage />} />
+            <Route path="profile" element={<ProfileSettingsPage />} />
+
+            {/* Each group mirrors the matching [Authorize(Policy = Permissions.X)] on the API —
+                keep them in sync; see Services/Permissions.cs for the fixed catalog. */}
+            <Route element={<RequirePermission permission={PERMISSIONS.ManageAccounts} />}>
+              <Route path="accounts" element={<AccountsPage />} />
+              <Route path="roles" element={<RolesPage />} />
+            </Route>
+
+            <Route element={<RequirePermission permission={PERMISSIONS.ManageEmployees} />}>
+              <Route path="employees" element={<EmployeesPage />} />
+              <Route path="employee-titles" element={<EmployeeTitlesPage />} />
+              <Route path="employment-types" element={<EmploymentTypesPage />} />
+            </Route>
+
+            <Route element={<RequirePermission permission={PERMISSIONS.AccessCashFlow} />}>
+              <Route path="cash-flow" element={<CashFlowPage />} />
+              <Route path="cash-accounts" element={<CashAccountsPage />} />
+              <Route path="transaction-categories" element={<TransactionCategoriesPage />} />
+              <Route path="payees" element={<PayeesPage />} />
+              <Route path="categorization-rules" element={<CategorizationRulesPage />} />
+              <Route path="recurring-planned" element={<RecurringPlannedPage />} />
+              <Route path="forecast" element={<ForecastPage />} />
+              <Route path="gst-report" element={<GstReportPage />} />
+              <Route path="tax" element={<TaxSettingsPage />} />
+            </Route>
+
+            <Route element={<RequirePermission permission={PERMISSIONS.ManageBusinessSettings} />}>
+              <Route path="business-details" element={<BusinessDetailsSettingsPage />} />
+              <Route path="email-settings" element={<EmailSettingsPage />} />
+            </Route>
+
+            <Route element={<RequirePermission permission={PERMISSIONS.ManageCalendarSync} />}>
+              <Route path="calendar-sync" element={<CalendarSyncSettingsPage />} />
+            </Route>
+
+            <Route path="*" element={<Navigate to="/customers" replace />} />
           </Route>
-
-          <Route element={<RequirePermission permission={PERMISSIONS.ManageEmployees} />}>
-            <Route path="employees" element={<EmployeesPage />} />
-            <Route path="employee-titles" element={<EmployeeTitlesPage />} />
-            <Route path="employment-types" element={<EmploymentTypesPage />} />
-          </Route>
-
-          <Route element={<RequirePermission permission={PERMISSIONS.AccessCashFlow} />}>
-            <Route path="cash-flow" element={<CashFlowPage />} />
-            <Route path="cash-accounts" element={<CashAccountsPage />} />
-            <Route path="transaction-categories" element={<TransactionCategoriesPage />} />
-            <Route path="payees" element={<PayeesPage />} />
-            <Route path="categorization-rules" element={<CategorizationRulesPage />} />
-            <Route path="recurring-planned" element={<RecurringPlannedPage />} />
-            <Route path="forecast" element={<ForecastPage />} />
-            <Route path="gst-report" element={<GstReportPage />} />
-            <Route path="tax" element={<TaxSettingsPage />} />
-          </Route>
-
-          <Route element={<RequirePermission permission={PERMISSIONS.ManageBusinessSettings} />}>
-            <Route path="business-details" element={<BusinessDetailsSettingsPage />} />
-            <Route path="email-settings" element={<EmailSettingsPage />} />
-          </Route>
-
-          <Route element={<RequirePermission permission={PERMISSIONS.ManageCalendarSync} />}>
-            <Route path="calendar-sync" element={<CalendarSyncSettingsPage />} />
-          </Route>
-
-          <Route path="*" element={<Navigate to="/customers" replace />} />
         </Route>
       </Route>
     </Routes>

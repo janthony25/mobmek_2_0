@@ -20,6 +20,14 @@ public static class Permissions
     /// to decide whether cost/margin fields are included in the response.</summary>
     public const string ViewJobMargins = "ViewJobMargins";
 
+    /// <summary>Not an [Authorize] policy — <c>POST /api/customers/with-car</c> stays open to any
+    /// authenticated user so staff's existing "+Add Customer" flow is unaffected. This entry is
+    /// enforced client-side only: the frontend sends an account whose entire permission set is
+    /// exactly this one permission to a standalone, nav-free "add customer + car" page instead of
+    /// the normal app shell — see <c>KioskRedirect.tsx</c> in the frontend. Meant for a dedicated
+    /// tablet/kiosk account so a customer can fill in their own details.</summary>
+    public const string AddCustomerAndCar = "AddCustomerAndCar";
+
     public static readonly IReadOnlyList<string> All =
     [
         ManageEmployees,
@@ -29,5 +37,6 @@ public static class Permissions
         ManageReminderTemplates,
         AccessCashFlow,
         ViewJobMargins,
+        AddCustomerAndCar,
     ];
 }
