@@ -4,6 +4,10 @@ A running, human-readable log of what shipped and why — reverse-chronological,
 date. One entry per commit, added in the same commit that makes the change. See the rule in
 the root `CLAUDE.md` ("Rule: log every commit in `CHANGELOG.md`") for how this is kept current.
 
+## 2026-10-17
+
+- **Add a Xero integration design doc and todo checklist** — `docs/xero-integration-design.md`/`-todo.md` plan a Mobmek-stays-job-centric, Xero-becomes-the-business-overview integration: Phase 1 is a one-way push of generated invoices (+ auto-matched/created Xero Contacts) into Xero; Phase 2 is two-way payment/paid-status sync (push Mobmek-recorded payments to Xero, pull Xero bank-reconciled payments back via webhook + a Journals-API reconcile fallback), flagging a real data-model change (deriving `Invoice.IsPaid` from a tagged payment list instead of a boolean) as a decision checkpoint before it's built. Also documents the broader "what else Xero needs for full visibility" backlog (expenses/bills, GST filing, credit notes, etc.) as explicitly out of scope for now, and flags the in-house Cash Flow v2 bank-import/reconciliation phase as likely redundant once Xero reconciliation is live. No code yet — design only, on a dedicated `xero-integration-design` branch so it doesn't block other work.
+
 ## 2026-10-14
 
 - **Add a standalone "Add Customer + Car" kiosk page, gated by a new `AddCustomerAndCar` permission** — a dedicated tablet account can now be handed to a customer to fill in their own details, with no sidebar/navigation and no other page reachable. Reuses the existing `CustomerForm`/`POST /customers/with-car` flow, just hosted bare (`pages/AddCustomerCarPage.tsx`) with a success screen + "Add another" reset. The permission is a frontend-only routing concern — `components/auth/KioskRedirect.tsx` sends any signed-in account whose *entire* permission set is exactly this one permission to `/add-customer-car` from every other path; the `with-car` endpoint itself stays open to any authenticated user (unchanged) so staff's existing "+Add Customer" wizard isn't affected.
