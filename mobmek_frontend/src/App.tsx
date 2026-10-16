@@ -40,6 +40,8 @@ import { PayeesPage } from '@/pages/PayeesPage'
 import { CategorizationRulesPage } from '@/pages/CategorizationRulesPage'
 import { EmailSettingsPage } from '@/pages/EmailSettingsPage'
 import { CalendarSyncSettingsPage } from '@/pages/CalendarSyncSettingsPage'
+import { XeroSettingsPage } from '@/pages/XeroSettingsPage'
+import { XeroCallbackPage } from '@/pages/XeroCallbackPage'
 import { ProfileSettingsPage } from '@/pages/ProfileSettingsPage'
 
 function App() {
@@ -56,6 +58,11 @@ function App() {
         <Route element={<RequirePermission permission={PERMISSIONS.AddCustomerAndCar} />}>
           <Route path="add-customer-car" element={<AddCustomerCarPage />} />
         </Route>
+
+        {/* Standalone, nav-free landing page for Xero's OAuth redirect — not permission-gated
+            here (the backend's /complete endpoint already enforces ManageIntegrations; an
+            invalid/stale code+state just surfaces as an error on this page either way). */}
+        <Route path="xero/callback" element={<XeroCallbackPage />} />
 
         <Route element={<KioskRedirect />}>
           <Route element={<AppLayout />}>
@@ -108,6 +115,10 @@ function App() {
 
             <Route element={<RequirePermission permission={PERMISSIONS.ManageCalendarSync} />}>
               <Route path="calendar-sync" element={<CalendarSyncSettingsPage />} />
+            </Route>
+
+            <Route element={<RequirePermission permission={PERMISSIONS.ManageIntegrations} />}>
+              <Route path="xero" element={<XeroSettingsPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/customers" replace />} />

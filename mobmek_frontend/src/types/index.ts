@@ -336,6 +336,20 @@ export interface CalendarSyncStatus {
   lastReconcileError: string | null
 }
 
+/** Connection health for the Xero integration (docs/xero-integration-design.md §6). */
+export interface XeroStatus {
+  configured: boolean
+  connected: boolean
+  status: 'Disconnected' | 'Connected' | 'Error'
+  tenantName: string | null
+  connectedAtUtc: string | null
+  lastError: string | null
+}
+
+export interface XeroConnectResponse {
+  authorizationUrl: string
+}
+
 // --- Job items ---------------------------------------------------------------
 
 export const MarkupSolution = {
@@ -1288,6 +1302,7 @@ export const PERMISSIONS = {
   AccessCashFlow: 'AccessCashFlow',
   ViewJobMargins: 'ViewJobMargins',
   AddCustomerAndCar: 'AddCustomerAndCar',
+  ManageIntegrations: 'ManageIntegrations',
 } as const
 
 // --- Account / role management (Admin only) -------------------------------------
@@ -1369,6 +1384,7 @@ export const PERMISSION_INFO: Record<string, { label: string; description: strin
     description:
       'Standalone self-service page for entering a new customer and their first vehicle, with no other access. Intended for a dedicated account logged in on a tablet — give a role ONLY this permission to have it take over the whole screen with no sidebar/navigation.',
   },
+  ManageIntegrations: { label: 'Manage integrations', description: 'Connect/disconnect Xero and view its sync status.' },
 }
 
 export interface LoginRequest {

@@ -96,6 +96,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAc
 
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
+    public DbSet<XeroConnection> XeroConnections => Set<XeroConnection>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -803,6 +805,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAc
                 .HasFilter("\"Action\" = 'Upsert'");
 
             entity.HasIndex(c => c.NextAttemptUtc);
+        });
+
+        modelBuilder.Entity<XeroConnection>(entity =>
+        {
+            entity.Property(c => c.Status).HasConversion<string>().HasMaxLength(20);
+            entity.Property(c => c.TenantId).HasMaxLength(100);
+            entity.Property(c => c.TenantName).HasMaxLength(200);
+            // Encrypted payloads — generous but bounded, not unbounded text.
+            entity.Property(c => c.AccessToken).HasMaxLength(4000);
+            entity.Property(c => c.RefreshToken).HasMaxLength(4000);
+            entity.Property(c => c.Scopes).HasMaxLength(1000);
+            entity.Property(c => c.LastError).HasMaxLength(2000);
+            entity.Property(c => c.PendingOAuthState).HasMaxLength(200);
         });
 
         modelBuilder.Entity<RolePermission>(entity =>

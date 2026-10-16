@@ -173,10 +173,16 @@ builder.Services.AddSingleton<CalendarSyncStatus>();
 // Registered as its own singleton (not just via AddHostedService<T>) so CalendarSyncController
 // can resolve the same running instance to trigger an on-demand reconcile.
 builder.Services.AddSingleton<CalendarSyncJob>();
+// Typed HttpClient against two different Xero hosts (identity.xero.com for tokens,
+// api.xero.com for the Accounting API), so no fixed BaseAddress — XeroAuthService builds
+// absolute URIs per call. Depends on the scoped AppDbContext, so the typed client itself
+// resolves per-scope (the default for AddHttpClient<TClient,TImplementation>).
+builder.Services.AddHttpClient<IXeroAuthService, XeroAuthService>();
 builder.Services.AddHostedService<RecurringTransactionPostingJob>();
 builder.Services.AddHostedService<OutboundStatusPollJob>();
 builder.Services.AddHostedService<AccountPurgeJob>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<CalendarSyncJob>());
+builder.Services.AddHostedService<XeroTokenRefreshJob>();
 
 // Uploaded files — job photos, transaction receipts, the business logo — all live behind
 // IFileStorage. Local disk is the development default so nothing here needs AWS credentials;
