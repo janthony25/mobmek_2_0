@@ -45,7 +45,12 @@ public class XeroAccountingClient(HttpClient httpClient) : IXeroAccountingClient
             InvoiceNumber: request.InvoiceNumber,
             Reference: request.Reference,
             Status: "AUTHORISED",
-            LineAmountTypes: "Inclusive");
+            // Mobmek's own invoice math adds GST on top of the subtotal (InvoiceService.cs:
+            // "GST is added on top of the discounted subtotal") -- item/line prices are
+            // GST-exclusive, not inclusive. "Inclusive" here was wrong (confirmed live,
+            // 2026-10-17: Xero showed Total = Subtotal with no GST added, a real $45-on-$345
+            // understatement) and understated every invoice pushed so far by its GST amount.
+            LineAmountTypes: "Exclusive");
 
         var payload = new XeroInvoicesEnvelope([invoice]);
         var response = await SendAsync(HttpMethod.Post, "Invoices", accessToken, tenantId, payload, cancellationToken);

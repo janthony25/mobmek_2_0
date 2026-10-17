@@ -131,7 +131,7 @@ Xero's webhook payload is an **"intent to notify"** — just `{eventCategory, ev
 
 ### 4.1 GST/tax mapping
 
-`Invoice.GstRate`/`TaxAmount` are a flat, already-snapshotted NZ GST figure (currently always 15%, tax-inclusive). Xero needs a `TaxType` code per line, not a rate — map our single GST rate to Xero's standard NZ `OUTPUT2` (15% GST on income) tax type for every line; this is a fixed lookup, not per-invoice logic, unless/until the business ever has zero-rated or exempt lines (not modeled today).
+`Invoice.GstRate`/`TaxAmount` are a flat, already-snapshotted NZ GST figure (currently always 15%). **Corrected 2026-10-17, live-discovered**: GST is added on top of the subtotal (`InvoiceService.cs`: "GST is added on top of the discounted subtotal") — line prices are GST-*exclusive*, not inclusive as originally assumed here. Pushing with `LineAmountTypes: "Inclusive"` silently understated every invoice's Xero total by its GST amount (Xero showed Total = Subtotal with nothing added) until fixed to `"Exclusive"`. Xero needs a `TaxType` code per line, not a rate — map our single GST rate to Xero's standard NZ `OUTPUT2` (15% GST on income) tax type for every line; this is a fixed lookup, not per-invoice logic, unless/until the business ever has zero-rated or exempt lines (not modeled today).
 
 ### 4.2 Quotations
 

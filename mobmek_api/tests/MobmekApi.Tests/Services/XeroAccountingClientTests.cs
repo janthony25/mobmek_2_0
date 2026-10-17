@@ -61,7 +61,7 @@ public class XeroAccountingClientTests
     }
 
     [Fact]
-    public async Task PushInvoiceAsync_NoExistingId_CreatesAuthorisedInvoice_InclusiveLineAmounts()
+    public async Task PushInvoiceAsync_NoExistingId_CreatesAuthorisedInvoice_ExclusiveLineAmounts()
     {
         var (client, handler) = Build();
         handler.Enqueue(new HttpResponseMessage(HttpStatusCode.OK)
@@ -79,7 +79,7 @@ public class XeroAccountingClientTests
         Assert.Equal("invoice-new", result.XeroInvoiceId);
         var body = handler.RequestBodies.Single();
         Assert.Contains("\"Status\":\"AUTHORISED\"", body);
-        Assert.Contains("\"LineAmountTypes\":\"Inclusive\"", body);
+        Assert.Contains("\"LineAmountTypes\":\"Exclusive\"", body);
         Assert.Contains("\"Type\":\"ACCREC\"", body);
         Assert.DoesNotContain("\"InvoiceID\"", body); // omitted entirely when creating
     }

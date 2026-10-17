@@ -93,6 +93,17 @@ what's sent to Xero. New regression test (`XeroSyncJobTests.PushInvoice_NoDueDat
 DefaultsToIssueDate_NotLeftNull`). Rebuilt, forced the pending outbox row to retry immediately
 (bypassing the backoff wait), confirmed it synced successfully.
 
+### GST understated every pushed invoice's Xero total — fixed (2026-10-17)
+The push code set `LineAmountTypes: "Inclusive"`, telling Xero the line prices already included
+GST — but `InvoiceService.GenerateDocumentAsync` actually adds GST *on top* of the subtotal
+(`"GST is added on top of the discounted subtotal"`, confirmed in-code). Result: for INV-0672
+($300 subtotal + $45 GST = $345 in Mobmek), Xero showed Total = $300.00 — GST computed as an
+internal breakdown of that figure rather than added on top, silently understating revenue in
+Xero by the GST amount on every invoice pushed so far. Caught by comparing the Mobmek-generated
+PDF against the pushed Xero invoice side by side. Fixed: `LineAmountTypes: "Exclusive"`.
+**INV-0672 in Xero still reflects the wrong $300.00 total** — not yet re-pushed with the fix (see
+open tasks).
+
 ### Singleton connection row — fixed a real race condition (2026-10-17)
 `XeroAuthService.GetOrCreateConnectionAsync` used to be a plain "select the first row, insert one
 if none exists" — fine under a single caller, but `XeroTokenRefreshJob` ticks immediately on
@@ -111,6 +122,7 @@ default sales account `200`, single clean connection row. Every real invoice gen
 on pushes to the live Xero org; rejecting one voids it there too.
 
 ## Open tasks
+- [ ] **Re-push INV-0672 in Xero with the corrected `Exclusive` line amounts** — it currently shows the wrong $300.00 total (should be $345.00) from before the GST fix. Needs a fresh `XeroSyncItem(PushInvoice)` row enqueued manually (reusing its existing `XeroInvoiceId`) since it's already `Synced` and won't re-enqueue on its own.
 - [ ] Decide when to test a real (non-test) invoice push/reject on production, if not already implicitly covered by normal day-to-day use from here.
 - [ ] Add the production redirect URI (`https://workshop.mobmekauto.co.nz/xero/callback`) to the Xero app and set `XERO_REDIRECT_URI` in the production `.env` before deploying this — currently only `localhost:3000` is registered.
 - [x] ~~Delete/void the real "INV-0671" test invoice~~ (done 2026-10-17, as a side effect of live-testing the void path) — rejecting it in Mobmek voided it in Xero for real. Cleanly `VOIDED`, safe to leave permanently.

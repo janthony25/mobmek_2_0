@@ -33,8 +33,10 @@ public interface IXeroAccountingClient
 
     Task<string> CreateContactAsync(string accessToken, string tenantId, string name, string? email, CancellationToken cancellationToken = default);
 
-    /// <summary>Tax-inclusive, <c>LineAmountTypes = "Inclusive"</c> — matches how this app's own
-    /// invoice money fields are snapshotted (see <see cref="Entities.Invoice"/>'s own doc comment).</summary>
+    /// <summary>Tax-exclusive, <c>LineAmountTypes = "Exclusive"</c> — matches how this app's own
+    /// invoice math works (GST added on top of the subtotal, see <c>InvoiceService.GenerateDocumentAsync</c>).
+    /// Was wrongly "Inclusive" originally, silently understating every pushed invoice's Xero
+    /// total by its GST amount — fixed 2026-10-17, confirmed live.</summary>
     Task<XeroPushInvoiceResult> PushInvoiceAsync(string accessToken, string tenantId, XeroPushInvoiceRequest request, CancellationToken cancellationToken = default);
 
     Task VoidInvoiceAsync(string accessToken, string tenantId, string xeroInvoiceId, CancellationToken cancellationToken = default);
