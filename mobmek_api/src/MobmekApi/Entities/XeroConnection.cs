@@ -50,4 +50,10 @@ public class XeroConnection : BaseEntity
     /// <summary>Short TTL (10 minutes) on <see cref="PendingOAuthState"/> — an abandoned "Connect"
     /// click must not leave a state value that's valid forever.</summary>
     public DateTime? PendingOAuthStateExpiresUtc { get; set; }
+
+    /// <summary>Xero account code (e.g. "200") invoice lines post against — the one piece of
+    /// Chart-of-Accounts mapping Phase 1 needs (docs/xero-integration-design.md §4). Null blocks
+    /// the push job from running (nothing to map lines to yet), same "unconfigured = disabled"
+    /// shape as the rest of the connection.</summary>
+    public string? DefaultSalesAccountCode { get; set; }
 }

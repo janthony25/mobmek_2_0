@@ -21,14 +21,17 @@ Tracks delivery of [`xero-integration-design.md`](./xero-integration-design.md).
 
 ## Phase 1 — One-way invoice push (§4)
 
-- [ ] `XeroSyncOutbox` entity + `XeroSyncAction` enum + `AppDbContext` config (unique partial index on `InvoiceId` where `Action = 'PushInvoice'`) — migration
-- [ ] `Invoice.XeroInvoiceId`/`XeroSyncStatus`/`XeroLastSyncedUtc`/`XeroLastError` + `Customer.XeroContactId` — migration
-- [ ] `IXeroClient` / real client: Contacts search/create, Invoices create/update/void, Accounts list (for the settings dropdown)
-- [ ] Enqueue hooks: `InvoiceService.GenerateDocumentAsync` (Invoice only) → `PushInvoice`; `RejectAsync` → `VoidInvoice`; no-op when disconnected
-- [ ] Contact resolution: match-by-email else create, store `XeroContactId`, reuse on subsequent invoices
-- [ ] `XeroSyncJob` (hosted, pattern: `CalendarSyncJob`): invoice/line/GST/account-code mapping per §4 table, idempotent push-or-update, void-blocked-by-payment handling, backoff ladder
-- [ ] Service tests with a `FakeXeroClient`: enqueue atomicity, contact match/create/reuse, line/tax mapping, idempotent re-push, void failure surfaced not swallowed, backoff schedule
-- [ ] **Expected output:** generating a real invoice in Mobmek produces a real, correctly-totaled `AUTHORISED` invoice in the connected Xero org within ~1 minute; rejecting it voids the Xero copy
+**Status:** Code-complete 2026-10-17, not yet live-verified (blocked on a Docker/colima hang on the dev machine at the end of the session — see `docs/features/xero-integration.md`).
+
+- [x] `XeroSyncItem` entity + `XeroSyncAction` enum + `AppDbContext` config (unique partial index on `InvoiceId` where `Action = 'PushInvoice'`) — migration `AddXeroSyncPhase1`
+- [x] `Invoice.XeroInvoiceId`/`XeroSyncStatus`/`XeroLastSyncedUtc`/`XeroLastError` + `Customer.XeroContactId` + `XeroConnection.DefaultSalesAccountCode` — same migration. Hit and fixed a real bug: the enum column's EF-generated default backfilled existing rows with `""` instead of `"NotSynced"`, which would have thrown reading back every pre-existing invoice — fixed with an explicit `.HasDefaultValue()`, migration regenerated.
+- [x] `IXeroAccountingClient`/`XeroAccountingClient`: Contacts find-by-email/create, Invoices create-or-update (POST upsert via `InvoiceID`) and void, Accounts list — hand-rolled `HttpClient`, no SDK
+- [x] Enqueue hooks: `InvoiceService.GenerateAsync`/`AcceptQuotationAsync` → `PushInvoice`; `RejectAsync` → `VoidInvoice`; no-op when `IXeroAuthService.IsConfigured` is false (same pattern as the calendar sync's `AppointmentService` hooks)
+- [x] Contact resolution: match-by-email else create, store `XeroContactId`, reuse on subsequent invoices
+- [x] `XeroSyncJob` (hosted, pattern: `CalendarSyncJob`): invoice/line/GST/account-code mapping per §4 table (tax-inclusive, fixed `OUTPUT2` tax type, `LineAmountTypes: "Inclusive"`), idempotent push-or-update, void no-ops when never pushed, backoff ladder, also no-ops until a default sales account code is set
+- [x] Settings page: default Xero sales account-code dropdown (`GET/PUT .../accounts`, `.../default-account-code`), gated on `Connected`
+- [x] Service tests: 8 `XeroAccountingClientTests` (request/response mapping, null-omission, error surfacing) + 8 `XeroSyncJobTests` (contact reuse/find/create, create-vs-update push, void with/without a prior push, failure backoff + per-invoice error, unconfigured/no-account-code no-ops) + 6 `InvoiceServiceTests` enqueue cases — all against fakes, no real Xero calls. 715/717 full suite passing (the 2 failures are the pre-existing real-Postgres `InvoiceSequenceIndexTests`, unrelated, blocked on the same Docker hang)
+- [ ] **Expected output:** generating a real invoice in Mobmek produces a real, correctly-totaled `AUTHORISED` invoice in the connected Xero org within ~1 minute; rejecting it voids the Xero copy — **not yet run for real**, needs a rebuilt+restarted stack once Docker is responsive again
 
 ---
 

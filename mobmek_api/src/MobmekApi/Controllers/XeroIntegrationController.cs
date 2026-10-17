@@ -14,7 +14,7 @@ namespace MobmekApi.Controllers;
 [Route("api/integrations/xero")]
 [Produces("application/json")]
 [Authorize(Policy = Permissions.ManageIntegrations)]
-public class XeroIntegrationController(IXeroAuthService xeroAuthService) : ControllerBase
+public class XeroIntegrationController(IXeroAuthService xeroAuthService, IXeroAccountingClient xeroAccountingClient) : ControllerBase
 {
     [HttpGet("status")]
     [ProducesResponseType(typeof(XeroStatusDto), StatusCodes.Status200OK)]
@@ -59,6 +59,30 @@ public class XeroIntegrationController(IXeroAuthService xeroAuthService) : Contr
     [ProducesResponseType(typeof(XeroStatusDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<XeroStatusDto>> Disconnect(CancellationToken cancellationToken)
         => Ok(await xeroAuthService.DisconnectAsync(cancellationToken));
+
+    /// <summary>Candidates for the default-sales-account-code dropdown — active revenue accounts
+    /// only (docs/xero-integration-design.md §6).</summary>
+    [HttpGet("accounts")]
+    [ProducesResponseType(typeof(IReadOnlyList<XeroAccountDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IReadOnlyList<XeroAccountDto>>> GetAccounts(CancellationToken cancellationToken)
+    {
+        var accessToken = await xeroAuthService.GetValidAccessTokenAsync(cancellationToken);
+        var tenantId = await xeroAuthService.GetTenantIdAsync(cancellationToken);
+        if (accessToken is null || tenantId is null)
+        {
+            return BadRequest("Xero is not connected.");
+        }
+
+        var accounts = await xeroAccountingClient.ListActiveRevenueAccountsAsync(accessToken, tenantId, cancellationToken);
+        return Ok(accounts.Select(a => new XeroAccountDto(a.Code, a.Name)).ToList());
+    }
+
+    [HttpPut("default-account-code")]
+    [ProducesResponseType(typeof(XeroStatusDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<XeroStatusDto>> SetDefaultAccountCode(
+        [FromBody] SetXeroDefaultAccountCodeRequest request, CancellationToken cancellationToken)
+        => Ok(await xeroAuthService.SetDefaultSalesAccountCodeAsync(request.Code, cancellationToken));
 
     private Guid? CurrentUserId =>
         Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;

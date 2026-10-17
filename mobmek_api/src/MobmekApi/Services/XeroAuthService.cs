@@ -206,6 +206,20 @@ public class XeroAuthService(
         return _protector.Unprotect(connection.AccessToken);
     }
 
+    public async Task<string?> GetTenantIdAsync(CancellationToken cancellationToken = default)
+    {
+        var connection = await GetOrCreateConnectionAsync(cancellationToken);
+        return connection.Status == XeroConnectionStatus.Connected ? connection.TenantId : null;
+    }
+
+    public async Task<XeroStatusDto> SetDefaultSalesAccountCodeAsync(string? code, CancellationToken cancellationToken = default)
+    {
+        var connection = await GetOrCreateConnectionAsync(cancellationToken);
+        connection.DefaultSalesAccountCode = string.IsNullOrWhiteSpace(code) ? null : code;
+        await db.SaveChangesAsync(cancellationToken);
+        return ToDto(connection);
+    }
+
     private async Task<XeroConnection> GetOrCreateConnectionAsync(CancellationToken cancellationToken)
     {
         var connection = await db.XeroConnections.FirstOrDefaultAsync(cancellationToken);
@@ -267,7 +281,8 @@ public class XeroAuthService(
         connection.Status.ToString(),
         connection.TenantName,
         connection.ConnectedAtUtc,
-        connection.LastError);
+        connection.LastError,
+        connection.DefaultSalesAccountCode);
 
     private record XeroTokenResponse(
         [property: JsonPropertyName("access_token")] string AccessToken,

@@ -40,7 +40,15 @@ public interface IXeroAuthService
     Task<XeroStatusDto> RefreshAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Returns a decrypted, currently-valid access token — refreshing first if it's
-    /// within 5 minutes of expiry — or null if not connected/configured. Reserved for Phase 1's
-    /// push job; nothing in Phase 0 calls this yet.</summary>
+    /// within 5 minutes of expiry — or null if not connected/configured.</summary>
     Task<string?> GetValidAccessTokenAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>The connected Xero organisation's tenant id (required on every Accounting API
+    /// call alongside the access token), or null if not connected.</summary>
+    Task<string?> GetTenantIdAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Sets (or clears, if null/blank) the default Xero sales account code invoice
+    /// lines post against — the one piece of Chart-of-Accounts mapping Phase 1 needs. Null
+    /// blocks <see cref="XeroSyncJob"/> from pushing anything until it's set.</summary>
+    Task<XeroStatusDto> SetDefaultSalesAccountCodeAsync(string? code, CancellationToken cancellationToken = default);
 }

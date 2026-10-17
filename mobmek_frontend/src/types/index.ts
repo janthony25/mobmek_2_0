@@ -344,10 +344,17 @@ export interface XeroStatus {
   tenantName: string | null
   connectedAtUtc: string | null
   lastError: string | null
+  defaultSalesAccountCode: string | null
 }
 
 export interface XeroConnectResponse {
   authorizationUrl: string
+}
+
+/** A Xero revenue account — candidate for the default sales account-code dropdown. */
+export interface XeroAccount {
+  code: string
+  name: string
 }
 
 // --- Job items ---------------------------------------------------------------

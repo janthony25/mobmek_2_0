@@ -83,4 +83,15 @@ public class Invoice : BaseEntity
 
     /// <summary>Partial payments recorded before this invoice is fully settled (cascade-deleted with it).</summary>
     public ICollection<InvoicePartialPayment> PartialPayments { get; set; } = [];
+
+    // --- Xero sync (docs/xero-integration-design.md §4) — Invoice (not Quotation) only ---
+
+    /// <summary>Xero's own id for this invoice's mirror, once pushed. Not our <see cref="BaseEntity.Id"/>.</summary>
+    public string? XeroInvoiceId { get; set; }
+
+    public XeroInvoiceSyncStatus XeroSyncStatus { get; set; } = XeroInvoiceSyncStatus.NotSynced;
+
+    public DateTime? XeroLastSyncedUtc { get; set; }
+
+    public string? XeroLastError { get; set; }
 }

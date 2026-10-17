@@ -17,12 +17,22 @@ internal class StubXeroHttpMessageHandler : HttpMessageHandler
 
     public List<HttpRequestMessage> Requests { get; } = [];
 
+    /// <summary>Captured during the same read that guards against the dispose-before-send bug
+    /// (see ResendEmailSenderTests) — re-reading Content after the caller's `using` disposes the
+    /// request isn't reliable.</summary>
+    public List<string> RequestBodies { get; } = [];
+
     public void Enqueue(HttpResponseMessage response) => _responses.Enqueue(response);
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         Requests.Add(request);
         await Task.Yield();
+        if (request.Content is not null)
+        {
+            RequestBodies.Add(await request.Content.ReadAsStringAsync(cancellationToken));
+        }
+
         return _responses.Count > 0 ? _responses.Dequeue() : new HttpResponseMessage(HttpStatusCode.OK);
     }
 }

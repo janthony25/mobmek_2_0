@@ -1,11 +1,14 @@
 # Xero Integration
 
-**Last verified:** 2026-10-17 — live-verified against the real "Mobile Mekaniko" Xero org (read
-against `Entities/XeroConnection{,Status}.cs`, `Services/{IXeroAuthService,XeroAuthService,
-XeroTokenRefreshJob}.cs`, `Controllers/XeroIntegrationController.cs`, migration
-`AddXeroConnection`, 13 `XeroAuthServiceTests`,
-`mobmek_frontend/src/pages/{XeroSettingsPage,XeroCallbackPage}.tsx`, and a direct
-`SELECT * FROM "XeroConnections"` confirming `Status = Connected`)
+**Last verified:** 2026-10-17 — Phase 0 (connect/disconnect) live-verified against the real
+"Mobile Mekaniko" Xero org; Phase 1 (invoice push) is code-complete and test-covered but **not
+yet live-verified** (read against `Entities/{XeroConnection,XeroConnectionStatus,XeroSyncItem,
+XeroSyncAction,XeroInvoiceSyncStatus}.cs`, `Services/{IXeroAuthService,XeroAuthService,
+XeroTokenRefreshJob,IXeroAccountingClient,XeroAccountingClient,XeroSyncJob}.cs`,
+`Controllers/XeroIntegrationController.cs`, `Services/InvoiceService.cs`'s `EnqueueXeroPush`/
+`EnqueueXeroVoid`, migrations `AddXeroConnection`/`AddXeroSyncPhase1`, 13 `XeroAuthServiceTests` +
+8 `XeroAccountingClientTests` + 8 `XeroSyncJobTests` + 6 `InvoiceServiceTests` enqueue cases,
+`mobmek_frontend/src/pages/{XeroSettingsPage,XeroCallbackPage}.tsx`)
 
 Full plan: `docs/xero-integration-design.md` / `-todo.md`. This file tracks only what's actually
 built against that plan — most of it is still "Planned only."
@@ -18,7 +21,8 @@ built against that plan — most of it is still "Planned only."
 | Encrypted token storage | Working | `XeroConnection.cs` (Data-Protection-encrypted), `XeroAuthService.cs` |
 | Daily proactive token refresh | Working, not yet live-verified (needs 24h+ to observe a real rotation) | `Services/XeroTokenRefreshJob.cs` |
 | Connect/Disconnect settings page | **Working, live-verified** | `mobmek_frontend/src/pages/XeroSettingsPage.tsx` |
-| Invoice push to Xero (Phase 1) | **Planned only** | — |
+| Invoice push + contact resolution (Phase 1) | Code-complete, **not live-verified** | `Services/XeroSyncJob.cs`, `Services/InvoiceService.cs` |
+| Default sales account-code setting | Code-complete, **not live-verified** | `XeroIntegrationController.cs`, `mobmek_frontend/src/pages/XeroSettingsPage.tsx` |
 | Two-way payment/paid-status sync (Phase 2) | **Planned only** | — |
 
 ## Details
@@ -58,7 +62,30 @@ ever reaching Postgres (`CreateProtector("XeroConnection")`) — reuses the same
 ring already persisted to a Docker volume for the auth cookie (`docker-compose.yml`:
 `mobmek_dataprotection_keys:/keys`), so no new persistence setup was needed.
 
+### Invoice push (Phase 1) — code-complete, not live-verified
+`InvoiceService.GenerateAsync`/`AcceptQuotationAsync` enqueue a `XeroSyncItem(PushInvoice)` row
+(skipped for Quotations); `RejectAsync` enqueues `VoidInvoice`. Both no-op when
+`IXeroAuthService.IsConfigured` is false — same shape as the calendar sync's `AppointmentService`
+hooks. `XeroSyncJob` (hosted, 1-minute tick) resolves/creates a Xero Contact by email (falls back
+to create-without-email when the customer has none), reuses `Customer.XeroContactId` on every
+later invoice, maps lines tax-inclusive with a fixed `OUTPUT2` GST tax type and the configured
+default account code, and pushes via `IXeroAccountingClient` (hand-rolled `HttpClient`, no SDK —
+same approach as `XeroAuthService`). Also no-ops until a default sales account code is set on the
+Xero settings page. Failure records the error on both the outbox row (for backoff: 1 min → 5 min →
+30 min → hourly) and the invoice itself (`XeroSyncStatus`/`XeroLastError`).
+
+**Blocked on Docker, not code**: the dev machine's Docker/colima daemon became unresponsive at the
+end of this session (hanging on every `docker` command, unrelated to any change made here) before
+the stack could be rebuilt and a real invoice generated against the connected "Mobile Mekaniko"
+org to confirm it end to end. All logic is covered by 22 new unit tests (8 `XeroAccountingClientTests`,
+8 `XeroSyncJobTests`, 6 `InvoiceServiceTests` enqueue cases) against fakes/stubs, and the full
+suite is green (715/717 — the 2 failures are the pre-existing real-Postgres test, same Docker
+dependency). **Next session: once Docker is responsive, rebuild (`docker compose up -d --build`),
+run the pending migration if not auto-applied, pick a default sales account code on the Xero
+settings page, generate a real invoice, and confirm it lands in Xero within ~1 minute.**
+
 ## Open tasks
+- [ ] **Live-verify Phase 1 end to end** (blocked on the Docker hang above) — this is the immediate next step.
 - [ ] Live-verify the daily refresh job actually rotates tokens against the real connection (needs 24h+ of the container staying up, or a manual trigger).
 - [ ] Add the production redirect URI (`https://workshop.mobmekauto.co.nz/xero/callback`) to the Xero app and set `XERO_REDIRECT_URI` in the production `.env` before deploying this — currently only `localhost:3000` is registered.
-- [ ] Phase 1 (invoice push) and Phase 2 (payment sync) — not started, see `docs/xero-integration-design.md`.
+- [ ] Phase 2 (two-way payment sync) — not started, see `docs/xero-integration-design.md` §5.

@@ -178,11 +178,18 @@ builder.Services.AddSingleton<CalendarSyncJob>();
 // absolute URIs per call. Depends on the scoped AppDbContext, so the typed client itself
 // resolves per-scope (the default for AddHttpClient<TClient,TImplementation>).
 builder.Services.AddHttpClient<IXeroAuthService, XeroAuthService>();
+// Every Accounting API call shares this one host+base-path, unlike XeroAuthService (identity vs
+// api hosts), so a fixed BaseAddress works here.
+builder.Services.AddHttpClient<IXeroAccountingClient, XeroAccountingClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.xero.com/api.xro/2.0/");
+});
 builder.Services.AddHostedService<RecurringTransactionPostingJob>();
 builder.Services.AddHostedService<OutboundStatusPollJob>();
 builder.Services.AddHostedService<AccountPurgeJob>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<CalendarSyncJob>());
 builder.Services.AddHostedService<XeroTokenRefreshJob>();
+builder.Services.AddHostedService<XeroSyncJob>();
 
 // Uploaded files — job photos, transaction receipts, the business logo — all live behind
 // IFileStorage. Local disk is the development default so nothing here needs AWS credentials;
