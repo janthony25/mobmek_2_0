@@ -191,6 +191,27 @@ public class XeroSyncJobTests
     }
 
     [Fact]
+    public async Task PushInvoice_FailureWithOverlongErrorMessage_StillPersists_Truncated()
+    {
+        // Xero's validation error bodies routinely exceed the 2000-char LastError columns
+        // (confirmed live, 2026-10-17) — recording the failure must never itself throw.
+        var (db, job, client) = CreateJob();
+        var (_, invoice) = SeedInvoice(db);
+        SeedOutboxItem(db, XeroSyncAction.PushInvoice, invoice.Id);
+        client.EnqueuePushFailure(new InvalidOperationException(new string('x', 5000)));
+
+        await job.PushDueItemsAsync(CancellationToken.None);
+
+        var updatedItem = await db.XeroSyncItems.SingleAsync();
+        Assert.Equal(1, updatedItem.Attempts);
+        Assert.True(updatedItem.LastError!.Length <= 2000);
+
+        var updatedInvoice = await db.Invoices.FirstAsync(i => i.Id == invoice.Id);
+        Assert.Equal(XeroInvoiceSyncStatus.Failed, updatedInvoice.XeroSyncStatus);
+        Assert.True(updatedInvoice.XeroLastError!.Length <= 2000);
+    }
+
+    [Fact]
     public async Task PushDueItemsAsync_XeroNotConfigured_NoOps()
     {
         var (db, job, client) = CreateJob(xeroConfigured: false);

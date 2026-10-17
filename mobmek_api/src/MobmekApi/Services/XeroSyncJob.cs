@@ -108,14 +108,21 @@ public class XeroSyncJob(IServiceScopeFactory scopeFactory, ILogger<XeroSyncJob>
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            // Xero's validation error bodies (echoed back verbatim in the exception message —
+            // see XeroAccountingClient.ReadAsync) routinely exceed the LastError columns' 2000-char
+            // limit, which used to make *recording* the failure throw too — the whole recovery
+            // save then rolled back (Attempts/NextAttemptUtc never advanced), leaving the item
+            // permanently "due now" and silently hammering Xero every tick forever with zero
+            // visibility into why. Confirmed live, 2026-10-17. Truncate before persisting.
+            var errorMessage = TruncateForColumn(ex.Message);
             item.Attempts++;
-            item.LastError = ex.Message;
+            item.LastError = errorMessage;
             item.NextAttemptUtc = DateTime.UtcNow + BackoffFor(item.Attempts);
 
             if (invoice is not null)
             {
                 invoice.XeroSyncStatus = XeroInvoiceSyncStatus.Failed;
-                invoice.XeroLastError = ex.Message;
+                invoice.XeroLastError = errorMessage;
             }
 
             var failingSince = DateTime.UtcNow - item.CreatedAtUtc;
@@ -195,6 +202,12 @@ public class XeroSyncJob(IServiceScopeFactory scopeFactory, ILogger<XeroSyncJob>
         invoice.XeroLastSyncedUtc = DateTime.UtcNow;
         invoice.XeroLastError = null;
     }
+
+    // Matches the LastError columns' HasMaxLength(2000) on both XeroSyncItem and Invoice.
+    private const int MaxErrorLength = 2000;
+
+    private static string TruncateForColumn(string message) =>
+        message.Length <= MaxErrorLength ? message : string.Concat(message.AsSpan(0, MaxErrorLength - 1), "…");
 
     private static TimeSpan BackoffFor(int attempts) => attempts switch
     {
