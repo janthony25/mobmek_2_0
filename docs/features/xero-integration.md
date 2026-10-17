@@ -74,9 +74,14 @@ same approach as `XeroAuthService`). Also no-ops until a default sales account c
 Xero settings page. Failure records the error on both the outbox row (for backoff: 1 min → 5 min →
 30 min → hourly) and the invoice itself (`XeroSyncStatus`/`XeroLastError`).
 
-**Live-verified end to end, 2026-10-17**: owner picked account `200` (Sales) on the settings page,
-generated a real test invoice (INV-0671, $11.00), and it pushed to Xero successfully —
-`XeroSyncStatus = Synced`, a real `XeroInvoiceId` stored, outbox row cleared.
+**Live-verified end to end, 2026-10-17** — both directions:
+- **Push**: owner picked account `200` (Sales) on the settings page, generated a real test
+  invoice (INV-0671, $11.00), and it pushed to Xero successfully — `XeroSyncStatus = Synced`, a
+  real `XeroInvoiceId` stored.
+- **Void**: rejecting the same invoice in Mobmek enqueued a `VoidInvoice` row, processed on the
+  next tick, confirmed `XeroSyncStatus = Voided` with no error. The test invoice is now cleanly
+  `VOIDED` in the real Xero org rather than a dangling fake `AUTHORISED` one — safe to leave
+  permanently, no further cleanup needed before production.
 
 **Bug found and fixed in the process**: the first live attempt 400'd with `"The document DueDate
 field must be specified"` — Xero requires a `DueDate` on every `AUTHORISED` invoice, but Mobmek
@@ -90,5 +95,5 @@ DefaultsToIssueDate_NotLeftNull`). Rebuilt, forced the pending outbox row to ret
 
 ## Open tasks
 - [ ] Add the production redirect URI (`https://workshop.mobmekauto.co.nz/xero/callback`) to the Xero app and set `XERO_REDIRECT_URI` in the production `.env` before deploying this — currently only `localhost:3000` is registered.
-- [ ] **Delete/void the real "INV-0671" test invoice in Xero before/during the production cutover** — deliberately left in place for now (owner's call, 2026-10-17) since it's harmless in a dev-only context, but it's test data (fake $11 line, "New Job" reference) that must not carry over once this goes live on the real production domain. Do this as part of the production go-live checklist, not before.
+- [x] ~~Delete/void the real "INV-0671" test invoice~~ (done 2026-10-17, as a side effect of live-testing the void path) — rejecting it in Mobmek voided it in Xero for real. Cleanly `VOIDED`, safe to leave permanently.
 - [ ] Phase 2 (two-way payment sync) — not started, see `docs/xero-integration-design.md` §5.
