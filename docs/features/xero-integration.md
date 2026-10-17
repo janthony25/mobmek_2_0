@@ -1,8 +1,8 @@
 # Xero Integration
 
-**Last verified:** 2026-10-17 — Phase 0 (connect/disconnect) live-verified against the real
-"Mobile Mekaniko" Xero org; Phase 1 (invoice push) is code-complete and test-covered but **not
-yet live-verified** (read against `Entities/{XeroConnection,XeroConnectionStatus,XeroSyncItem,
+**Last verified:** 2026-10-17 — Phase 0 (connect/disconnect) and Phase 1 (invoice push) **both
+live-verified** against the real "Mobile Mekaniko" Xero org, including a real pushed test invoice
+(INV-0671) (read against `Entities/{XeroConnection,XeroConnectionStatus,XeroSyncItem,
 XeroSyncAction,XeroInvoiceSyncStatus}.cs`, `Services/{IXeroAuthService,XeroAuthService,
 XeroTokenRefreshJob,IXeroAccountingClient,XeroAccountingClient,XeroSyncJob}.cs`,
 `Controllers/XeroIntegrationController.cs`, `Services/InvoiceService.cs`'s `EnqueueXeroPush`/
@@ -21,8 +21,8 @@ built against that plan — most of it is still "Planned only."
 | Encrypted token storage | Working | `XeroConnection.cs` (Data-Protection-encrypted), `XeroAuthService.cs` |
 | Daily proactive token refresh | **Working, live-verified** (one real rotation observed on API restart 2026-10-17) | `Services/XeroTokenRefreshJob.cs` |
 | Connect/Disconnect settings page | **Working, live-verified** | `mobmek_frontend/src/pages/XeroSettingsPage.tsx` |
-| Invoice push + contact resolution (Phase 1) | Code-complete, **not live-verified** | `Services/XeroSyncJob.cs`, `Services/InvoiceService.cs` |
-| Default sales account-code setting | Code-complete, **not live-verified** | `XeroIntegrationController.cs`, `mobmek_frontend/src/pages/XeroSettingsPage.tsx` |
+| Invoice push + contact resolution (Phase 1) | **Working, live-verified** | `Services/XeroSyncJob.cs`, `Services/InvoiceService.cs` |
+| Default sales account-code setting | **Working, live-verified** | `XeroIntegrationController.cs`, `mobmek_frontend/src/pages/XeroSettingsPage.tsx` |
 | Two-way payment/paid-status sync (Phase 2) | **Planned only** | — |
 
 ## Details
@@ -74,20 +74,21 @@ same approach as `XeroAuthService`). Also no-ops until a default sales account c
 Xero settings page. Failure records the error on both the outbox row (for backoff: 1 min → 5 min →
 30 min → hourly) and the invoice itself (`XeroSyncStatus`/`XeroLastError`).
 
-**Docker recovered and the stack was rebuilt (2026-10-17)**: `docker compose up -d --build`
-applied the `AddXeroSyncPhase1` migration cleanly, the API started with no errors, and the Xero
-connection survived intact (confirmed `Connected` to "Mobile Mekaniko" post-rebuild). All logic is
-covered by 22 new unit tests (8 `XeroAccountingClientTests`, 8 `XeroSyncJobTests`, 6
-`InvoiceServiceTests` enqueue cases) against fakes/stubs, full suite green (715/717 — the 2
-failures are the pre-existing real-Postgres test).
+**Live-verified end to end, 2026-10-17**: owner picked account `200` (Sales) on the settings page,
+generated a real test invoice (INV-0671, $11.00), and it pushed to Xero successfully —
+`XeroSyncStatus = Synced`, a real `XeroInvoiceId` stored, outbox row cleared.
 
-**Still not live-verified against a real invoice**: `XeroConnection.DefaultSalesAccountCode` is
-still unset (confirmed via DB read), which keeps `XeroSyncJob` cleanly paused by design (§2) — the
-owner needs to pick a real Xero account code on the Xero settings page (requires their own login
-session; not something this session could do) before generating a test invoice to confirm the
-end-to-end push.
+**Bug found and fixed in the process**: the first live attempt 400'd with `"The document DueDate
+field must be specified"` — Xero requires a `DueDate` on every `AUTHORISED` invoice, but Mobmek
+lets an invoice be generated with no due date at all (`Invoice.DueDate` is nullable), and the
+push mapping was forwarding `null` straight through. Fixed in `XeroSyncJob.ProcessPushAsync`:
+defaults to the invoice's issue date ("due on receipt") when Mobmek has no due date set, rather
+than inventing a payment-term length — never written back onto `Invoice.DueDate` itself, only
+what's sent to Xero. New regression test (`XeroSyncJobTests.PushInvoice_NoDueDateSet_
+DefaultsToIssueDate_NotLeftNull`). Rebuilt, forced the pending outbox row to retry immediately
+(bypassing the backoff wait), confirmed it synced successfully.
 
 ## Open tasks
-- [ ] **Owner**: pick a default sales account code on the Xero settings page, then generate a real invoice and confirm it lands in Xero within ~1 minute — the one remaining step to call Phase 1 fully live-verified.
 - [ ] Add the production redirect URI (`https://workshop.mobmekauto.co.nz/xero/callback`) to the Xero app and set `XERO_REDIRECT_URI` in the production `.env` before deploying this — currently only `localhost:3000` is registered.
+- [ ] Decide what to do with the real "INV-0671" test push sitting in the live Xero org — delete/void it there once confirmed, since it's test data, not a real customer invoice.
 - [ ] Phase 2 (two-way payment sync) — not started, see `docs/xero-integration-design.md` §5.

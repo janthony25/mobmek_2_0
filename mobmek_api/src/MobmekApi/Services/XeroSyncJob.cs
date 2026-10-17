@@ -177,7 +177,12 @@ public class XeroSyncJob(IServiceScopeFactory scopeFactory, ILogger<XeroSyncJob>
             ContactId: contactId,
             InvoiceNumber: invoiceNumber,
             IssueDate: DateOnly.FromDateTime(invoice.CreatedAtUtc),
-            DueDate: invoice.DueDate,
+            // Xero requires a DueDate on an AUTHORISED invoice (confirmed live, 2026-10-17 — a
+            // push with Mobmek's own nullable DueDate left unset 400'd with "The document
+            // DueDate field must be specified"). Mobmek lets an invoice be generated with no due
+            // date at all, so default to the issue date ("due on receipt") rather than inventing
+            // a payment-term length — never written back onto Invoice.DueDate itself.
+            DueDate: invoice.DueDate ?? DateOnly.FromDateTime(invoice.CreatedAtUtc),
             Reference: invoice.IssueName,
             // Tax type is a fixed lookup (NZ standard 15% GST on income) — see §4.1, no
             // per-invoice tax logic exists today (GstRate is always 0.15 in practice).

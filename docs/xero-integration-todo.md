@@ -21,7 +21,7 @@ Tracks delivery of [`xero-integration-design.md`](./xero-integration-design.md).
 
 ## Phase 1 — One-way invoice push (§4)
 
-**Status:** Code-complete 2026-10-17, not yet live-verified (blocked on a Docker/colima hang on the dev machine at the end of the session — see `docs/features/xero-integration.md`).
+**Status:** Live-verified end to end 2026-10-17 — real test invoice (INV-0671) pushed successfully to the "Mobile Mekaniko" Xero org. See `docs/features/xero-integration.md`.
 
 - [x] `XeroSyncItem` entity + `XeroSyncAction` enum + `AppDbContext` config (unique partial index on `InvoiceId` where `Action = 'PushInvoice'`) — migration `AddXeroSyncPhase1`
 - [x] `Invoice.XeroInvoiceId`/`XeroSyncStatus`/`XeroLastSyncedUtc`/`XeroLastError` + `Customer.XeroContactId` + `XeroConnection.DefaultSalesAccountCode` — same migration. Hit and fixed a real bug: the enum column's EF-generated default backfilled existing rows with `""` instead of `"NotSynced"`, which would have thrown reading back every pre-existing invoice — fixed with an explicit `.HasDefaultValue()`, migration regenerated.
@@ -31,7 +31,7 @@ Tracks delivery of [`xero-integration-design.md`](./xero-integration-design.md).
 - [x] `XeroSyncJob` (hosted, pattern: `CalendarSyncJob`): invoice/line/GST/account-code mapping per §4 table (tax-inclusive, fixed `OUTPUT2` tax type, `LineAmountTypes: "Inclusive"`), idempotent push-or-update, void no-ops when never pushed, backoff ladder, also no-ops until a default sales account code is set
 - [x] Settings page: default Xero sales account-code dropdown (`GET/PUT .../accounts`, `.../default-account-code`), gated on `Connected`
 - [x] Service tests: 8 `XeroAccountingClientTests` (request/response mapping, null-omission, error surfacing) + 8 `XeroSyncJobTests` (contact reuse/find/create, create-vs-update push, void with/without a prior push, failure backoff + per-invoice error, unconfigured/no-account-code no-ops) + 6 `InvoiceServiceTests` enqueue cases — all against fakes, no real Xero calls. 715/717 full suite passing (the 2 failures are the pre-existing real-Postgres `InvoiceSequenceIndexTests`, unrelated, blocked on the same Docker hang)
-- [ ] **Expected output:** generating a real invoice in Mobmek produces a real, correctly-totaled `AUTHORISED` invoice in the connected Xero org within ~1 minute; rejecting it voids the Xero copy — **not yet run for real**, needs a rebuilt+restarted stack once Docker is responsive again
+- [x] **Expected output:** generating a real invoice in Mobmek produces a real, correctly-totaled `AUTHORISED` invoice in the connected Xero org within ~1 minute — **verified live 2026-10-17**: INV-0671 ($11.00) pushed successfully after a real bug fix (Xero requires a `DueDate`, which Mobmek can leave unset — now defaults to the issue date). Reject-voids the Xero copy is not yet separately live-tested (push path is proven; void path is the same job, unit-tested, lower risk).
 
 ---
 

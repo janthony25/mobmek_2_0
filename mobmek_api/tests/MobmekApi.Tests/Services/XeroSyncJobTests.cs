@@ -100,6 +100,23 @@ public class XeroSyncJobTests
     }
 
     [Fact]
+    public async Task PushInvoice_NoDueDateSet_DefaultsToIssueDate_NotLeftNull()
+    {
+        // Xero rejects an AUTHORISED invoice with no DueDate at all (confirmed live, 2026-10-17);
+        // Mobmek's own Invoice.DueDate is nullable, so the push mapping must fill a default
+        // rather than forward null and 400.
+        var (db, job, client) = CreateJob();
+        var (_, invoice) = SeedInvoice(db); // DueDate left null, same as a real-world case that failed live
+        SeedOutboxItem(db, XeroSyncAction.PushInvoice, invoice.Id);
+
+        await job.PushDueItemsAsync(CancellationToken.None);
+
+        var pushed = client.PushedInvoices.Single();
+        Assert.NotNull(pushed.DueDate);
+        Assert.Equal(pushed.IssueDate, pushed.DueDate);
+    }
+
+    [Fact]
     public async Task PushInvoice_ExistingXeroContactId_ReusesIt_NoFindOrCreateCall()
     {
         var (db, job, client) = CreateJob();
