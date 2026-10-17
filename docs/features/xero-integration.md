@@ -105,8 +105,13 @@ winner's row) rather than ending up with two — same retry-on-conflict shape `I
 already uses for sequence numbers. Pre-existing duplicate/orphaned rows cleared on both local and
 production as part of the fix.
 
+**Live in production, 2026-10-17**: merged to `main`, migration applied to the production
+database (backed up first), deployed, and connected for real — `Connected` to "Mobile Mekaniko",
+default sales account `200`, single clean connection row. Every real invoice generated from here
+on pushes to the live Xero org; rejecting one voids it there too.
+
 ## Open tasks
-- [ ] **Owner**: reconnect to Xero on production (the broken rows were cleared as part of the fix above) — this should now succeed first try.
+- [ ] Decide when to test a real (non-test) invoice push/reject on production, if not already implicitly covered by normal day-to-day use from here.
 - [ ] Add the production redirect URI (`https://workshop.mobmekauto.co.nz/xero/callback`) to the Xero app and set `XERO_REDIRECT_URI` in the production `.env` before deploying this — currently only `localhost:3000` is registered.
 - [x] ~~Delete/void the real "INV-0671" test invoice~~ (done 2026-10-17, as a side effect of live-testing the void path) — rejecting it in Mobmek voided it in Xero for real. Cleanly `VOIDED`, safe to leave permanently.
 - [ ] Phase 2 (two-way payment sync) — not started, see `docs/xero-integration-design.md` §5.
