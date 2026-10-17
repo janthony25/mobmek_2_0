@@ -90,5 +90,5 @@ DefaultsToIssueDate_NotLeftNull`). Rebuilt, forced the pending outbox row to ret
 
 ## Open tasks
 - [ ] Add the production redirect URI (`https://workshop.mobmekauto.co.nz/xero/callback`) to the Xero app and set `XERO_REDIRECT_URI` in the production `.env` before deploying this — currently only `localhost:3000` is registered.
-- [ ] Decide what to do with the real "INV-0671" test push sitting in the live Xero org — delete/void it there once confirmed, since it's test data, not a real customer invoice.
+- [ ] **Delete/void the real "INV-0671" test invoice in Xero before/during the production cutover** — deliberately left in place for now (owner's call, 2026-10-17) since it's harmless in a dev-only context, but it's test data (fake $11 line, "New Job" reference) that must not carry over once this goes live on the real production domain. Do this as part of the production go-live checklist, not before.
 - [ ] Phase 2 (two-way payment sync) — not started, see `docs/xero-integration-design.md` §5.
