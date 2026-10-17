@@ -45,7 +45,8 @@ public class XeroSyncJobTests
     }
 
     private static (Customer Customer, Invoice Invoice) SeedInvoice(
-        AppDbContext db, string? customerEmail = "jane@example.com", string? xeroInvoiceId = null, string? xeroContactId = null)
+        AppDbContext db, string? customerEmail = "jane@example.com", string? xeroInvoiceId = null,
+        string? xeroContactId = null, decimal discount = 0m)
     {
         var customer = new Customer { FirstName = "Jane", LastName = "Doe", PhoneNumber = "021", EmailAddress = customerEmail, XeroContactId = xeroContactId };
         db.Customers.Add(customer);
@@ -54,7 +55,7 @@ public class XeroSyncJobTests
         var invoice = new Invoice
         {
             JobId = job.Id, IssueName = "Brakes", DocumentType = "Invoice", Status = "Active",
-            SequenceNumber = 1, TotalAmount = 110m, XeroInvoiceId = xeroInvoiceId,
+            SequenceNumber = 1, TotalAmount = 110m, XeroInvoiceId = xeroInvoiceId, Discount = discount,
         };
         invoice.Items.Add(new InvoiceItem { ItemName = "Pads", Quantity = 1, ItemPrice = 110m, ItemTotal = 110m });
         db.Invoices.Add(invoice);
@@ -114,6 +115,38 @@ public class XeroSyncJobTests
         var pushed = client.PushedInvoices.Single();
         Assert.NotNull(pushed.DueDate);
         Assert.Equal(pushed.IssueDate, pushed.DueDate);
+    }
+
+    [Fact]
+    public async Task PushInvoice_WithDiscount_SendsExtraNegativeLine_MatchingMobmeksOwnTotal()
+    {
+        // Mobmek subtracts the discount before tax; Xero has no invoice-level discount field, so
+        // it must arrive as an extra negative line at the same tax type, or Xero's own computed
+        // total overstates by the discount amount (confirmed live, 2026-10-17).
+        var (db, job, client) = CreateJob();
+        var (_, invoice) = SeedInvoice(db, discount: 20m);
+        SeedOutboxItem(db, XeroSyncAction.PushInvoice, invoice.Id);
+
+        await job.PushDueItemsAsync(CancellationToken.None);
+
+        var pushed = client.PushedInvoices.Single();
+        Assert.Equal(2, pushed.Lines.Count);
+        var discountLine = pushed.Lines[1];
+        Assert.Equal("Discount", discountLine.Description);
+        Assert.Equal(-20m, discountLine.UnitAmount);
+        Assert.Equal("OUTPUT2", discountLine.TaxType);
+    }
+
+    [Fact]
+    public async Task PushInvoice_NoDiscount_SendsNoExtraLine()
+    {
+        var (db, job, client) = CreateJob();
+        var (_, invoice) = SeedInvoice(db); // discount defaults to 0
+        SeedOutboxItem(db, XeroSyncAction.PushInvoice, invoice.Id);
+
+        await job.PushDueItemsAsync(CancellationToken.None);
+
+        Assert.Single(client.PushedInvoices.Single().Lines);
     }
 
     [Fact]

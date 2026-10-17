@@ -193,7 +193,7 @@ public class XeroSyncJob(IServiceScopeFactory scopeFactory, ILogger<XeroSyncJob>
             Reference: invoice.IssueName,
             // Tax type is a fixed lookup (NZ standard 15% GST on income) — see §4.1, no
             // per-invoice tax logic exists today (GstRate is always 0.15 in practice).
-            Lines: invoice.Items.Select(i => new XeroInvoiceLinePayload(i.ItemName, i.Quantity, i.ItemPrice, defaultAccountCode, "OUTPUT2")).ToList());
+            Lines: BuildLines(invoice, defaultAccountCode));
 
         var result = await client.PushInvoiceAsync(accessToken, tenantId, request, cancellationToken);
 
@@ -201,6 +201,27 @@ public class XeroSyncJob(IServiceScopeFactory scopeFactory, ILogger<XeroSyncJob>
         invoice.XeroSyncStatus = XeroInvoiceSyncStatus.Synced;
         invoice.XeroLastSyncedUtc = DateTime.UtcNow;
         invoice.XeroLastError = null;
+    }
+
+    /// <summary>Mirrors <c>InvoiceService.GenerateDocumentAsync</c>'s own math — subtract the
+    /// discount before tax, not after. Xero has no invoice-level discount field, so (matching
+    /// Xero's own documented pattern for this) it's sent as one extra negative line at the same
+    /// tax type; a negative line reduces Xero's own computed GST proportionally, landing on the
+    /// exact same Total as Mobmek's snapshot. Confirmed live, 2026-10-17: a discounted invoice's
+    /// undiscounted raw lines were being pushed with no reduction at all, overstating the Xero
+    /// total by the discount amount.</summary>
+    private static List<XeroInvoiceLinePayload> BuildLines(Invoice invoice, string defaultAccountCode)
+    {
+        var lines = invoice.Items
+            .Select(i => new XeroInvoiceLinePayload(i.ItemName, i.Quantity, i.ItemPrice, defaultAccountCode, "OUTPUT2"))
+            .ToList();
+
+        if (invoice.Discount > 0)
+        {
+            lines.Add(new XeroInvoiceLinePayload("Discount", 1, -invoice.Discount, defaultAccountCode, "OUTPUT2"));
+        }
+
+        return lines;
     }
 
     // Matches the LastError columns' HasMaxLength(2000) on both XeroSyncItem and Invoice.

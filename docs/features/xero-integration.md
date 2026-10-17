@@ -93,6 +93,17 @@ what's sent to Xero. New regression test (`XeroSyncJobTests.PushInvoice_NoDueDat
 DefaultsToIssueDate_NotLeftNull`). Rebuilt, forced the pending outbox row to retry immediately
 (bypassing the backoff wait), confirmed it synced successfully.
 
+### Discounted invoices overstated the Xero total — fixed (2026-10-17)
+Mobmek subtracts `Invoice.Discount` before adding GST (`InvoiceService.cs`), but the Xero push
+mapping sent only the raw, undiscounted `InvoiceItem.ItemPrice` lines with no corresponding
+reduction — so a discounted invoice would've matched in Mobmek's own PDF but overstated the
+total in Xero by the discount amount. Caught while reviewing the calculation pipeline after the
+`LineAmountTypes` fix above, before any real discounted invoice hit this. Fixed in
+`XeroSyncJob.BuildLines`: when `Invoice.Discount > 0`, an extra negative line ("Discount",
+`-Discount`, same tax type) is appended — the standard way to represent a discount in Xero's API
+(no invoice-level discount field exists) — which lands on exactly the same total Mobmek computes,
+since a negative line reduces Xero's own computed GST proportionally too.
+
 ### GST understated every pushed invoice's Xero total — fixed (2026-10-17)
 The push code set `LineAmountTypes: "Inclusive"`, telling Xero the line prices already included
 GST — but `InvoiceService.GenerateDocumentAsync` actually adds GST *on top* of the subtotal
