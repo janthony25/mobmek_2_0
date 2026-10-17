@@ -9,6 +9,7 @@ using MobmekApi.Entities;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace MobmekApi.Services;
 
@@ -220,18 +221,37 @@ public class XeroAuthService(
         return ToDto(connection);
     }
 
+    // Fixed, well-known id for the one-and-only connection row — not a new Guid per lazy-create
+    // attempt. Confirmed live, 2026-10-17: XeroTokenRefreshJob's immediate startup tick and a
+    // user's "Connect" click can both race a plain "SELECT ... LIMIT 1, insert if none" on a
+    // cold table (neither sees the other's uncommitted insert), creating two rows — the
+    // Connect flow's pending state then landed on a different row than Complete read from,
+    // which 400'd as "expired or invalid". A fixed id turns that race into a harmless unique-key
+    // retry instead of silent duplication.
+    private static readonly Guid SingletonConnectionId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+
     private async Task<XeroConnection> GetOrCreateConnectionAsync(CancellationToken cancellationToken)
     {
-        var connection = await db.XeroConnections.FirstOrDefaultAsync(cancellationToken);
+        var connection = await db.XeroConnections.FirstOrDefaultAsync(c => c.Id == SingletonConnectionId, cancellationToken);
         if (connection is not null)
         {
             return connection;
         }
 
-        connection = new XeroConnection();
+        connection = new XeroConnection { Id = SingletonConnectionId };
         db.XeroConnections.Add(connection);
-        await db.SaveChangesAsync(cancellationToken);
-        return connection;
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+            return connection;
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            // Another request won the race and inserted the same id first — detach our losing
+            // copy and read the real row back instead of ending up with two.
+            db.Entry(connection).State = EntityState.Detached;
+            return await db.XeroConnections.FirstAsync(c => c.Id == SingletonConnectionId, cancellationToken);
+        }
     }
 
     private void ApplyTokenResponse(XeroConnection connection, XeroTokenResponse tokenResponse, DateTime now)

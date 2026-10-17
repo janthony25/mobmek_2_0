@@ -93,7 +93,20 @@ what's sent to Xero. New regression test (`XeroSyncJobTests.PushInvoice_NoDueDat
 DefaultsToIssueDate_NotLeftNull`). Rebuilt, forced the pending outbox row to retry immediately
 (bypassing the backoff wait), confirmed it synced successfully.
 
+### Singleton connection row — fixed a real race condition (2026-10-17)
+`XeroAuthService.GetOrCreateConnectionAsync` used to be a plain "select the first row, insert one
+if none exists" — fine under a single caller, but `XeroTokenRefreshJob` ticks immediately on
+every app startup and can race a user's own "Connect" click at exactly that moment (confirmed
+live on the first production connect attempt, right after a restart): both saw zero rows, both
+inserted, producing two. The pending OAuth state written by Connect landed on one row; Complete
+read from the other; 400'd as "expired or invalid." Fixed by keying the row to a fixed, known
+`Guid` and catching the resulting Postgres unique-violation as a normal race outcome (re-read the
+winner's row) rather than ending up with two — same retry-on-conflict shape `InvoiceService`
+already uses for sequence numbers. Pre-existing duplicate/orphaned rows cleared on both local and
+production as part of the fix.
+
 ## Open tasks
+- [ ] **Owner**: reconnect to Xero on production (the broken rows were cleared as part of the fix above) — this should now succeed first try.
 - [ ] Add the production redirect URI (`https://workshop.mobmekauto.co.nz/xero/callback`) to the Xero app and set `XERO_REDIRECT_URI` in the production `.env` before deploying this — currently only `localhost:3000` is registered.
 - [x] ~~Delete/void the real "INV-0671" test invoice~~ (done 2026-10-17, as a side effect of live-testing the void path) — rejecting it in Mobmek voided it in Xero for real. Cleanly `VOIDED`, safe to leave permanently.
 - [ ] Phase 2 (two-way payment sync) — not started, see `docs/xero-integration-design.md` §5.
