@@ -1,9 +1,11 @@
 # Xero Integration
 
-**Last verified:** 2026-10-17 (new area — read against `Entities/XeroConnection{,Status}.cs`,
-`Services/{IXeroAuthService,XeroAuthService,XeroTokenRefreshJob}.cs`,
-`Controllers/XeroIntegrationController.cs`, migration `AddXeroConnection`, 13 new
-`XeroAuthServiceTests`, `mobmek_frontend/src/pages/{XeroSettingsPage,XeroCallbackPage}.tsx`)
+**Last verified:** 2026-10-17 — live-verified against the real "Mobile Mekaniko" Xero org (read
+against `Entities/XeroConnection{,Status}.cs`, `Services/{IXeroAuthService,XeroAuthService,
+XeroTokenRefreshJob}.cs`, `Controllers/XeroIntegrationController.cs`, migration
+`AddXeroConnection`, 13 `XeroAuthServiceTests`,
+`mobmek_frontend/src/pages/{XeroSettingsPage,XeroCallbackPage}.tsx`, and a direct
+`SELECT * FROM "XeroConnections"` confirming `Status = Connected`)
 
 Full plan: `docs/xero-integration-design.md` / `-todo.md`. This file tracks only what's actually
 built against that plan — most of it is still "Planned only."
@@ -12,16 +14,16 @@ built against that plan — most of it is still "Planned only."
 
 | Sub-capability | Status | Key file(s) |
 |---|---|---|
-| OAuth2 connect/disconnect (Phase 0) | Working, not yet live-verified against a real Xero org | `Services/XeroAuthService.cs`, `Controllers/XeroIntegrationController.cs` |
+| OAuth2 connect/disconnect (Phase 0) | **Working, live-verified** | `Services/XeroAuthService.cs`, `Controllers/XeroIntegrationController.cs` |
 | Encrypted token storage | Working | `XeroConnection.cs` (Data-Protection-encrypted), `XeroAuthService.cs` |
-| Daily proactive token refresh | Working | `Services/XeroTokenRefreshJob.cs` |
-| Connect/Disconnect settings page | Working, not yet live-verified | `mobmek_frontend/src/pages/XeroSettingsPage.tsx` |
+| Daily proactive token refresh | Working, not yet live-verified (needs 24h+ to observe a real rotation) | `Services/XeroTokenRefreshJob.cs` |
+| Connect/Disconnect settings page | **Working, live-verified** | `mobmek_frontend/src/pages/XeroSettingsPage.tsx` |
 | Invoice push to Xero (Phase 1) | **Planned only** | — |
 | Two-way payment/paid-status sync (Phase 2) | **Planned only** | — |
 
 ## Details
 
-### OAuth2 connect/disconnect — built, not yet live-verified
+### OAuth2 connect/disconnect — built and live-verified
 `XeroAuthService` is a hand-rolled client (no third-party SDK — `docs/xero-integration-design.md`
 §1) against `login.xero.com`/`identity.xero.com`/`api.xero.com`. `BuildAuthorizationUrlAsync`
 generates a one-time state nonce (10-minute TTL) stored on the singleton `XeroConnection` row;
@@ -33,9 +35,16 @@ validation/expiry/one-time-use, token exchange, refresh success/failure, and the
 near-expiry-triggers-refresh path in `GetValidAccessTokenAsync` — all against a stubbed
 `HttpMessageHandler`, no real Xero credentials needed for tests.
 
-**Not yet live-verified**: this requires a real Xero developer app (Client ID/secret, registered
-redirect URI) and a real browser OAuth consent — both need the account owner, see the open task
-below. Nothing in this repo can self-test an actual Xero login.
+**Live-verified 2026-10-17**: connected to the real "Mobile Mekaniko" Xero org via a real browser
+OAuth consent, all 5 requested scopes granted — confirmed by a direct DB read of the
+`XeroConnections` row (`Status = Connected`).
+
+**Bug found and fixed same day**: the original scope list (`accounting.transactions` among
+others) 500'd with `invalid_scope` on the first live connect attempt — Xero's old broad
+`accounting.transactions` scope no longer exists under their current granular-scope model (the
+app's own Configuration page scope list, fetched live, confirms it's simply absent). Corrected to
+`accounting.invoices`/`accounting.payments`, its replacements, rebuilt, and reconnected
+successfully. `docs/xero-integration-design.md` §6 updated to match.
 
 ### Why the callback is a frontend route, not a backend endpoint
 The auth cookie is `SameSite=Strict` (`Program.cs`) — it would be dropped on the cross-site
@@ -50,6 +59,6 @@ ring already persisted to a Docker volume for the auth cookie (`docker-compose.y
 `mobmek_dataprotection_keys:/keys`), so no new persistence setup was needed.
 
 ## Open tasks
-- [ ] **Owner**: register a Xero developer app at `developer.xero.com`, set `XERO_CLIENT_ID`/`XERO_CLIENT_SECRET`/`XERO_REDIRECT_URI` in `.env`, then click "Connect to Xero" and confirm a real OAuth consent completes (`docs/xero-integration-todo.md` Phase 0).
-- [ ] Live-verify the daily refresh job actually rotates tokens against a real connection once one exists.
+- [ ] Live-verify the daily refresh job actually rotates tokens against the real connection (needs 24h+ of the container staying up, or a manual trigger).
+- [ ] Add the production redirect URI (`https://workshop.mobmekauto.co.nz/xero/callback`) to the Xero app and set `XERO_REDIRECT_URI` in the production `.env` before deploying this — currently only `localhost:3000` is registered.
 - [ ] Phase 1 (invoice push) and Phase 2 (payment sync) — not started, see `docs/xero-integration-design.md`.

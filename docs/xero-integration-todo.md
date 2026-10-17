@@ -2,20 +2,20 @@
 
 Tracks delivery of [`xero-integration-design.md`](./xero-integration-design.md). Section references (§) point into the design doc.
 
-**Status:** Phase 0 code shipped 2026-10-17 (code-complete, not yet live-verified — see `docs/features/xero-integration.md`). Phases ship in order; each leaves the app fully working (sync stays cleanly disabled until Phase 0's connection exists, §2).
+**Status:** Phase 0 shipped and live-verified 2026-10-17 — connected to the real "Mobile Mekaniko" Xero org (see `docs/features/xero-integration.md`). Phases ship in order; each leaves the app fully working (sync stays cleanly disabled until Phase 0's connection exists, §2).
 
 ---
 
 ## Phase 0 — Xero-side setup, OAuth connect flow & config plumbing (§6)
 
-- [ ] Register a Xero developer app at `developer.xero.com` (owner) — note Client ID/secret, set redirect URI(s) — **blocking the live-verification step below, owner action pending**
+- [x] Register a Xero developer app at `developer.xero.com` (owner) — "Mobmek Integration" app, connected to the real "Mobile Mekaniko" Xero org
 - [x] Decide + sign off the Xero client dependency — hand-rolled `HttpClient` calls against `login.xero.com`/`identity.xero.com`/`api.xero.com` (no new NuGet dependency, no sign-off friction)
 - [x] `XeroConnection` entity (singleton, encrypted token fields via `IDataProtector`) + migration `AddXeroConnection`
 - [x] Admin-only "Connect to Xero" settings page: OAuth2 Authorization Code flow, callback endpoint, stores tokens + tenant id — `XeroSettingsPage.tsx`/`XeroCallbackPage.tsx`, `XeroIntegrationController.cs`, gated on new `Permissions.ManageIntegrations`
 - [x] Token-refresh hosted job (daily) — `XeroTokenRefreshJob.cs`
 - [ ] Create the Xero webhook subscription (owner, against the same app) + store the signing key as a secret (env/user-secrets) — deferred to Phase 2, not needed yet
 - [ ] Settings page: default Xero sales account-code dropdown (populated via `accounting.settings.read`) — deferred to Phase 1, not needed yet
-- [ ] **Expected output:** clicking "Connect to Xero" completes a real OAuth consent against a real Xero org and `XeroConnection.Status = Connected`; disconnect/reconnect both work; access token auto-refreshes without user action — **not yet run for real; 13 service-level tests pass against a stubbed Xero, but no real Xero org has completed this flow**
+- [x] **Expected output:** clicking "Connect to Xero" completes a real OAuth consent against a real Xero org and `XeroConnection.Status = Connected` — **verified live 2026-10-17** against the real "Mobile Mekaniko" org, all 5 granted scopes confirmed in the DB row. Found and fixed one real bug in the process: Xero's old `accounting.transactions` scope no longer exists under their current granular-scope model (`invalid_scope` on first attempt) — corrected to `accounting.invoices`/`accounting.payments` (§6). Disconnect/reconnect and the daily auto-refresh are not yet separately re-verified.
 
 ---
 

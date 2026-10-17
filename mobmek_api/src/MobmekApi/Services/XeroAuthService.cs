@@ -32,9 +32,13 @@ public class XeroAuthService(
     private const string TokenUrl = "https://identity.xero.com/connect/token";
     private const string ConnectionsUrl = "https://api.xero.com/connections";
 
-    // offline_access is required to receive a refresh token at all; the other two are the
-    // minimum Phase 1 (invoices/contacts) and the settings-page account-code dropdown need.
-    private const string Scopes = "offline_access accounting.transactions accounting.contacts accounting.settings.read";
+    // offline_access is required to receive a refresh token at all. The old broad
+    // "accounting.transactions" scope no longer exists under Xero's granular-scope model
+    // (confirmed live, 2026-10-17 — a connect attempt against it 500s with "invalid_scope");
+    // accounting.invoices/accounting.payments are its replacements for what Phase 1/2 need.
+    // accounting.contacts and accounting.settings.read are unchanged.
+    private const string Scopes =
+        "offline_access accounting.contacts accounting.settings.read accounting.invoices accounting.payments";
 
     private static readonly TimeSpan StateTtl = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan RefreshBuffer = TimeSpan.FromMinutes(5);
