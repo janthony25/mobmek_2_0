@@ -6,7 +6,9 @@ using Npgsql;
 
 namespace MobmekApi.Services;
 
-public class InvoiceService(AppDbContext db, IGstSettingService gstSettingService, IBusinessDetailsService businessDetailsService) : IInvoiceService
+public class InvoiceService(
+    AppDbContext db, IGstSettingService gstSettingService, IBusinessDetailsService businessDetailsService, IXeroAuthService xeroAuthService)
+    : IInvoiceService
 {
     private const int MaxPageSize = 200;
 
@@ -235,6 +237,13 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
         }
 
         db.Invoices.Add(invoice);
+        // Quotations are out of scope for Xero sync (docs/xero-integration-design.md §4.2) —
+        // only a real Invoice gets pushed.
+        if (documentType == "Invoice")
+        {
+            EnqueueXeroPush(invoice);
+        }
+
         await SaveWithUniqueSequenceNumberAsync(invoice, documentType, cancellationToken);
 
         var business = await businessDetailsService.GetCurrentAsync(cancellationToken);
@@ -286,6 +295,7 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
 
         quotation.Status = "Accepted";
         db.Invoices.Add(invoice);
+        EnqueueXeroPush(invoice);
         await SaveWithUniqueSequenceNumberAsync(invoice, "Invoice", cancellationToken);
 
         var business = await businessDetailsService.GetCurrentAsync(cancellationToken);
@@ -317,6 +327,7 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
         // A rejected invoice no longer represents money received; drop any ledger rows
         // its payment posted.
         await RemoveLedgerPostingsAsync(invoice.Id, cancellationToken);
+        EnqueueXeroVoid(invoice);
         await db.SaveChangesAsync(cancellationToken);
 
         var business = await businessDetailsService.GetCurrentAsync(cancellationToken);
@@ -605,6 +616,30 @@ public class InvoiceService(AppDbContext db, IGstSettingService gstSettingServic
                 // MaxAsync read and this write — loop and recompute against the now-updated max.
             }
         }
+    }
+
+    /// <summary>Enqueues a push for a just-created Invoice (never a Quotation — callers only
+    /// call this for DocumentType == "Invoice"). No-ops when Xero isn't configured, same
+    /// graceful-degradation shape as the calendar sync's enqueue hooks in AppointmentService.</summary>
+    private void EnqueueXeroPush(Invoice invoice)
+    {
+        if (!xeroAuthService.IsConfigured)
+        {
+            return;
+        }
+
+        invoice.XeroSyncStatus = XeroInvoiceSyncStatus.Pending;
+        db.XeroSyncItems.Add(new XeroSyncItem { Action = XeroSyncAction.PushInvoice, InvoiceId = invoice.Id });
+    }
+
+    private void EnqueueXeroVoid(Invoice invoice)
+    {
+        if (!xeroAuthService.IsConfigured)
+        {
+            return;
+        }
+
+        db.XeroSyncItems.Add(new XeroSyncItem { Action = XeroSyncAction.VoidInvoice, InvoiceId = invoice.Id });
     }
 
     private static bool IsSequenceNumberCollision(DbUpdateException ex) =>

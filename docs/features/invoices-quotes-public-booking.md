@@ -80,3 +80,4 @@ A `JobServiceLine` can now carry an `AdditionalAmount` surcharge on top of its s
 - ~~Decide whether "View/Download PDF" should serve the QuestPDF document~~ — done 2026-10-07, one renderer now.
 - ~~Decide whether invoice-numbering concurrency is worth fixing~~ — done 2026-10-07, unique index + retry.
 - Build a public-facing booking page when there's time to scope it properly — the backend is sitting there fully tested and unused.
+- Xero integration (added 2026-10-17, planned only) — `docs/xero-integration-design.md`/`-todo.md`: one-way invoice push to Xero first, then two-way paid-status sync (Xero becomes the reconciliation/payment source of truth; Mobmek stays job/invoice-creation). Will eventually add `Invoice.XeroInvoiceId`/`XeroSyncStatus` and change how `IsPaid` is derived — see the design doc §5 before touching `MarkPaidAsync` or `InvoicePartialPayment` again.

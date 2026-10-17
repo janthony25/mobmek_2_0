@@ -2,6 +2,7 @@ using MobmekApi.Data;
 using MobmekApi.DTOs;
 using MobmekApi.Entities;
 using MobmekApi.Services;
+using MobmekApi.Tests.Fakes;
 using Microsoft.EntityFrameworkCore;
 using JobService = MobmekApi.Services.JobService;
 
@@ -33,7 +34,7 @@ public class EmailComposeServiceTests
         await new JobItemService(db, jobs).CreateAsync(job!.Id, new CreateJobItemRequest(
             "Pads", TradePrice: 100m, RetailPrice: 100m, MarkupSolution.Dollar, Markup: 10m, ItemQuantity: 1, SellingPrice: null));
 
-        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()));
+        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()), new FakeXeroAuthService());
         var invoice = await invoices.GenerateAsync(job.Id, new CreateInvoiceRequest(new DateOnly(2026, 8, 1)));
 
         var compose = new EmailComposeService(db, new BusinessDetailsService(db, CreateStorage()), new EmailTemplateService(db));
@@ -98,7 +99,7 @@ public class EmailComposeServiceTests
         var (job, _) = await jobs.CreateAsync(new CreateJobRequest(customer.Id, car!.Id, "Brakes", JobStatus.Open, 1000, null, null));
         await new JobItemService(db, jobs).CreateAsync(job!.Id, new CreateJobItemRequest(
             "Brake Pads", TradePrice: 100m, RetailPrice: 100m, MarkupSolution.Dollar, Markup: 10m, ItemQuantity: 1, SellingPrice: null));
-        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()));
+        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()), new FakeXeroAuthService());
         var invoice = await invoices.GenerateAsync(job.Id, new CreateInvoiceRequest(null));
 
         var compose = new EmailComposeService(db, businessDetails, new EmailTemplateService(db));

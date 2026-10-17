@@ -96,6 +96,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAc
 
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
+    public DbSet<XeroConnection> XeroConnections => Set<XeroConnection>();
+
+    public DbSet<XeroSyncItem> XeroSyncItems => Set<XeroSyncItem>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -143,6 +147,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAc
             entity.Property(c => c.EmailAddress).HasMaxLength(200);
             entity.Property(c => c.PhysicalAddress).HasMaxLength(500);
             entity.Property(c => c.Notes).HasMaxLength(2000);
+            entity.Property(c => c.XeroContactId).HasMaxLength(100);
 
             entity.HasMany(c => c.Cars)
                 .WithOne(car => car.Customer!)
@@ -411,6 +416,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAc
             entity.Property(i => i.AmountPaid).HasColumnType("numeric(18,2)");
             entity.Property(i => i.CashAmount).HasColumnType("numeric(18,2)");
             entity.Property(i => i.CardAmount).HasColumnType("numeric(18,2)");
+            entity.Property(i => i.XeroInvoiceId).HasMaxLength(100);
+            // Explicit default: without it, EF backfills the ADD COLUMN default as "" (the
+            // unconverted CLR default), which HasConversion<string>() then can't parse back on
+            // read for every pre-existing invoice — confirmed against the real dev DB's imported
+            // legacy invoices before this fix.
+            entity.Property(i => i.XeroSyncStatus).HasConversion<string>().HasMaxLength(20)
+                .HasDefaultValue(XeroInvoiceSyncStatus.NotSynced);
+            entity.Property(i => i.XeroLastError).HasMaxLength(2000);
 
             // An invoice belongs to a job; deleting the job removes its invoices.
             entity.HasOne(i => i.Job)
@@ -804,6 +817,33 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAc
 
             entity.HasIndex(c => c.NextAttemptUtc);
         });
+
+        modelBuilder.Entity<XeroConnection>(entity =>
+        {
+            entity.Property(c => c.Status).HasConversion<string>().HasMaxLength(20);
+            entity.Property(c => c.TenantId).HasMaxLength(100);
+            entity.Property(c => c.TenantName).HasMaxLength(200);
+            // Encrypted payloads — generous but bounded, not unbounded text.
+            entity.Property(c => c.AccessToken).HasMaxLength(4000);
+            entity.Property(c => c.RefreshToken).HasMaxLength(4000);
+            entity.Property(c => c.Scopes).HasMaxLength(1000);
+            entity.Property(c => c.LastError).HasMaxLength(2000);
+            entity.Property(c => c.PendingOAuthState).HasMaxLength(200);
+            entity.Property(c => c.DefaultSalesAccountCode).HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<XeroSyncItem>(entity =>
+        {
+            entity.Property(c => c.Action).HasConversion<string>().HasMaxLength(20);
+            entity.Property(c => c.LastError).HasMaxLength(2000);
+
+            entity.HasIndex(c => c.InvoiceId)
+                .IsUnique()
+                .HasFilter("\"Action\" = 'PushInvoice'");
+
+            entity.HasIndex(c => c.NextAttemptUtc);
+        });
+
 
         modelBuilder.Entity<RolePermission>(entity =>
         {

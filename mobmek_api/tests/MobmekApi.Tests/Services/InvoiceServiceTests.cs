@@ -2,6 +2,7 @@ using MobmekApi.Data;
 using MobmekApi.DTOs;
 using MobmekApi.Entities;
 using MobmekApi.Services;
+using MobmekApi.Tests.Fakes;
 using Microsoft.EntityFrameworkCore;
 using JobService = MobmekApi.Services.JobService;
 
@@ -33,7 +34,7 @@ public class InvoiceServiceTests
         var catalog = await new JobServiceCatalogService(db).CreateAsync(new CreateJobServiceRequest("Oil change", null, 50m, true));
         await new JobServiceLineService(db, jobs).CreateAsync(job.Id, new CreateJobServiceLineRequest(catalog.Id, 3));               // 150
 
-        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()));
+        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()), new FakeXeroAuthService());
         return (invoices, jobs, job.Id);
     }
 
@@ -50,7 +51,7 @@ public class InvoiceServiceTests
         var catalog = await new JobServiceCatalogService(db).CreateAsync(new CreateJobServiceRequest("General service", null, 200m, true));
         await new JobServiceLineService(db, jobs).CreateAsync(job!.Id, new CreateJobServiceLineRequest(catalog.Id, 1, 50m)); // 200 + 50
 
-        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()));
+        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()), new FakeXeroAuthService());
         var invoice = await invoices.GenerateAsync(job.Id, new CreateInvoiceRequest(null));
 
         var line = Assert.Single(invoice!.Items);
@@ -142,7 +143,7 @@ public class InvoiceServiceTests
     public async Task GenerateAsync_ReturnsNull_WhenJobMissing()
     {
         await using var db = CreateContext();
-        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()));
+        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()), new FakeXeroAuthService());
 
         var invoice = await invoices.GenerateAsync(Guid.NewGuid(), new CreateInvoiceRequest(null));
 
@@ -238,7 +239,7 @@ public class InvoiceServiceTests
     public async Task GenerateQuotationAsync_ReturnsNull_WhenJobMissing()
     {
         await using var db = CreateContext();
-        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()));
+        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()), new FakeXeroAuthService());
 
         Assert.Null(await invoices.GenerateQuotationAsync(Guid.NewGuid(), new CreateInvoiceRequest(null)));
     }
@@ -903,7 +904,7 @@ public class InvoiceServiceTests
             new CreateCarRequest(customer.Id, make.Id, model!.Id, 2020, "ABC123", null, null, null));
         var jobs = new JobService(db);
         var (job, _) = await jobs.CreateAsync(new CreateJobRequest(customer.Id, car!.Id, "Brakes", JobStatus.Open, 1000, null, null));
-        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()));
+        var invoices = new InvoiceService(db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()), new FakeXeroAuthService());
         await invoices.GenerateAsync(job!.Id, new CreateInvoiceRequest(null));
 
         var all = await invoices.GetAllAsync(job.Id);
@@ -947,5 +948,96 @@ public class InvoiceServiceTests
 
         Assert.Equal(OutboundEmailStatus.Delivered, byId!.LatestEmailStatus);
         Assert.Equal(OutboundEmailStatus.Delivered, all[0].LatestEmailStatus);
+    }
+
+    // --- Xero sync enqueue (docs/xero-integration-design.md §4) ---
+
+    [Fact]
+    public async Task GenerateAsync_WhenXeroConfigured_EnqueuesPushInvoice_AndSetsPendingStatus()
+    {
+        await using var db = CreateContext();
+        var (_, jobs, jobId) = await SeedFullJobAsync(db);
+        var invoicesWithXero = new InvoiceService(
+            db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()), new FakeXeroAuthService { IsConfigured = true });
+
+        var invoice = await invoicesWithXero.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+
+        var outboxItem = await db.XeroSyncItems.SingleAsync();
+        Assert.Equal(XeroSyncAction.PushInvoice, outboxItem.Action);
+        Assert.Equal(invoice!.Id, outboxItem.InvoiceId);
+
+        var stored = await db.Invoices.SingleAsync(i => i.Id == invoice.Id);
+        Assert.Equal(XeroInvoiceSyncStatus.Pending, stored.XeroSyncStatus);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_WhenXeroNotConfigured_EnqueuesNothing()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db); // FakeXeroAuthService defaults to IsConfigured = false
+
+        await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+
+        Assert.False(await db.XeroSyncItems.AnyAsync());
+    }
+
+    [Fact]
+    public async Task GenerateQuotationAsync_WhenXeroConfigured_EnqueuesNothing()
+    {
+        await using var db = CreateContext();
+        var (_, jobs, jobId) = await SeedFullJobAsync(db);
+        var invoicesWithXero = new InvoiceService(
+            db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()), new FakeXeroAuthService { IsConfigured = true });
+
+        await invoicesWithXero.GenerateQuotationAsync(jobId, new CreateInvoiceRequest(null));
+
+        Assert.False(await db.XeroSyncItems.AnyAsync());
+    }
+
+    [Fact]
+    public async Task RejectAsync_WhenXeroConfigured_EnqueuesVoidInvoice()
+    {
+        await using var db = CreateContext();
+        var (_, jobs, jobId) = await SeedFullJobAsync(db);
+        var invoicesWithXero = new InvoiceService(
+            db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()), new FakeXeroAuthService { IsConfigured = true });
+        var invoice = await invoicesWithXero.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+        // Drop the PushInvoice row from generation so only the reject behavior is under test.
+        db.XeroSyncItems.RemoveRange(await db.XeroSyncItems.ToListAsync());
+        await db.SaveChangesAsync();
+
+        await invoicesWithXero.RejectAsync(jobId, invoice!.Id);
+
+        var outboxItem = await db.XeroSyncItems.SingleAsync();
+        Assert.Equal(XeroSyncAction.VoidInvoice, outboxItem.Action);
+        Assert.Equal(invoice.Id, outboxItem.InvoiceId);
+    }
+
+    [Fact]
+    public async Task RejectAsync_WhenXeroNotConfigured_EnqueuesNothing()
+    {
+        await using var db = CreateContext();
+        var (invoices, _, jobId) = await SeedFullJobAsync(db);
+        var invoice = await invoices.GenerateAsync(jobId, new CreateInvoiceRequest(null));
+
+        await invoices.RejectAsync(jobId, invoice!.Id);
+
+        Assert.False(await db.XeroSyncItems.AnyAsync());
+    }
+
+    [Fact]
+    public async Task AcceptQuotationAsync_WhenXeroConfigured_EnqueuesPushInvoice()
+    {
+        await using var db = CreateContext();
+        var (_, jobs, jobId) = await SeedFullJobAsync(db);
+        var invoicesWithXero = new InvoiceService(
+            db, new GstSettingService(db), new BusinessDetailsService(db, CreateStorage()), new FakeXeroAuthService { IsConfigured = true });
+        var quotation = await invoicesWithXero.GenerateQuotationAsync(jobId, new CreateInvoiceRequest(null));
+
+        var invoice = await invoicesWithXero.AcceptQuotationAsync(jobId, quotation!.Id, new AcceptQuotationRequest(null));
+
+        var outboxItem = await db.XeroSyncItems.SingleAsync();
+        Assert.Equal(XeroSyncAction.PushInvoice, outboxItem.Action);
+        Assert.Equal(invoice!.Id, outboxItem.InvoiceId);
     }
 }

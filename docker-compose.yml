@@ -49,6 +49,11 @@ services:
       # service account + Workshop calendar exist; sync stays cleanly disabled until then.
       GoogleCalendar__CredentialsJson: ${GOOGLE_CALENDAR_CREDENTIALS_JSON:-}
       GoogleCalendar__CalendarId: ${GOOGLE_CALENDAR_ID:-}
+      # Xero integration (docs/xero-integration-design.md) — set via .env once the Xero app is
+      # registered at developer.xero.com; the connection stays cleanly disabled until then.
+      Xero__ClientId: ${XERO_CLIENT_ID:-}
+      Xero__ClientSecret: ${XERO_CLIENT_SECRET:-}
+      Xero__RedirectUri: ${XERO_REDIRECT_URI:-}
       # Base URL of the deployed frontend, used to build absolute links in emails (e.g. the
       # new-account activation link) — override in .env for a real deployment.
       Frontend__BaseUrl: ${FRONTEND_BASE_URL:-http://localhost:3000}

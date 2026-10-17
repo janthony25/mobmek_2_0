@@ -16,6 +16,7 @@ import {
   Hammer,
   KeyRound,
   Landmark,
+  Link2,
   ListChecks,
   LogOut,
   Mail,
@@ -108,6 +109,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: '/business-details', label: 'Business Details', icon: Building2, permission: PERMISSIONS.ManageBusinessSettings },
       { to: '/email-settings', label: 'Email', icon: Mail, permission: PERMISSIONS.ManageBusinessSettings },
       { to: '/calendar-sync', label: 'Calendar Sync', icon: CalendarClock, permission: PERMISSIONS.ManageCalendarSync },
+      { to: '/xero', label: 'Xero', icon: Link2, permission: PERMISSIONS.ManageIntegrations },
     ],
   },
 ]

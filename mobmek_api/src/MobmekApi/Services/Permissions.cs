@@ -16,6 +16,11 @@ public static class Permissions
     public const string ManageReminderTemplates = "ManageReminderTemplates";
     public const string AccessCashFlow = "AccessCashFlow";
 
+    /// <summary>Connect/disconnect and view status for external accounting integrations (Xero —
+    /// see <c>docs/xero-integration-design.md</c>). Separate from <see cref="ManageBusinessSettings"/>
+    /// since it grants control over a live external credential, not just letterhead-type config.</summary>
+    public const string ManageIntegrations = "ManageIntegrations";
+
     /// <summary>Not an [Authorize] policy — checked directly by <see cref="Controllers.JobRoleRedaction"/>
     /// to decide whether cost/margin fields are included in the response.</summary>
     public const string ViewJobMargins = "ViewJobMargins";
@@ -36,6 +41,7 @@ public static class Permissions
         ManageCalendarSync,
         ManageReminderTemplates,
         AccessCashFlow,
+        ManageIntegrations,
         ViewJobMargins,
         AddCustomerAndCar,
     ];
